@@ -79,6 +79,21 @@ jobs:
             exit 1
           fi
 
+      - name: Validate SSH private key format
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          case "$SSH_PRIVATE_KEY" in
+            *"BEGIN OPENSSH PRIVATE KEY"*|*"BEGIN RSA PRIVATE KEY"*|*"BEGIN EC PRIVATE KEY"*|*"BEGIN DSA PRIVATE KEY"*)
+              echo "SSH private key format looks valid."
+              ;;
+            *)
+              echo "::error title=Invalid SSH key::SSH_PRIVATE_KEY must be a private key, not a public key."
+              exit 1
+              ;;
+          esac
+
       - name: Probe SSH port reachability
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -99,6 +114,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           debug: true
           timeout: 120s
           command_timeout: 60m
