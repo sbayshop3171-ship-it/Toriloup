@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use PragmaRX\Countries\Package\Countries;
+use App\Services\CountryMetadataService;
 
 return new class extends Migration
 {
@@ -61,33 +61,6 @@ return new class extends Migration
 
     private function currencyMetadataByCountryCode(?string $countryCode): array
     {
-        $normalizedCountryCode = strtoupper(trim((string)$countryCode));
-        if ($normalizedCountryCode === '') {
-            return ['currency_code' => null, 'currency_symbol' => null];
-        }
-
-        $country = Countries::where('cca2', $normalizedCountryCode)->first();
-        if (!$country) {
-            return ['currency_code' => null, 'currency_symbol' => null];
-        }
-
-        $countryArray = $country->toArray();
-        $currencyCodes = $countryArray['currencies'] ?? [];
-        $currencyCode = is_array($currencyCodes) && count($currencyCodes) > 0 ? (string)$currencyCodes[0] : null;
-        $currencySymbol = null;
-
-        if ($currencyCode) {
-            $hydratedCountry = $country->hydrateCurrencies();
-            $currency = $hydratedCountry->currencies[$currencyCode] ?? null;
-            $currencyArray = is_object($currency) && method_exists($currency, 'toArray')
-                ? $currency->toArray()
-                : (is_array($currency) ? $currency : []);
-            $currencySymbol = data_get($currencyArray, 'units.major.symbol');
-        }
-
-        return [
-            'currency_code'   => $currencyCode,
-            'currency_symbol' => $currencySymbol,
-        ];
+        return app(CountryMetadataService::class)->byCountryCode($countryCode);
     }
 };

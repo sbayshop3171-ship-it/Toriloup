@@ -15,14 +15,22 @@ class CountryResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $countryMetadata = app(CountryMetadataService::class)->byCountryCode($this->code);
+        $currencyCode   = $this->currency_code;
+        $currencySymbol = $this->currency_symbol;
+
+        // Avoid expensive metadata hydration when database values already exist.
+        if (blank($currencyCode) || blank($currencySymbol)) {
+            $countryMetadata = app(CountryMetadataService::class)->byCountryCode($this->code);
+            $currencyCode    = $currencyCode ?: $countryMetadata['currency_code'];
+            $currencySymbol  = $currencySymbol ?: $countryMetadata['currency_symbol'];
+        }
 
         return [
             'id'              => $this->id,
             'code'            => $this->code,
             'name'            => $this->name,
-            'currency_code'   => $this->currency_code ?? $countryMetadata['currency_code'],
-            'currency_symbol' => $this->currency_symbol ?? $countryMetadata['currency_symbol'],
+            'currency_code'   => $currencyCode,
+            'currency_symbol' => $currencySymbol,
             'status'          => $this->status
         ];
     }

@@ -7,6 +7,7 @@ use PragmaRX\Countries\Package\Countries;
 class CountryMetadataService
 {
     private static array $cache = [];
+    private static bool $cacheWarmed = false;
 
     public function byCountryCode(?string $countryCode): array
     {
@@ -15,33 +16,49 @@ class CountryMetadataService
             return ['currency_code' => null, 'currency_symbol' => null];
         }
 
-        if (array_key_exists($normalizedCountryCode, self::$cache)) {
-            return self::$cache[$normalizedCountryCode];
+        $this->warmCache();
+
+        return self::$cache[$normalizedCountryCode] ?? ['currency_code' => null, 'currency_symbol' => null];
+    }
+
+    private function warmCache(): void
+    {
+        if (self::$cacheWarmed) {
+            return;
         }
 
-        $country = Countries::where('cca2', $normalizedCountryCode)->first();
-        if (!$country) {
-            return self::$cache[$normalizedCountryCode] = ['currency_code' => null, 'currency_symbol' => null];
+        $currencySymbols = [];
+        foreach (Countries::currencies() as $currencyCode => $currency) {
+            $currencyArray = is_object($currency) && method_exists($currency, 'toArray')
+                ? $currency->toArray()
+                : (is_array($currency) ? $currency : []);
+
+            $currencySymbols[(string)$currencyCode] = data_get($currencyArray, 'units.major.symbol');
         }
 
-        $countryArray  = $country->toArray();
-        $currencyCodes = $countryArray['currencies'] ?? [];
-        $currencyCode  = is_array($currencyCodes) && count($currencyCodes) > 0 ? (string)$currencyCodes[0] : null;
-        $currencySymbol = null;
+        foreach (Countries::all() as $country) {
+            $countryArray = is_object($country) && method_exists($country, 'toArray')
+                ? $country->toArray()
+                : (is_array($country) ? $country : []);
 
-        if ($currencyCode) {
-            $hydratedCountry = $country->hydrateCurrencies();
-            $currencyCollection = $hydratedCountry->currencies[$currencyCode] ?? null;
-            $currencyArray = is_object($currencyCollection) && method_exists($currencyCollection, 'toArray')
-                ? $currencyCollection->toArray()
-                : (is_array($currencyCollection) ? $currencyCollection : []);
+            $countryCode = strtoupper((string)data_get($countryArray, 'cca2'));
+            if ($countryCode === '') {
+                continue;
+            }
 
-            $currencySymbol = data_get($currencyArray, 'units.major.symbol');
+            $currencyCodes = data_get($countryArray, 'currencies', []);
+            if (is_array($currencyCodes)) {
+                $currencyCode = (string)($currencyCodes[0] ?? '');
+            } else {
+                $currencyCode = is_string($currencyCodes) ? $currencyCodes : '';
+            }
+
+            self::$cache[$countryCode] = [
+                'currency_code'   => $currencyCode !== '' ? $currencyCode : null,
+                'currency_symbol' => $currencyCode !== '' ? ($currencySymbols[$currencyCode] ?? null) : null,
+            ];
         }
 
-        return self::$cache[$normalizedCountryCode] = [
-            'currency_code'   => $currencyCode,
-            'currency_symbol' => $currencySymbol,
-        ];
+        self::$cacheWarmed = true;
     }
 }

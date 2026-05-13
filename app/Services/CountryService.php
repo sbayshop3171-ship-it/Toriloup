@@ -10,6 +10,7 @@ use App\Models\Country;
 use App\Libraries\AppLibrary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use App\Http\Requests\CountryRequest;
 use App\Http\Requests\PaginateRequest;
 use App\Libraries\QueryExceptionLibrary;
@@ -18,6 +19,7 @@ class CountryService
 {
     public object $country;
     private CountryMetadataService $countryMetadataService;
+    private static ?bool $hasCurrencyColumns = null;
 
     public function __construct(CountryMetadataService $countryMetadataService)
     {
@@ -76,14 +78,19 @@ class CountryService
     public function store(CountryRequest $request)
     {
         try {
-            $countryMetadata = $this->countryMetadataService->byCountryCode($request->code);
-            $this->country = Country::create([
+            $countryData = [
                 'name'             => $request->name,
                 'code'             => $request->code,
-                'currency_code'    => $countryMetadata['currency_code'],
-                'currency_symbol'  => $countryMetadata['currency_symbol'],
                 'status'           => $request->status,
-            ]);
+            ];
+
+            if ($this->hasCurrencyColumns()) {
+                $countryMetadata = $this->countryMetadataService->byCountryCode($request->code);
+                $countryData['currency_code']   = $countryMetadata['currency_code'];
+                $countryData['currency_symbol'] = $countryMetadata['currency_symbol'];
+            }
+
+            $this->country = Country::create($countryData);
             return $this->country;
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
@@ -97,13 +104,17 @@ class CountryService
     public function update(CountryRequest $request, Country $country)
     {
         try {
-            $countryMetadata = $this->countryMetadataService->byCountryCode($request->code);
-            DB::transaction(function () use ($request, $country, $countryMetadata) {
+            DB::transaction(function () use ($request, $country) {
                 $country->name             = $request->name;
                 $country->code             = $request->code;
-                $country->currency_code    = $countryMetadata['currency_code'];
-                $country->currency_symbol  = $countryMetadata['currency_symbol'];
                 $country->status           = $request->status;
+
+                if ($this->hasCurrencyColumns()) {
+                    $countryMetadata = $this->countryMetadataService->byCountryCode($request->code);
+                    $country->currency_code   = $countryMetadata['currency_code'];
+                    $country->currency_symbol = $countryMetadata['currency_symbol'];
+                }
+
                 $country->save();
 
                 $this->country = $country;
@@ -139,5 +150,14 @@ class CountryService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function hasCurrencyColumns(): bool
+    {
+        if (self::$hasCurrencyColumns !== null) {
+            return self::$hasCurrencyColumns;
+        }
+
+        return self::$hasCurrencyColumns = Schema::hasColumns('countries', ['currency_code', 'currency_symbol']);
     }
 }
