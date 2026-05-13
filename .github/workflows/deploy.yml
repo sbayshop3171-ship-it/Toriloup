@@ -1,9 +1,6 @@
-name: Deploy Live
+name: Deploy Live (Manual)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
