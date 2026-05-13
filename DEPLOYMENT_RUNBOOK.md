@@ -59,7 +59,8 @@ chmod -R 775 storage bootstrap/cache
 
 ```bash
 cd /var/www/shopking
-git pull origin main
+git fetch --prune origin main
+git checkout -B main origin/main
 composer install --no-dev --optimize-autoloader
 npm ci
 npm run build
@@ -70,7 +71,48 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-## 6) Important rules
+## 6) GitHub Actions deploy secrets (required)
+
+Repository `Settings` -> `Secrets and variables` -> `Actions`:
+
+- `SSH_HOST`: live server IP or domain
+- `SSH_USER`: SSH username
+- `SSH_PORT`: usually `22`
+- `SSH_PRIVATE_KEY`: private key for the above user
+- `DEPLOY_PATH`: server path, example `/var/www/shopking`
+
+If any one of these is missing, deploy workflow will fail before SSH.
+
+## 7) Quick troubleshoot when push works but live is not updated
+
+1. Open `GitHub -> Actions -> Deploy Live` and confirm the latest run is `success`.
+2. If `Deploy via SSH` fails immediately (within a few seconds), usually secrets or SSH access is wrong.
+3. SSH to server and verify repository commit:
+
+```bash
+cd /var/www/shopking
+git rev-parse --short HEAD
+git log -1 --oneline
+```
+
+4. Compare with GitHub latest commit on `main`. If different, deploy did not pull latest code.
+5. Run manual deploy once on server to unblock production:
+
+```bash
+cd /var/www/shopking
+git fetch --prune origin main
+git checkout -B main origin/main
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+php artisan migrate --force
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+## 8) Important rules
 
 - Never commit `.env`.
 - Keep `APP_DEBUG=false` in production.

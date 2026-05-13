@@ -6,12 +6,41 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-live-main
+  cancel-in-progress: true
+
 jobs:
   deploy:
     name: Deploy To Live Server
     runs-on: ubuntu-latest
 
     steps:
+      - name: Validate required deploy secrets
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          missing=0
+
+          for name in SSH_HOST SSH_USER SSH_PORT SSH_PRIVATE_KEY DEPLOY_PATH; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing secret::Repository secret '$name' is empty or not set."
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -19,16 +48,53 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          command_timeout: 60m
           script: |
-            set -e
-            cd "${{ secrets.DEPLOY_PATH }}"
-            git pull --ff-only origin main
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            BRANCH="main"
+
+            if [ ! -d "$DEPLOY_PATH" ]; then
+              echo "[deploy] DEPLOY_PATH does not exist: $DEPLOY_PATH"
+              exit 1
+            fi
+
+            cd "$DEPLOY_PATH"
+
+            if [ ! -d .git ]; then
+              echo "[deploy] .git directory not found in $DEPLOY_PATH"
+              exit 1
+            fi
+
+            git config --global --add safe.directory "$DEPLOY_PATH"
+
+            echo "[deploy] before: $(git rev-parse --short HEAD)"
+            git fetch --prune origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            echo "[deploy] after: $(git rev-parse --short HEAD)"
+
+            if ! command -v composer >/dev/null 2>&1; then
+              echo "[deploy] composer command not found on server"
+              exit 1
+            fi
             composer install --no-dev --optimize-autoloader
-            npm ci
+
+            if ! command -v npm >/dev/null 2>&1; then
+              echo "[deploy] npm command not found on server"
+              exit 1
+            fi
+            npm ci --no-audit --no-fund
             npm run build
+
+            if ! command -v php >/dev/null 2>&1; then
+              echo "[deploy] php command not found on server"
+              exit 1
+            fi
             php artisan migrate --force
             php artisan optimize:clear
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
-
+            echo "[deploy] completed successfully"
