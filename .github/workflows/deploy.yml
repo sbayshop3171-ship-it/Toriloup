@@ -143,8 +143,8 @@ jobs:
               echo "[deploy] npm command not found on server"
               exit 1
             fi
-            rm -rf node_modules
-            npm ci --include=dev --no-audit --no-fund
+            rm -rf .npm-cache node_modules
+            npm ci --include=dev --cache .npm-cache --no-audit --no-fund
             npm run build
 
             if ! command -v php >/dev/null 2>&1; then
