@@ -96,6 +96,31 @@ jobs:
               exit 1
             fi
 
+            if [ ! -f .env ]; then
+              echo "[deploy] .env file not found in $DEPLOY_PATH"
+              exit 1
+            fi
+
+            read_env() {
+              grep -E "^$1=" .env | tail -n 1 | cut -d= -f2-
+            }
+
+            APP_ENV_VALUE="$(read_env APP_ENV)"
+            APP_URL_VALUE="$(read_env APP_URL)"
+            DB_DATABASE_VALUE="$(read_env DB_DATABASE)"
+            DB_USERNAME_VALUE="$(read_env DB_USERNAME)"
+            DB_PASSWORD_VALUE="$(read_env DB_PASSWORD)"
+
+            if [ -z "$DB_DATABASE_VALUE" ] || [ -z "$DB_USERNAME_VALUE" ] || [ -z "$DB_PASSWORD_VALUE" ]; then
+              echo "[deploy] database configuration is incomplete in .env"
+              exit 1
+            fi
+
+            if [ "$APP_ENV_VALUE" = "local" ] || [ "$APP_URL_VALUE" = "http://localhost" ]; then
+              echo "[deploy] live server .env still uses local defaults (APP_ENV=$APP_ENV_VALUE, APP_URL=$APP_URL_VALUE)"
+              exit 1
+            fi
+
             git config --global --add safe.directory "$DEPLOY_PATH"
 
             echo "[deploy] before: $(git rev-parse --short HEAD)"
@@ -110,6 +135,9 @@ jobs:
               exit 1
             fi
             composer install --no-dev --optimize-autoloader
+
+            php artisan config:clear
+            php artisan migrate:status --no-ansi >/dev/null
 
             if ! command -v npm >/dev/null 2>&1; then
               echo "[deploy] npm command not found on server"
