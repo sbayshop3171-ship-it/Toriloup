@@ -37,36 +37,40 @@
     </div>
 
     <div id="coupon-modal"
-        class="fixed inset-0 z-50 p-3 w-screen h-dvh overflow-y-auto bg-black/50 transition-all duration-300 opacity-0 invisible">
-        <div class="w-full rounded-xl mx-auto bg-white transition-all duration-300 max-w-[360px]">
-            <div class="flex items-center justify-between gap-2 py-4 px-4 border-b border-slate-100">
-                <h3 class="text-lg font-bold capitalize"> {{ $t('label.coupon_code') }}</h3>
-                <button @click.prevent="hideTarget('coupon-modal', 'modal-active')" type="button"
-                    class="lab-line-circle-cross text-lg text-[#E93C3C]"></button>
-            </div>
-            <form @submit.prevent="couponChecking" class="w-full flex items-center px-4 mt-4">
-                <input :class="error ? 'invalid' : ''" type="text" v-model="code"
-                    class="h-11 w-full px-3 ltr:rounded-tl-lg rtl:rounded-tr-lg ltr:rounded-bl-lg rtl:rounded-br-lg border ltr:border-r-0 rtl:border-l-0 border-[#D9DBE9]">
-                <button type="submit" class="h-11 px-4 leading-11 ltr:rounded-tr-lg rtl:rounded-tl-lg rtl:rounded-bl-lg ltr:rounded-br-lg rtl:rounded-br-0 rtl:rounded-tr-0
-                capitalize font-semibold text-white bg-[#007FE3]">
-                    {{ $t('button.apply') }}
-                </button>
-            </form>
-            <small class="w-full px-4 pt-0 db-field-alert" v-if="error">{{ error }}</small>
+        class="fixed inset-0 z-50 w-screen h-dvh overflow-y-auto bg-black/50 transition-all duration-300 opacity-0 invisible p-3 sm:p-4">
+        <div class="min-h-full w-full flex items-center justify-center">
+            <div class="w-full rounded-xl mx-auto bg-white transition-all duration-300 max-w-[420px] max-h-[calc(100dvh-2rem)] overflow-y-auto">
+                <div class="relative py-4 px-4 border-b border-slate-100">
+                    <h3 class="text-lg font-bold capitalize text-center">{{ $t('label.coupon_code') }}</h3>
+                    <button @click.prevent="hideTarget('coupon-modal', 'modal-active')" type="button"
+                        class="absolute top-1/2 -translate-y-1/2 ltr:right-4 rtl:left-4 lab-line-circle-cross text-lg text-[#E93C3C]"></button>
+                </div>
+                <form @submit.prevent="couponChecking" class="w-full px-4 mt-4">
+                    <div class="w-full flex flex-col sm:flex-row items-stretch gap-2">
+                        <input :class="error ? 'invalid' : ''" type="text" v-model="code"
+                            class="h-11 w-full px-3 rounded-lg border border-[#D9DBE9]">
+                        <button type="submit"
+                            class="h-11 sm:min-w-[110px] px-4 rounded-lg capitalize font-semibold text-white bg-[#007FE3]">
+                            {{ $t('button.apply') }}
+                        </button>
+                    </div>
+                </form>
+                <small class="block w-full px-4 pt-2 db-field-alert" v-if="error">{{ error }}</small>
 
-            <div v-if="coupons.length > 0" class="p-4 pt-4 flex flex-col gap-4">
-                <div v-for="coupon in coupons" :key="coupon" class="bg-[#EEF7FF] p-4 relative rounded-xl">
-                    <h3 class="py-1 px-2 rounded font-medium text-xs w-fit mb-2 bg-[#FFDB1F]">
-                        {{ $t('label.code') }}: {{ coupon.code }}
-                    </h3>
-                    <h4 class="text-sm font-medium mb-3">
-                        {{ coupon.description }}
-                    </h4>
-                    <p class="text-xs text-text">{{ coupon.convert_start_date }} - {{ coupon.convert_end_date }}</p>
-                    <button @click.prevent="appCouponButton(coupon)" type="button"
-                        class="absolute bottom-0 ltr:right-0 rtl:left-0 text-sm font-semibold capitalize py-1.5 px-3 rounded-br-xl rounded-tl-xl text-white bg-primary">
-                        {{ $t('button.apply') }}
-                    </button>
+                <div v-if="coupons.length > 0" class="p-4 pt-4 flex flex-col gap-4">
+                    <div v-for="coupon in coupons" :key="coupon" class="bg-[#EEF7FF] p-4 relative rounded-xl">
+                        <h3 class="py-1 px-2 rounded font-medium text-xs w-fit mb-2 bg-[#FFDB1F]">
+                            {{ $t('label.code') }}: {{ coupon.code }}
+                        </h3>
+                        <h4 class="text-sm font-medium mb-3">
+                            {{ coupon.description }}
+                        </h4>
+                        <p class="text-xs text-text">{{ coupon.convert_start_date }} - {{ coupon.convert_end_date }}</p>
+                        <button @click.prevent="appCouponButton(coupon)" type="button"
+                            class="absolute bottom-0 ltr:right-0 rtl:left-0 text-sm font-semibold capitalize py-1.5 px-3 rounded-br-xl rounded-tl-xl text-white bg-primary">
+                            {{ $t('button.apply') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
