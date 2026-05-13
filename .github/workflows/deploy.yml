@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
 
+env:
+  LIVE_DEPLOY_PATH: /var/www/ecomuser/data/www/gachwalas.com
+
 concurrency:
   group: deploy-live-main
   cancel-in-progress: true
@@ -22,12 +25,11 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
           missing=0
 
-          for name in SSH_HOST SSH_USER SSH_PORT SSH_PRIVATE_KEY DEPLOY_PATH; do
+          for name in SSH_HOST SSH_USER SSH_PORT SSH_PRIVATE_KEY; do
             if [ -z "${!name:-}" ]; then
               echo "::error title=Missing secret::Repository secret '$name' is empty or not set."
               missing=1
@@ -87,7 +89,7 @@ jobs:
               exit 1
             fi
 
-            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            DEPLOY_PATH="${LIVE_DEPLOY_PATH}"
             BRANCH="main"
             export COMPOSER_ALLOW_SUPERUSER=1
 
