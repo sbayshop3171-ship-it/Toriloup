@@ -216,14 +216,20 @@ export default {
                         router.push({ name: "admin.dashboard" });
                     } else {
                         if (!isCustomer) {
-                            router.push({ name: "admin.dashboard" });
+                            this.$store.dispatch("logout").catch(() => {
+                                this.$store.commit("authLogout");
+                            });
+                            this.errors = {
+                                validation: "Admin or staff account cannot use customer login."
+                            };
+                            return;
+                        }
+
+                        this.$store.dispatch("frontendWishlist/lists").then().catch();
+                        if (this.carts.length > 0) {
+                            router.push({ name: "frontend.checkout" });
                         } else {
-                            this.$store.dispatch("frontendWishlist/lists").then().catch();
-                            if (this.carts.length > 0) {
-                                router.push({ name: "frontend.checkout" });
-                            } else {
-                                router.push({ name: "frontend.home" });
-                            }
+                            router.push({ name: "frontend.home" });
                         }
                     }
 

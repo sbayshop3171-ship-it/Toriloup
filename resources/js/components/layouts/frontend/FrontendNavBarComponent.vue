@@ -158,7 +158,17 @@
                         </div>
                         <nav class="flex flex-col py-2">
                             <router-link
-                                v-if="profile.role_id !== enums.roleEnum.CUSTOMER && Object.keys(authDefaultPermission).length > 0"
+                                v-if="isCustomer"
+                                class="flex items-center gap-3 px-4 py-2 transition-all duration-500 hover:bg-gray-100"
+                                :to="{ name: 'frontend.account.overview' }">
+                                <i class="text-sm text-[#A0A3BD] lab-fill-dashboard"></i>
+                                <span class="text-sm font-medium capitalize whitespace-nowrap">
+                                    {{ $t('menu.dashboard') }}
+                                </span>
+                            </router-link>
+
+                            <router-link
+                                v-else-if="canAccessAdminPanel"
                                 class="flex items-center gap-3 px-4 py-2 transition-all duration-500 hover:bg-gray-100"
                                 :to="{ path: '/admin/' + defaultMenu?.url }">
                                 <i class="text-sm text-[#A0A3BD]" :class="defaultMenu?.icon"></i>
@@ -380,6 +390,12 @@ export default {
         },
         profile: function () {
             return this.$store.getters.authInfo;
+        },
+        isCustomer: function () {
+            return Number(this.profile?.role_id) === this.enums.roleEnum.CUSTOMER;
+        },
+        canAccessAdminPanel: function () {
+            return !this.isCustomer && Object.keys(this.authDefaultPermission || {}).length > 0;
         },
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];

@@ -126,7 +126,7 @@ router.beforeEach((to, from, next) => {
         }
 
         if (isAdminRoute && isCustomer) {
-            next({ name: "frontend.home" });
+            next({ name: "frontend.account.overview" });
             return;
         }
 

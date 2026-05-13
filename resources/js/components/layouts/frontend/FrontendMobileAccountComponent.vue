@@ -26,7 +26,7 @@
                 </div>
                 <nav class="flex flex-col">
                     <router-link v-on:click="hideTarget('mobile-profile-canvas', 'canvas-active')"
-                        v-if="profile.role_id !== enums.roleEnum.CUSTOMER && Object.keys(authDefaultPermission).length > 0"
+                        v-if="canAccessAdminPanel"
                         class="profile-link font-medium flex items-center gap-4 capitalize py-3 px-4 group hover:text-primary transition-all duration-500"
                         :to="{ name: 'admin.dashboard' }">
                         <i
@@ -124,6 +124,12 @@ export default {
         },
         authDefaultPermission: function () {
             return this.$store.getters.authDefaultPermission;
+        },
+        isCustomer: function () {
+            return Number(this.profile?.role_id) === this.enums.roleEnum.CUSTOMER;
+        },
+        canAccessAdminPanel: function () {
+            return !this.isCustomer && Object.keys(this.authDefaultPermission || {}).length > 0;
         },
     },
     methods: {
