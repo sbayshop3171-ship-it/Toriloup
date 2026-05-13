@@ -25,15 +25,6 @@
                         profile.phone }}</p>
                 </div>
                 <nav class="flex flex-col">
-                    <router-link v-on:click="hideTarget('mobile-profile-canvas', 'canvas-active')"
-                        v-if="canAccessAdminPanel"
-                        class="profile-link font-medium flex items-center gap-4 capitalize py-3 px-4 group hover:text-primary transition-all duration-500"
-                        :to="{ name: 'admin.dashboard' }">
-                        <i
-                            class="lab-fill-dashboard text-[#A0A3BD] group-hover:text-primary transition-all duration-500"></i>
-                        <span>{{ $t('menu.dashboard') }}</span>
-                    </router-link>
-
                     <router-link :class="checkIsPathAndRoutePathSame('/account/overview') ? '!text-primary' : ''"
                         v-on:click="hideTarget('mobile-profile-canvas', 'canvas-active')"
                         class="profile-link font-medium flex items-center gap-4 capitalize py-3 px-4 group hover:text-primary transition-all duration-500"
@@ -101,17 +92,11 @@
 <script>
 import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
-import activityEnum from "../../../enums/modules/activityEnum";
-import roleEnum from "../../../enums/modules/roleEnum";
 
 export default {
     name: "FrontendMobileAccountComponent",
     data() {
         return {
-            enums: {
-                activityEnum: activityEnum,
-                roleEnum: roleEnum
-            },
             currentRoute: "",
         }
     },
@@ -121,29 +106,6 @@ export default {
         },
         profile: function () {
             return this.$store.getters.authInfo;
-        },
-        authDefaultPermission: function () {
-            return this.$store.getters.authDefaultPermission;
-        },
-        isCustomer: function () {
-            return this.roleId === this.enums.roleEnum.CUSTOMER;
-        },
-        roleId: function () {
-            const parsedRoleId = Number.parseInt(this.profile?.role_id, 10);
-            return Number.isFinite(parsedRoleId) ? parsedRoleId : null;
-        },
-        isAdminUser: function () {
-            const adminRoleIds = [
-                this.enums.roleEnum.ADMIN,
-                this.enums.roleEnum.MANAGER,
-                this.enums.roleEnum.POS_OPERATOR,
-                this.enums.roleEnum.STUFF,
-            ];
-
-            return this.roleId !== null && adminRoleIds.includes(this.roleId);
-        },
-        canAccessAdminPanel: function () {
-            return this.isAdminUser && Object.keys(this.authDefaultPermission || {}).length > 0;
         },
     },
     methods: {

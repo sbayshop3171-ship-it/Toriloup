@@ -158,22 +158,11 @@
                         </div>
                         <nav class="flex flex-col py-2">
                             <router-link
-                                v-if="isCustomer"
                                 class="flex items-center gap-3 px-4 py-2 transition-all duration-500 hover:bg-gray-100"
                                 :to="{ name: 'frontend.account.overview' }">
                                 <i class="text-sm text-[#A0A3BD] lab-fill-dashboard"></i>
                                 <span class="text-sm font-medium capitalize whitespace-nowrap">
-                                    {{ $t('menu.dashboard') }}
-                                </span>
-                            </router-link>
-
-                            <router-link
-                                v-else-if="canAccessAdminPanel"
-                                class="flex items-center gap-3 px-4 py-2 transition-all duration-500 hover:bg-gray-100"
-                                :to="{ path: '/admin/' + defaultMenu?.url }">
-                                <i class="text-sm text-[#A0A3BD]" :class="defaultMenu?.icon"></i>
-                                <span class="text-sm font-medium capitalize whitespace-nowrap">
-                                    {{ $t('menu.' + defaultMenu?.language) }}
+                                    {{ $t('menu.overview') }}
                                 </span>
                             </router-link>
 
@@ -321,7 +310,6 @@ import { onMounted, ref } from "vue";
 import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
 import activityEnum from "../../../enums/modules/activityEnum";
-import roleEnum from "../../../enums/modules/roleEnum";
 import MenuChildrenComponent from "../../frontend/components/MenuChildrenComponent";
 import orderTypeEnum from "../../../enums/modules/orderTypeEnum";
 import { initializeApp } from "firebase/app";
@@ -362,7 +350,6 @@ export default {
             defaultLanguage: null,
             enums: {
                 activityEnum: activityEnum,
-                roleEnum: roleEnum
             },
             languageProps: {
                 paginate: 0,
@@ -385,31 +372,8 @@ export default {
         logged: function () {
             return this.$store.getters.authStatus;
         },
-        authDefaultPermission: function () {
-            return this.$store.getters.authDefaultPermission;
-        },
         profile: function () {
             return this.$store.getters.authInfo;
-        },
-        isCustomer: function () {
-            return this.roleId === this.enums.roleEnum.CUSTOMER;
-        },
-        roleId: function () {
-            const parsedRoleId = Number.parseInt(this.profile?.role_id, 10);
-            return Number.isFinite(parsedRoleId) ? parsedRoleId : null;
-        },
-        isAdminUser: function () {
-            const adminRoleIds = [
-                this.enums.roleEnum.ADMIN,
-                this.enums.roleEnum.MANAGER,
-                this.enums.roleEnum.POS_OPERATOR,
-                this.enums.roleEnum.STUFF,
-            ];
-
-            return this.roleId !== null && adminRoleIds.includes(this.roleId);
-        },
-        canAccessAdminPanel: function () {
-            return this.isAdminUser && Object.keys(this.authDefaultPermission || {}).length > 0;
         },
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
@@ -428,9 +392,6 @@ export default {
         },
         carts: function () {
             return this.$store.getters['frontendCart/lists'];
-        },
-        defaultMenu: function () {
-            return this.$store.getters.authDefaultMenu;
         },
     },
     mounted() {
