@@ -41,6 +41,19 @@ jobs:
             exit 1
           fi
 
+      - name: Probe SSH port reachability
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -eu
+          echo "Probing SSH endpoint ${SSH_HOST}:${SSH_PORT}"
+          if command -v nc >/dev/null 2>&1; then
+            nc -vz -w 10 "$SSH_HOST" "$SSH_PORT"
+          else
+            timeout 10 bash -lc "cat < /dev/null > /dev/tcp/${SSH_HOST}/${SSH_PORT}"
+          fi
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -49,6 +62,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           debug: true
+          timeout: 120s
           command_timeout: 60m
           script: |
             set -eu
