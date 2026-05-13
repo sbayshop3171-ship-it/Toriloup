@@ -8,7 +8,7 @@ permissions:
 
 concurrency:
   group: deploy-live-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
