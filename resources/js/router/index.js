@@ -117,7 +117,16 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const isAdminRoute = to.path.startsWith("/admin");
     const isLoggedIn = store.getters.authStatus;
-    const isCustomer = Number(store.getters.authInfo?.role_id) === roleEnum.CUSTOMER;
+    const parsedRoleId = Number.parseInt(store.getters.authInfo?.role_id, 10);
+    const roleId = Number.isFinite(parsedRoleId) ? parsedRoleId : null;
+    const isCustomer = roleId === roleEnum.CUSTOMER;
+    const adminRoleIds = [
+        roleEnum.ADMIN,
+        roleEnum.MANAGER,
+        roleEnum.POS_OPERATOR,
+        roleEnum.STUFF,
+    ];
+    const isAdminUser = roleId !== null && adminRoleIds.includes(roleId);
 
     if (to.meta.auth === true) {
         if (!isLoggedIn) {
@@ -125,7 +134,7 @@ router.beforeEach((to, from, next) => {
             return;
         }
 
-        if (isAdminRoute && isCustomer) {
+        if (isAdminRoute && !isAdminUser) {
             next({ name: "frontend.account.overview" });
             return;
         }
@@ -152,7 +161,7 @@ router.beforeEach((to, from, next) => {
     ];
 
     if (isLoggedIn && guestOnlyRouteNames.includes(to.name)) {
-        next({ name: isCustomer ? "frontend.home" : "admin.dashboard" });
+        next({ name: isAdminUser ? "admin.dashboard" : "frontend.home" });
         return;
     }
 

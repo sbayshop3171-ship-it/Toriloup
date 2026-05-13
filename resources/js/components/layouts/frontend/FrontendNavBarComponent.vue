@@ -392,10 +392,24 @@ export default {
             return this.$store.getters.authInfo;
         },
         isCustomer: function () {
-            return Number(this.profile?.role_id) === this.enums.roleEnum.CUSTOMER;
+            return this.roleId === this.enums.roleEnum.CUSTOMER;
+        },
+        roleId: function () {
+            const parsedRoleId = Number.parseInt(this.profile?.role_id, 10);
+            return Number.isFinite(parsedRoleId) ? parsedRoleId : null;
+        },
+        isAdminUser: function () {
+            const adminRoleIds = [
+                this.enums.roleEnum.ADMIN,
+                this.enums.roleEnum.MANAGER,
+                this.enums.roleEnum.POS_OPERATOR,
+                this.enums.roleEnum.STUFF,
+            ];
+
+            return this.roleId !== null && adminRoleIds.includes(this.roleId);
         },
         canAccessAdminPanel: function () {
-            return !this.isCustomer && Object.keys(this.authDefaultPermission || {}).length > 0;
+            return this.isAdminUser && Object.keys(this.authDefaultPermission || {}).length > 0;
         },
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
