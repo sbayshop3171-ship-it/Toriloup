@@ -209,6 +209,7 @@ export default {
             notificationDropdownStatus: false,
             notificationItems: [],
             notificationStorageKey: "shopking_admin_notifications",
+            notificationSyncEventName: "shopking-admin-notification-updated",
             maxNotificationItems: 20,
         }
     },
@@ -244,6 +245,8 @@ export default {
         this.orderPermissionCheck();
         this.loadNotificationItems();
         document.addEventListener('click', this.handleDocumentClick);
+        window.addEventListener('storage', this.handleNotificationStorageEvent);
+        window.addEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
 
         this.$store.dispatch('frontendSetting/lists').then(res => {
             let defaultLanguage = res.data.data.site_default_language;
@@ -317,6 +320,8 @@ export default {
     },
     beforeUnmount() {
         document.removeEventListener('click', this.handleDocumentClick);
+        window.removeEventListener('storage', this.handleNotificationStorageEvent);
+        window.removeEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
     },
     methods: {
         adminRoute: function (url) {
@@ -336,6 +341,18 @@ export default {
             if (this.notificationDropdownStatus) {
                 this.markAllNotificationsAsRead();
             }
+        },
+        handleNotificationStorageEvent: function (event) {
+            if (event?.key && event.key !== this.notificationStorageKey) {
+                return;
+            }
+            this.loadNotificationItems();
+        },
+        handleNotificationSyncEvent: function () {
+            this.loadNotificationItems();
+        },
+        emitNotificationSyncEvent: function () {
+            window.dispatchEvent(new CustomEvent(this.notificationSyncEventName));
         },
         loadNotificationItems: function () {
             try {
@@ -358,6 +375,7 @@ export default {
         persistNotificationItems: function () {
             try {
                 localStorage.setItem(this.notificationStorageKey, JSON.stringify(this.notificationItems.slice(0, this.maxNotificationItems)));
+                this.emitNotificationSyncEvent();
             } catch (error) {
                 // Ignore storage write errors.
             }

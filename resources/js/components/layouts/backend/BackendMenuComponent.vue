@@ -18,6 +18,11 @@
                     <router-link :to="'/admin/' + menu.url" class="db-sidebar-nav-menu">
                         <i class="text-sm" :class="menu.icon"></i>
                         <span class="text-base flex-auto">{{ $t('menu.' + menu.language) }}</span>
+                        <span
+                            v-if="isOnlineOrderMenu(menu.url) && unreadOrderNotificationCount > 0"
+                            class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-white bg-[#FF3B30]">
+                            {{ unreadOrderNotificationBadge }}
+                        </span>
                     </router-link>
                 </li>
 
@@ -25,6 +30,11 @@
                     <router-link :to="'/admin/' + children.url" class="db-sidebar-nav-menu">
                         <i class="text-sm" :class="children.icon"></i>
                         <span class="text-base flex-auto">{{ $t('menu.' + children.language) }}</span>
+                        <span
+                            v-if="isOnlineOrderMenu(children.url) && unreadOrderNotificationCount > 0"
+                            class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-white bg-[#FF3B30]">
+                            {{ unreadOrderNotificationBadge }}
+                        </span>
                     </router-link>
                 </li>
             </ul>
@@ -39,7 +49,11 @@ export default {
     data: function () {
         return {
             activeParentId: 1,
-            activeChildId: 0
+            activeChildId: 0,
+            notificationStorageKey: "shopking_admin_notifications",
+            notificationSyncEventName: "shopking-admin-notification-updated",
+            notificationItems: [],
+            maxNotificationItems: 20
         }
     },
     computed: {
@@ -48,14 +62,30 @@ export default {
         },
         menus: function () {
             return this.$store.getters.authMenu;
+        },
+        unreadOrderNotificationCount: function () {
+            return this.notificationItems.filter((item) => !item.read && this.isOrderNotificationItem(item)).length;
+        },
+        unreadOrderNotificationBadge: function () {
+            if (this.unreadOrderNotificationCount > 99) {
+                return "99+";
+            }
+            return this.unreadOrderNotificationCount;
         }
     },
 
     mounted() {
         this.defaultSidebarActive();
-
+        this.loadNotificationItems();
+        this.markOnlineOrderNotificationsAsReadByRoute(this.$route.path);
+        window.addEventListener('storage', this.handleNotificationStorageEvent);
+        window.addEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
     },
-        methods: {
+    beforeUnmount() {
+        window.removeEventListener('storage', this.handleNotificationStorageEvent);
+        window.removeEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
+    },
+    methods: {
         sidebarActive: function (e) {
             const activeMenu = document.querySelector('.db-sidebar-nav-item.active');
             if (activeMenu) {
@@ -72,7 +102,96 @@ export default {
         },
         closeSidebar : function(){
             return appService.closeSidebar()
+        },
+        normalizeMenuUrl: function (url) {
+            return String(url || '').replace(/^\/+|\/+$/g, '');
+        },
+        isOnlineOrderMenu: function (url) {
+            return this.normalizeMenuUrl(url) === 'online-orders';
+        },
+        isOnOnlineOrderRoute: function (path) {
+            return String(path || '').startsWith('/admin/online-orders');
+        },
+        isOrderNotificationItem: function (item) {
+            const type = String(item?.type || '').toLowerCase();
+            if (type === 'order') {
+                return true;
+            }
+
+            const routeUrl = this.normalizeMenuUrl(item?.routeUrl || '');
+            if (routeUrl === 'online-orders') {
+                return true;
+            }
+
+            const title = String(item?.title || '').toLowerCase();
+            const body = String(item?.body || '').toLowerCase();
+            return title.includes('order') || body.includes('order');
+        },
+        handleNotificationStorageEvent: function (event) {
+            if (event?.key && event.key !== this.notificationStorageKey) {
+                return;
+            }
+            this.loadNotificationItems();
+            this.markOnlineOrderNotificationsAsReadByRoute(this.$route.path);
+        },
+        handleNotificationSyncEvent: function () {
+            this.loadNotificationItems();
+            this.markOnlineOrderNotificationsAsReadByRoute(this.$route.path);
+        },
+        emitNotificationSyncEvent: function () {
+            window.dispatchEvent(new CustomEvent(this.notificationSyncEventName));
+        },
+        loadNotificationItems: function () {
+            try {
+                const rawData = localStorage.getItem(this.notificationStorageKey);
+                if (!rawData) {
+                    this.notificationItems = [];
+                    return;
+                }
+
+                const parsedItems = JSON.parse(rawData);
+                if (Array.isArray(parsedItems)) {
+                    this.notificationItems = parsedItems.slice(0, this.maxNotificationItems);
+                } else {
+                    this.notificationItems = [];
+                }
+            } catch (error) {
+                this.notificationItems = [];
+            }
+        },
+        persistNotificationItems: function () {
+            try {
+                localStorage.setItem(this.notificationStorageKey, JSON.stringify(this.notificationItems.slice(0, this.maxNotificationItems)));
+                this.emitNotificationSyncEvent();
+            } catch (error) {
+                // Ignore storage write errors.
+            }
+        },
+        markOrderNotificationsAsRead: function () {
+            const hasUnreadOrderNotification = this.notificationItems.some((item) => !item.read && this.isOrderNotificationItem(item));
+            if (!hasUnreadOrderNotification) {
+                return;
+            }
+
+            this.notificationItems = this.notificationItems.map((item) => {
+                if (this.isOrderNotificationItem(item)) {
+                    return { ...item, read: true };
+                }
+                return item;
+            });
+            this.persistNotificationItems();
+        },
+        markOnlineOrderNotificationsAsReadByRoute: function (path) {
+            if (!this.isOnOnlineOrderRoute(path)) {
+                return;
+            }
+            this.markOrderNotificationsAsRead();
         }
+    },
+    watch: {
+        $route(to) {
+            this.markOnlineOrderNotificationsAsReadByRoute(to.path);
         }
+    }
 }
 </script>
