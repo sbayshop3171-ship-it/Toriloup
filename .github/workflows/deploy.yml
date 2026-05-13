@@ -48,13 +48,14 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
+          debug: true
           command_timeout: 60m
           script: |
-            set -euo pipefail
+            set -eu
 
             DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
             BRANCH="main"
+            export COMPOSER_ALLOW_SUPERUSER=1
 
             if [ ! -d "$DEPLOY_PATH" ]; then
               echo "[deploy] DEPLOY_PATH does not exist: $DEPLOY_PATH"
@@ -74,6 +75,8 @@ jobs:
             git fetch --prune origin "$BRANCH"
             git checkout -B "$BRANCH" "origin/$BRANCH"
             echo "[deploy] after: $(git rev-parse --short HEAD)"
+            echo "[deploy] user: $(whoami)"
+            echo "[deploy] cwd: $(pwd)"
 
             if ! command -v composer >/dev/null 2>&1; then
               echo "[deploy] composer command not found on server"
