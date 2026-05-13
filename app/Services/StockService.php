@@ -57,7 +57,7 @@ class StockService
                             'product_name'       => $item->first()['product']['name'],
                             'variation_names'    => $item->first()['variation_names'],
                             'status'             => $item->first()['product']['status'],
-                            'stock'              => $item->first()['product']['can_purchasable'] === Ask::NO ? "N/C" : $item->sum('quantity'),
+                            'stock'              => $item->first()['product']['can_purchasable'] === Ask::NO ? (int)$item->first()['product']['maximum_purchase_quantity'] : $item->sum('quantity'),
 
                         ];
                     });

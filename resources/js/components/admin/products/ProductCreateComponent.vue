@@ -70,6 +70,12 @@
                             v-bind:class="errors.selling_price ? 'invalid' : ''" type="text" id="selling_price"
                             class="db-field-control">
                         <small class="db-field-alert" v-if="errors.selling_price">{{ errors.selling_price[0] }}</small>
+                        <small class="db-field-alert m-0 !text-green-600" v-if="hasPriceDifference && priceDifference >= 0">
+                            {{ $t("label.price_difference") }}: +{{ formattedPriceDifference }}
+                        </small>
+                        <small class="db-field-alert m-0 !text-red-600" v-else-if="hasPriceDifference">
+                            {{ $t("label.price_difference") }}: -{{ formattedNegativePriceDifference }}
+                        </small>
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
@@ -116,50 +122,6 @@
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
-                        <label class="db-field-title required" for="yes">{{ $t("label.can_purchasable") }}</label>
-                        <div class="db-field-radio-group">
-                            <div class="db-field-radio">
-                                <div class="custom-radio">
-                                    <input type="radio" v-model="props.form.can_purchasable" id="yes"
-                                        :value="enums.askEnum.YES" class="custom-radio-field">
-                                    <span class="custom-radio-span"></span>
-                                </div>
-                                <label for="yes" class="db-field-label">{{ $t('label.yes') }}</label>
-                            </div>
-                            <div class="db-field-radio">
-                                <div class="custom-radio">
-                                    <input type="radio" class="custom-radio-field" v-model="props.form.can_purchasable"
-                                        id="no" :value="enums.askEnum.NO">
-                                    <span class="custom-radio-span"></span>
-                                </div>
-                                <label for="no" class="db-field-label">{{ $t('label.no') }}</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-col-12 sm:form-col-6">
-                        <label class="db-field-title required" for="enable">{{ $t("label.show_stock_out") }}</label>
-                        <div class="db-field-radio-group">
-                            <div class="db-field-radio">
-                                <div class="custom-radio">
-                                    <input type="radio" v-model="props.form.show_stock_out" id="enable"
-                                        :value="enums.activityEnum.ENABLE" class="custom-radio-field">
-                                    <span class="custom-radio-span"></span>
-                                </div>
-                                <label for="enable" class="db-field-label">{{ $t('label.enable') }}</label>
-                            </div>
-                            <div class="db-field-radio">
-                                <div class="custom-radio">
-                                    <input type="radio" class="custom-radio-field" v-model="props.form.show_stock_out"
-                                        id="disable" :value="enums.activityEnum.DISABLE">
-                                    <span class="custom-radio-span"></span>
-                                </div>
-                                <label for="disable" class="db-field-label">{{ $t('label.disable') }}</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="refundableYes">{{ $t("label.refundable") }}</label>
                         <div class="db-field-radio-group">
                             <div class="db-field-radio">
@@ -182,27 +144,16 @@
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
-                        <label for="maximum_purchase_quantity" class="db-field-title required">
-                            {{ $t("label.maximum_purchase_quantity") }}
+                        <label for="stock_quantity" class="db-field-title required">
+                            {{ $t("label.stock_quantity") }}
                         </label>
-                        <input v-on:keypress="onlyNumber($event)" v-model="props.form.maximum_purchase_quantity"
-                            v-bind:class="errors.maximum_purchase_quantity ? 'invalid' : ''" type="text"
-                            id="maximum_purchase_quantity" class="db-field-control">
-                        <small class="db-field-alert" v-if="errors.maximum_purchase_quantity">
-                            {{ errors.maximum_purchase_quantity[0] }}
+                        <input v-on:keypress="onlyNumber($event)" v-model="props.form.stock_quantity"
+                            v-bind:class="stockQuantityError ? 'invalid' : ''" type="text" id="stock_quantity"
+                            class="db-field-control">
+                        <small class="db-field-alert" v-if="stockQuantityError">
+                            {{ stockQuantityError }}
                         </small>
-                    </div>
-
-                    <div class="form-col-12 sm:form-col-6">
-                        <label for="low_stock_quantity_warning" class="db-field-title required">
-                            {{ $t("label.low_stock_quantity_warning") }}
-                        </label>
-                        <input v-on:keypress="onlyNumber($event)" v-model="props.form.low_stock_quantity_warning"
-                            v-bind:class="errors.low_stock_quantity_warning ? 'invalid' : ''" type="text"
-                            id="low_stock_quantity_warning" class="db-field-control">
-                        <small class="db-field-alert" v-if="errors.low_stock_quantity_warning">
-                            {{ errors.low_stock_quantity_warning[0] }}
-                        </small>
+                        <small class="text-xs text-gray-500">{{ $t("message.stock_quantity_hint") }}</small>
                     </div>
 
                     <div class="form-col-12 sm:form-col-12">
@@ -390,6 +341,37 @@ export default {
         addButton: function () {
             return { title: this.$t("button.add_product") }
         },
+        stockQuantityError: function () {
+            if (this.errors.stock_quantity) {
+                return this.errors.stock_quantity[0];
+            }
+            if (this.errors.maximum_purchase_quantity) {
+                return this.errors.maximum_purchase_quantity[0];
+            }
+            if (this.errors.low_stock_quantity_warning) {
+                return this.errors.low_stock_quantity_warning[0];
+            }
+            return null;
+        },
+        priceDifference: function () {
+            const buyingPrice = parseFloat(this.props.form.buying_price);
+            const sellingPrice = parseFloat(this.props.form.selling_price);
+            if (isNaN(buyingPrice) || isNaN(sellingPrice)) {
+                return 0;
+            }
+            return sellingPrice - buyingPrice;
+        },
+        hasPriceDifference: function () {
+            const buyingPrice = parseFloat(this.props.form.buying_price);
+            const sellingPrice = parseFloat(this.props.form.selling_price);
+            return !isNaN(buyingPrice) && !isNaN(sellingPrice);
+        },
+        formattedPriceDifference: function () {
+            return Math.abs(this.priceDifference).toFixed(2);
+        },
+        formattedNegativePriceDifference: function () {
+            return Math.abs(this.priceDifference).toFixed(2);
+        }
     },
     methods: {
         floatNumber(e) {
@@ -415,8 +397,9 @@ export default {
                 can_purchasable: askEnum.NO,
                 show_stock_out: activityEnum.DISABLE,
                 refundable: askEnum.NO,
-                maximum_purchase_quantity: "",
-                low_stock_quantity_warning: "",
+                stock_quantity: 1,
+                maximum_purchase_quantity: 1,
+                low_stock_quantity_warning: 1,
                 unit_id: null,
                 weight: "",
                 warranty: "",
@@ -425,6 +408,21 @@ export default {
                 description: "",
             };
             this.getSku();
+        },
+        normalizeStockQuantity: function () {
+            const stockQuantity = parseInt(this.props.form.stock_quantity, 10);
+            if (isNaN(stockQuantity) || stockQuantity < 0) {
+                return 0;
+            }
+            return stockQuantity;
+        },
+        prepareFormForSave: function () {
+            const stockQuantity = this.normalizeStockQuantity();
+            this.props.form.stock_quantity = stockQuantity;
+            this.props.form.can_purchasable = askEnum.NO;
+            this.props.form.show_stock_out = activityEnum.DISABLE;
+            this.props.form.maximum_purchase_quantity = stockQuantity;
+            this.props.form.low_stock_quantity_warning = stockQuantity;
         },
         getSku: function () {
             this.$store.dispatch("product/getSku").then((res) => {
@@ -436,6 +434,7 @@ export default {
         },
         save: function () {
             try {
+                this.prepareFormForSave();
                 this.props.form.tags = JSON.stringify(this.props.form.convertTags);
                 const tempId = this.$store.getters['product/temp'].temp_id;
                 this.loading.isActive = true;
@@ -456,8 +455,9 @@ export default {
                         can_purchasable: askEnum.NO,
                         show_stock_out: activityEnum.DISABLE,
                         refundable: askEnum.NO,
-                        maximum_purchase_quantity: "",
-                        low_stock_quantity_warning: "",
+                        stock_quantity: 1,
+                        maximum_purchase_quantity: 1,
+                        low_stock_quantity_warning: 1,
                         unit_id: null,
                         weight: "",
                         warranty: "",

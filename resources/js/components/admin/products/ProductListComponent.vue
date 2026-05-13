@@ -123,30 +123,6 @@
                         </div>
 
                         <div class="col-12 sm:col-6 md:col-4 xl:col-3">
-                            <label for="searchPurchasable" class="db-field-title after:hidden">
-                                {{ $t("label.purchasable") }}
-                            </label>
-                            <vue-select class="db-field-control f-b-custom-select" id="searchPurchasable"
-                                v-model="props.search.can_purchasable" :options="[
-                                    { id: enums.askEnum.YES, name: $t('label.yes') },
-                                    { id: enums.askEnum.NO, name: $t('label.no') },
-                                ]" label-by="name" value-by="id" :closeOnSelect="true" :searchable="true"
-                                :clearOnClose="true" placeholder="--" search-placeholder="--" />
-                        </div>
-
-                        <div class="col-12 sm:col-6 md:col-4 xl:col-3">
-                            <label for="searchIsStockOut" class="db-field-title after:hidden">
-                                {{ $t("label.show_stock_out") }}
-                            </label>
-                            <vue-select class="db-field-control f-b-custom-select" id="searchIsStockOut"
-                                v-model="props.search.show_stock_out" :options="[
-                                    { id: enums.activityEnum.ENABLE, name: $t('label.enable') },
-                                    { id: enums.activityEnum.DISABLE, name: $t('label.disable') },
-                                ]" label-by="name" value-by="id" :closeOnSelect="true" :searchable="true"
-                                :clearOnClose="true" placeholder="--" search-placeholder="--" />
-                        </div>
-
-                        <div class="col-12 sm:col-6 md:col-4 xl:col-3">
                             <label for="searchRefundable" class="db-field-title after:hidden">
                                 {{ $t("label.refundable") }}
                             </label>
@@ -336,8 +312,9 @@ export default {
                     can_purchasable: askEnum.NO,
                     show_stock_out: activityEnum.DISABLE,
                     refundable: askEnum.NO,
-                    maximum_purchase_quantity: "",
-                    low_stock_quantity_warning: "",
+                    stock_quantity: 1,
+                    maximum_purchase_quantity: 1,
+                    low_stock_quantity_warning: 1,
                     unit_id: null,
                     weight: "",
                     warranty: "",
@@ -361,8 +338,6 @@ export default {
                     tax_id: null,
                     unit_id: null,
                     status: null,
-                    can_purchasable: null,
-                    show_stock_out: null,
                     refundable: null
                 }
             },
@@ -437,9 +412,7 @@ export default {
             this.props.search.barcode_id = null;
             this.props.search.tax_id = null;
             this.props.search.unit_id = null;
-            this.props.search.show_stock_out = null;
             this.props.search.status = null;
-            this.props.search.can_purchasable = null;
             this.props.search.refundable = null;
             this.list();
         },
@@ -470,6 +443,7 @@ export default {
             this.props.form.can_purchasable = product.can_purchasable;
             this.props.form.show_stock_out = product.show_stock_out;
             this.props.form.refundable = product.refundable;
+            this.props.form.stock_quantity = product.maximum_purchase_quantity;
             this.props.form.maximum_purchase_quantity = product.maximum_purchase_quantity;
             this.props.form.low_stock_quantity_warning = product.low_stock_quantity_warning;
             this.props.form.unit_id = product.unit_id;

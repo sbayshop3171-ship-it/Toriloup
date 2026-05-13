@@ -130,7 +130,7 @@
                         <div class="col-12 sm:col-6 !py-1.5">
                             <div class="db-list-item p-0">
                                 <span class="db-list-item-title w-full sm:w-1/2">{{
-                                    $t("label.maximum_purchase_quantity")
+                                    $t("label.stock_quantity")
                                     }}</span>
                                 <span class="db-list-item-text w-full sm:w-1/2">{{ product.maximum_purchase_quantity
                                     }}</span>
@@ -144,16 +144,6 @@
                         </div>
                         <div class="col-12 sm:col-6 !py-1.5">
                             <div class="db-list-item p-0">
-                                <span class="db-list-item-title w-full sm:w-1/2">{{
-                                    $t("label.low_stock_quantity_warning")
-                                    }}</span>
-                                <span class="db-list-item-text w-full sm:w-1/2">{{ product.low_stock_quantity_warning
-                                    }}</span>
-                            </div>
-                        </div>
-
-                        <div class="col-12 sm:col-6 !py-1.5">
-                            <div class="db-list-item p-0">
                                 <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.weight") }}</span>
                                 <span class="db-list-item-text w-full sm:w-1/2">{{ product.weight }}</span>
                             </div>
@@ -163,24 +153,6 @@
                             <div class="db-list-item p-0">
                                 <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.unit") }}</span>
                                 <span class="db-list-item-text w-full sm:w-1/2">{{ product.unit }}</span>
-                            </div>
-                        </div>
-
-                        <div class="col-12 sm:col-6 !py-1.5">
-                            <div class="db-list-item p-0">
-                                <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.purchasable") }}</span>
-                                <span class="db-list-item-text w-full sm:w-1/2">{{
-                                    enums.askEnumArray[product.can_purchasable]
-                                    }}</span>
-                            </div>
-                        </div>
-
-                        <div class="col-12 sm:col-6 !py-1.5">
-                            <div class="db-list-item p-0">
-                                <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.show_stock_out") }}</span>
-                                <span class="db-list-item-text w-full sm:w-1/2">{{
-                                    enums.activityEnumArray[product.show_stock_out]
-                                    }}</span>
                             </div>
                         </div>
 
@@ -486,7 +458,6 @@ import ProductSeoComponent from "./seo/ProductSeoComponent";
 import ProductVideoListComponent from "./video/ProductVideoListComponent";
 import { quillEditor } from 'vue3-quill'
 import Datepicker from "@vuepic/vue-datepicker";
-import activityEnum from "../../../enums/modules/activityEnum";
 import PrintButtonComponent from "../components/buttons/PrintButtonComponent.vue";
 
 export default {
@@ -525,10 +496,6 @@ export default {
                 askEnumArray: {
                     [askEnum.YES]: this.$t("label.yes"),
                     [askEnum.NO]: this.$t("label.no"),
-                },
-                activityEnumArray: {
-                    [activityEnum.ENABLE]: this.$t("label.enable"),
-                    [activityEnum.DISABLE]: this.$t("label.disable"),
                 }
             },
             deleteIndex: 0,
