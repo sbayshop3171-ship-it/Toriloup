@@ -115,11 +115,10 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-    const isAdminRoute = to.path.startsWith("/admin");
+    const isAdminRoute = to.path === "/admin" || to.path.startsWith("/admin/");
     const isLoggedIn = store.getters.authStatus;
     const parsedRoleId = Number.parseInt(store.getters.authInfo?.role_id, 10);
     const roleId = Number.isFinite(parsedRoleId) ? parsedRoleId : null;
-    const isCustomer = roleId === roleEnum.CUSTOMER;
     const adminRoleIds = [
         roleEnum.ADMIN,
         roleEnum.MANAGER,
@@ -128,14 +127,21 @@ router.beforeEach((to, from, next) => {
     ];
     const isAdminUser = roleId !== null && adminRoleIds.includes(roleId);
 
-    if (to.meta.auth === true) {
+    if (isAdminRoute && to.name !== "auth.adminLogin") {
         if (!isLoggedIn) {
-            next({ name: isAdminRoute ? "auth.adminLogin" : "auth.login" });
+            next({ name: "auth.adminLogin" });
             return;
         }
 
-        if (isAdminRoute && !isAdminUser) {
+        if (!isAdminUser) {
             next({ name: "frontend.account.overview" });
+            return;
+        }
+    }
+
+    if (to.meta.auth === true) {
+        if (!isLoggedIn) {
+            next({ name: isAdminRoute ? "auth.adminLogin" : "auth.login" });
             return;
         }
 
@@ -161,7 +167,7 @@ router.beforeEach((to, from, next) => {
     ];
 
     if (isLoggedIn && guestOnlyRouteNames.includes(to.name)) {
-        next({ name: isAdminUser ? "admin.dashboard" : "frontend.home" });
+        next({ name: isAdminUser ? "admin.dashboard" : "frontend.account.overview" });
         return;
     }
 

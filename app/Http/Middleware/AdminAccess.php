@@ -9,14 +9,22 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AdminAccess
 {
+    private const ADMIN_ROLE_IDS = [
+        Role::ADMIN,
+        Role::MANAGER,
+        Role::POS_OPERATOR,
+        Role::STUFF,
+    ];
+
     /**
-     * Restrict admin endpoints to non-customer roles.
+     * Restrict admin endpoints to admin/staff roles only.
      */
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
+        $hasAdminRole = $user?->roles()->whereIn('id', self::ADMIN_ROLE_IDS)->exists() ?? false;
 
-        if (!$user || (int) $user->myRole === Role::CUSTOMER) {
+        if (!$hasAdminRole) {
             return response()->json([
                 'success' => false,
                 'message' => 'Forbidden. Admin access only.',
