@@ -120,6 +120,79 @@ const locationAutocompleteService = {
 
         return response.data.features.map((feature) => mapFeature(feature));
     },
+
+    detectCurrentPosition() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("Geolocation is not supported by this browser."));
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    resolve({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                    });
+                },
+                (error) => {
+                    reject(error);
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 10000,
+                    maximumAge: 600000,
+                }
+            );
+        });
+    },
+
+    async reverseGeocodeByCoordinates(latitude, longitude, accessToken, countryCode = null) {
+        if (!accessToken || latitude === null || latitude === undefined || longitude === null || longitude === undefined) {
+            return null;
+        }
+
+        const params = new URLSearchParams({
+            access_token: accessToken,
+            language: "en",
+            types: "address,place,postcode,locality,region,country",
+            limit: "1",
+        });
+
+        if (countryCode) {
+            params.append("country", countryCode.toLowerCase());
+        }
+
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?${params.toString()}`;
+        const response = await axios.get(url);
+        const feature = response?.data?.features?.[0];
+
+        if (!feature) {
+            return null;
+        }
+
+        return mapFeature(feature);
+    },
+
+    async detectAddressByCountry(accessToken, countryCode = null) {
+        const coordinates = await this.detectCurrentPosition();
+        const location = await this.reverseGeocodeByCoordinates(
+            coordinates.latitude,
+            coordinates.longitude,
+            accessToken,
+            countryCode
+        );
+
+        if (!location) {
+            return null;
+        }
+
+        return {
+            ...location,
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+        };
+    },
 };
 
 export default locationAutocompleteService;

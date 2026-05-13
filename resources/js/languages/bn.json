@@ -880,6 +880,8 @@
         "select_state_first": "Select state first",
         "no_states_available": "No active states available for this country.",
         "no_cities_available": "No active cities available for this state.",
-        "loading_suggestions": "Loading address suggestions..."
+        "loading_suggestions": "Loading address suggestions...",
+        "detecting_current_location": "আপনার বর্তমান লোকেশন সনাক্ত করা হচ্ছে...",
+        "location_auto_filled_editable": "লোকেশন অটো-ফিল হয়েছে। চাইলে আপনি এটি এডিট করতে পারবেন।"
     }
 }

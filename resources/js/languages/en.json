@@ -884,6 +884,8 @@
         "select_state_first": "Select state first",
         "no_states_available": "No active states available for this country.",
         "no_cities_available": "No active cities available for this state.",
-        "loading_suggestions": "Loading address suggestions..."
+        "loading_suggestions": "Loading address suggestions...",
+        "detecting_current_location": "Detecting your current location...",
+        "location_auto_filled_editable": "Location auto-filled. You can edit it anytime."
     }
 }

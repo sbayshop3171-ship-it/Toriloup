@@ -107,7 +107,7 @@
                         <vue-select
                             class="w-full h-12 px-4 rounded-lg text-base capitalize border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500 appearance-none"
                             id="country" :class="errors.country ? 'invalid' : ''" v-model="address.form.country"
-                            @update:modelValue="callStates($event)" :options="countries" label-by="name" value-by="name"
+                            @update:modelValue="handleCountryChange($event)" :options="countries" label-by="name" value-by="name"
                             :closeOnSelect="true" :searchable="true" :clearOnClose="true" placeholder="--"
                             search-placeholder="--" />
                         <small class="db-field-alert" v-if="errors.country">
@@ -117,6 +117,12 @@
                             v-if="selectedCountryCurrencyCode || selectedCountryCurrencySymbol">
                             {{ $t('label.currency_symbol') }}: {{ selectedCountryCurrencySymbol || '--' }} |
                             {{ $t('label.currency_iso_code') }}: {{ selectedCountryCurrencyCode || '--' }}
+                        </small>
+                        <small class="db-field-alert !text-slate-500" v-if="isAutoDetectingLocation">
+                            {{ $t('message.detecting_current_location') }}
+                        </small>
+                        <small class="db-field-alert !text-green-600" v-else-if="autoDetectedLocationApplied">
+                            {{ $t('message.location_auto_filled_editable') }}
                         </small>
                     </div>
 
@@ -288,6 +294,8 @@ export default {
             showAddressSuggestions: false,
             isAddressSuggestionLoading: false,
             autocompleteTimer: null,
+            isAutoDetectingLocation: false,
+            autoDetectedLocationApplied: false,
         }
     },
     components: {
@@ -363,11 +371,16 @@ export default {
             this.address.flag = e.flag_emoji;
             this.address.form.country_code = e.calling_code;
         },
+        handleCountryChange: async function (countryName) {
+            await this.callStates(countryName);
+            await this.autofillLocationByCountry(countryName);
+        },
         callStates: async function (countryName, preferredState = null, preferredCity = null) {
             this.address.form.state = null;
             this.address.cities = [];
             this.address.states = [];
             this.address.form.city = null;
+            this.autoDetectedLocationApplied = false;
 
             if (!countryName) {
                 return;
@@ -384,6 +397,49 @@ export default {
                         }
                     }
                 })
+        },
+        autofillLocationByCountry: async function (countryName) {
+            if (!countryName || !this.mapboxAccessToken) {
+                return;
+            }
+
+            const selectedCountry = this.countries.find((country) => country.name === countryName);
+            if (!selectedCountry?.code) {
+                return;
+            }
+
+            this.isAutoDetectingLocation = true;
+            try {
+                const detectedLocation = await locationAutocompleteService.detectAddressByCountry(
+                    this.mapboxAccessToken,
+                    selectedCountry.code
+                );
+
+                if (!detectedLocation) {
+                    return;
+                }
+
+                if (
+                    detectedLocation.country_code
+                    && detectedLocation.country_code.toUpperCase() !== selectedCountry.code.toUpperCase()
+                ) {
+                    return;
+                }
+
+                this.address.form.address = detectedLocation.street_address || this.address.form.address;
+                this.address.form.zip_code = detectedLocation.zip_code || this.address.form.zip_code;
+                this.address.form.latitude = detectedLocation.latitude || null;
+                this.address.form.longitude = detectedLocation.longitude || null;
+
+                const preferredState = detectedLocation.state || null;
+                const preferredCity = detectedLocation.city || null;
+                await this.callStates(countryName, preferredState, preferredCity);
+                this.autoDetectedLocationApplied = true;
+            } catch (error) {
+                this.autoDetectedLocationApplied = false;
+            } finally {
+                this.isAutoDetectingLocation = false;
+            }
         },
         callCities: async function (stateName, preferredCity = null) {
             this.address.form.city = null;
@@ -510,6 +566,7 @@ export default {
             this.address.cities = [];
             this.addressSuggestions = [];
             this.showAddressSuggestions = false;
+            this.autoDetectedLocationApplied = false;
         },
         save: function () {
             try {
@@ -536,6 +593,7 @@ export default {
                     this.address.cities = [];
                     this.addressSuggestions = [];
                     this.showAddressSuggestions = false;
+                    this.autoDetectedLocationApplied = false;
                     this.errors = {};
                     this.activeAddress(res.data.data);
                 }).catch((err) => {
