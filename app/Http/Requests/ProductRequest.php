@@ -84,7 +84,15 @@ class ProductRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $sku = ProductVariation::where('sku', $this->sku)->first();
+            $tenantId = app(TenantContext::class)->currentId($this);
+            $skuQuery = ProductVariation::withoutGlobalScopes()->where('sku', $this->sku);
+
+            if ($tenantId !== null) {
+                $skuQuery->where('tenant_id', $tenantId);
+            }
+
+            $sku = $skuQuery->first();
+
             if ($sku) {
                 $validator->getMessageBag()->add('sku', trans('all.message.sku_exist'));
             }

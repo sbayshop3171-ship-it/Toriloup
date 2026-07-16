@@ -13,20 +13,32 @@ class TenantContext
 {
     public function current(?Request $request = null): ?Tenant
     {
-        if (app()->bound('currentTenant')) {
-            $tenant = app('currentTenant');
+        $request ??= request();
+        $tenantAttribute = config('tenancy.tenant_request_attribute', 'saas.tenant');
+
+        $tenant = $request?->attributes->get($tenantAttribute);
+
+        if ($tenant instanceof Tenant) {
+            return $tenant;
+        }
+
+        $hasTenantSignal = filled($request?->header('X-Tenant-Slug'))
+            || filled($request?->query('tenant_slug'));
+
+        if ($hasTenantSignal) {
+            $tenant = $this->resolveForAuthenticatedUser($request);
 
             if ($tenant instanceof Tenant) {
                 return $tenant;
             }
         }
 
-        $request ??= request();
-        $tenantAttribute = config('tenancy.tenant_request_attribute', 'saas.tenant');
-        $tenant = $request?->attributes->get($tenantAttribute);
+        if (app()->bound('currentTenant')) {
+            $tenant = app('currentTenant');
 
-        if ($tenant instanceof Tenant) {
-            return $tenant;
+            if ($tenant instanceof Tenant) {
+                return $tenant;
+            }
         }
 
         return $this->resolveForAuthenticatedUser($request);
