@@ -20,6 +20,18 @@ jobs:
   build-test:
     name: Build And Test
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+      VITE_API_KEY: testing-key
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      SAAS_MARKETING_HOST: company.com
+      SAAS_OWNER_HOST: owner.company.com
+      SAAS_MERCHANT_HOST: merchant.company.com
+      SAAS_STOREFRONT_SUFFIX: company.com
 
     steps:
       - name: Checkout
@@ -53,4 +65,4 @@ jobs:
         run: npm run build
 
       - name: Run test suite
-        run: php artisan test
+        run: php artisan test --env=testing
