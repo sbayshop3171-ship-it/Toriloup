@@ -216,6 +216,14 @@ class MerchantTenantIsolationTest extends TestCase
                 'unit_id' => $unitA->id,
             ]);
 
+        if ($response->getStatusCode() !== 201) {
+            $this->fail(sprintf(
+                'Merchant product create failed with status %s and body %s',
+                $response->getStatusCode(),
+                $response->getContent()
+            ));
+        }
+
         $response
             ->assertCreated()
             ->assertJsonPath('data.name', 'Shared Product')
