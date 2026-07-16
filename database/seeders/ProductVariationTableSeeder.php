@@ -6,6 +6,7 @@ use App\Models\Product;
 use Illuminate\Database\Seeder;
 use App\Models\ProductVariation;
 use Dipokhalder\EnvEditor\EnvEditor;
+use Illuminate\Support\Facades\File;
 use Picqer\Barcode\BarcodeGeneratorJPG;
 
 class ProductVariationTableSeeder extends Seeder
@@ -88,6 +89,7 @@ class ProductVariationTableSeeder extends Seeder
                             $barcode_value = str_pad($sku, 12, '0', STR_PAD_LEFT);
                             $barcode       = $generator->getBarcode($barcode_value, $generator::TYPE_EAN_13);
                             $tempFilePath  = storage_path('app/public/barcode.jpg');
+                            File::ensureDirectoryExists(dirname($tempFilePath));
                             file_put_contents($tempFilePath, $barcode);
                             $productVariation->addMedia($tempFilePath)->toMediaCollection('product-variation-barcode');
                         }
