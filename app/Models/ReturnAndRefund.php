@@ -24,7 +24,7 @@ class ReturnAndRefund extends Model implements HasMedia
         'reject_reason'    => 'string',
         'order_id'         => 'integer',
         'user_id'          => 'integer',
-        'order_serial_no'  => 'integer',
+        'order_serial_no'  => 'string',
         'status'           => 'integer'
     ];
 
