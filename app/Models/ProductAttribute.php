@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ProductAttribute extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
     protected $table = "product_attributes";
-    protected $fillable = ['name'];
+    protected $fillable = ['tenant_id', 'name'];
     protected $casts = [
         'id'     => 'integer',
+        'tenant_id' => 'integer',
         'name'   => 'string',
     ];
 

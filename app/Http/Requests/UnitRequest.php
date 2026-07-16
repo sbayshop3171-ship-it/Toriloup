@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,18 +25,26 @@ class UnitRequest extends FormRequest
      */
     public function rules(): array
     {
+        $unit = $this->route('unit');
+        $unitId = is_object($unit) ? $unit->id : $unit;
+        $tenantId = app(TenantContext::class)->currentId($this);
+
         return [
             'name'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique("units", "name")->ignore($this->route('unit.id'))
+                Rule::unique('units', 'name')
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($unitId)
             ],
             'code'              => [
                 'required',
                 'string',
                 'max:20',
-                Rule::unique("units", "code")->ignore($this->route('unit.id'))
+                Rule::unique('units', 'code')
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($unitId)
             ],
             'status' => ['required', 'numeric'],
         ];

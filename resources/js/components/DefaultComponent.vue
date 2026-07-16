@@ -64,6 +64,7 @@ export default {
     },
     beforeMount() {
         this.displayModeDefine();
+        this.theme = this.resolveTheme(this.$route);
         this.$store.dispatch('frontendSetting/lists').then(res => {
             this.$store.dispatch("globalState/init", {
                 language_id: res.data.data.site_default_language,
@@ -91,6 +92,30 @@ export default {
         },
     },
     methods: {
+        isAdminSurfaceHost: function () {
+            const hostname = window.location.hostname;
+
+            return Boolean(
+                (env.OWNER_HOST && hostname === env.OWNER_HOST) ||
+                (env.MERCHANT_HOST && hostname === env.MERCHANT_HOST)
+            );
+        },
+        resolveTheme: function (route) {
+            const adminSurfaceAuthRoutes = [
+                "auth.login",
+                "auth.adminLogin",
+                "auth.merchantRegister",
+                "auth.forgotPassword",
+                "auth.forgotPasswordVerify",
+                "auth.resetPassword",
+            ];
+
+            if (this.isAdminSurfaceHost() && adminSurfaceAuthRoutes.includes(route?.name)) {
+                return "backend";
+            }
+
+            return route?.meta?.isFrontend === true ? "frontend" : "backend";
+        },
         displayModeDefine: function () {
             let dir = "ltr";
             const attributes = {
@@ -109,11 +134,7 @@ export default {
 
     watch: {
         $route(e) {
-            if (e.meta.isFrontend === true) {
-                this.theme = "frontend";
-            } else {
-                this.theme = "backend";
-            }
+            this.theme = this.resolveTheme(e);
         },
         displayMode() {
             this.displayModeDefine();

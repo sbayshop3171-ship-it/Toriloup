@@ -9,6 +9,7 @@ use App\Enums\Role as EnumRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 use App\Http\Requests\CustomerRequest;
 use App\Http\Requests\PaginateRequest;
 use App\Http\Requests\ChangeImageRequest;
@@ -63,6 +64,8 @@ class CustomerService
     {
         try {
             DB::transaction(function () use ($request) {
+                $customerRole = $this->ensureCustomerRole();
+
                 $this->user = User::create([
                     'name'              => $request->name,
                     'email'             => $request->email,
@@ -74,7 +77,7 @@ class CustomerService
                     'country_code'      => $request->country_code,
                     'is_guest'          => Ask::NO,
                 ]);
-                $this->user->assignRole(EnumRole::CUSTOMER);
+                $this->user->assignRole($customerRole);
             });
             return $this->user;
         } catch (Exception $exception) {
@@ -200,5 +203,22 @@ class CustomerService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function ensureCustomerRole(): Role
+    {
+        $role = Role::query()->find(EnumRole::CUSTOMER);
+
+        if ($role !== null) {
+            return $role;
+        }
+
+        $role = new Role();
+        $role->id = EnumRole::CUSTOMER;
+        $role->name = 'customer';
+        $role->guard_name = 'web';
+        $role->save();
+
+        return $role;
     }
 }

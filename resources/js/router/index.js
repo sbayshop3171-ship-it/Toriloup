@@ -115,6 +115,9 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
+    const hostname = window.location.hostname;
+    const isOwnerHost = Boolean(ENV.OWNER_HOST && hostname === ENV.OWNER_HOST);
+    const isMerchantHost = Boolean(ENV.MERCHANT_HOST && hostname === ENV.MERCHANT_HOST);
     const isAdminRoute = to.path === "/admin" || to.path.startsWith("/admin/");
     const isLoggedIn = store.getters.authStatus;
     const parsedRoleId = Number.parseInt(store.getters.authInfo?.role_id, 10);
@@ -126,6 +129,11 @@ router.beforeEach((to, from, next) => {
         roleEnum.STUFF,
     ];
     const isAdminUser = roleId !== null && adminRoleIds.includes(roleId);
+
+    if (to.name === "auth.merchantRegister" && !isMerchantHost) {
+        next({ name: isOwnerHost ? "auth.login" : "auth.signup" });
+        return;
+    }
 
     if (isAdminRoute && to.name !== "auth.adminLogin") {
         if (!isLoggedIn) {
@@ -159,6 +167,7 @@ router.beforeEach((to, from, next) => {
     const guestOnlyRouteNames = [
         "auth.login",
         "auth.adminLogin",
+        "auth.merchantRegister",
         "auth.signup",
         "auth.signupVerify",
         "auth.forgotPassword",

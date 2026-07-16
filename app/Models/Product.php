@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Enums\Status;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
@@ -16,10 +17,11 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Product extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia, SoftDeletes;
+    use BelongsToTenant, HasFactory, InteractsWithMedia, SoftDeletes;
 
     protected $table = "products";
     protected $fillable = [
+        'tenant_id',
         'name',
         'slug',
         'sku',
@@ -53,6 +55,7 @@ class Product extends Model implements HasMedia
     protected array $dates = ['deleted_at'];
     protected $casts = [
         'id'                           => 'integer',
+        'tenant_id'                    => 'integer',
         'name'                         => 'string',
         'slug'                         => 'string',
         'sku'                          => 'string',

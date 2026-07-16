@@ -5,8 +5,8 @@
             class="w-full hidden sm:block sm:max-w-xs md:max-w-sm flex-shrink-0">
         <form class="w-full p-6" @submit.prevent="login">
             <div class="text-center mb-8">
-                <h3 class="capitalize text-2xl mb-2 font-bold text-primary">{{ $t('label.sign_in') }}</h3>
-                <p class="font-medium">{{ $t('message.continue_shopping') }}</p>
+                <h3 class="capitalize text-2xl mb-2 font-bold text-primary">{{ loginTitle }}</h3>
+                <p class="font-medium" v-if="!isAdminLoginRoute">{{ $t('message.continue_shopping') }}</p>
                 <div v-if="errors.validation"
                     class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-5 rounded relative" role="alert">
                     <span class="block sm:inline">{{ errors.validation }}</span>
@@ -84,9 +84,15 @@
                 class="font-bold text-center w-full h-12 leading-12 rounded-full bg-primary text-white capitalize mb-6">
                 {{ $t('label.sign_in') }}
             </button>
-            <div class="flex items-center justify-center gap-1.5">
+            <div v-if="!isAdminLoginRoute" class="flex items-center justify-center gap-1.5">
                 <span class="font-medium text-text">{{ $t('message.dont_have_account') }}</span>
                 <router-link class="capitalize font-bold text-primary" :to="{ name: 'auth.signup' }">
+                    {{ $t('label.sign_up') }}
+                </router-link>
+            </div>
+            <div v-if="isMerchantLoginRoute" class="flex items-center justify-center gap-1.5">
+                <span class="font-medium text-text">{{ $t('message.dont_have_account') }}</span>
+                <router-link class="capitalize font-bold text-primary" :to="{ name: 'auth.merchantRegister' }">
                     {{ $t('label.sign_up') }}
                 </router-link>
             </div>
@@ -165,7 +171,34 @@ export default {
             return this.$store.getters['frontendCountryCode/lists'];
         },
         isAdminLoginRoute: function () {
-            return this.$route?.meta?.authContext === "admin";
+            return this.authSurface === "platform" || this.authSurface === "merchant" || this.$route?.meta?.authContext === "admin";
+        },
+        isMerchantLoginRoute: function () {
+            return this.authSurface === "merchant";
+        },
+        authSurface: function () {
+            const hostname = window.location.hostname;
+
+            if (ENV.OWNER_HOST && hostname === ENV.OWNER_HOST) {
+                return "platform";
+            }
+
+            if (ENV.MERCHANT_HOST && hostname === ENV.MERCHANT_HOST) {
+                return "merchant";
+            }
+
+            return this.$route?.meta?.authContext === "admin" ? "admin" : "storefront";
+        },
+        loginTitle: function () {
+            if (this.authSurface === "platform") {
+                return "Owner Login";
+            }
+
+            if (this.authSurface === "merchant") {
+                return "Merchant Login";
+            }
+
+            return this.$t('label.sign_in');
         },
     },
     mounted() {
@@ -193,7 +226,7 @@ export default {
                 this.loading.isActive = true;
                 const payload = {
                     ...this.form,
-                    context: this.isAdminLoginRoute ? "admin" : "customer",
+                    context: this.authSurface,
                 };
 
                 this.$store.dispatch('login', payload).then((res) => {

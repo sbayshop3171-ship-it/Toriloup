@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class OrderAddress extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $table = "order_addresses";
     protected $fillable = [
+        'tenant_id',
         'order_id',
         'user_id',
         'address_type',
@@ -30,6 +32,7 @@ class OrderAddress extends Model
 
     protected $casts = [
         'id'           => 'integer',
+        'tenant_id'    => 'integer',
         'order_id'     => 'integer',
         'user_id'      => 'integer',
         'address_type' => 'integer',

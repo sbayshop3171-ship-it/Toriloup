@@ -122,6 +122,20 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+foreach ([
+    __DIR__ . '/api/platform-auth.php',
+    __DIR__ . '/api/platform.php',
+    __DIR__ . '/api/merchant-auth.php',
+    __DIR__ . '/api/merchant.php',
+    __DIR__ . '/api/storefront-auth.php',
+    __DIR__ . '/api/storefront.php',
+    __DIR__ . '/api/system.php',
+] as $saasRouteFile) {
+    if (file_exists($saasRouteFile)) {
+        require $saasRouteFile;
+    }
+}
+
 Route::match(['get', 'post'], '/login', function () {
     return response()->json(['errors' => 'unauthenticated'], 401);
 })->name('login');

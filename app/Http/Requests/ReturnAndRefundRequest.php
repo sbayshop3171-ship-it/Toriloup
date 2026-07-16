@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Tenancy\TenantInventoryGuard;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ReturnAndRefundRequest extends FormRequest
@@ -37,5 +38,16 @@ class ReturnAndRefundRequest extends FormRequest
         return [
             "return_reason_id.required" => "The return reason field is required."
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $inventoryGuard = app(TenantInventoryGuard::class);
+
+            if (!$inventoryGuard->orderBelongsToCurrentTenant($this->order_id)) {
+                $validator->errors()->add('order_id', 'The selected order is invalid.');
+            }
+        });
     }
 }

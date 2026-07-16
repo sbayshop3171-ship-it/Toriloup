@@ -2,7 +2,16 @@
 
 use Illuminate\Http\Request;
 use App\Http\Middleware\AdminAccess;
+use App\Http\Middleware\SetTenantContext;
 use App\Http\Middleware\Installed;
+use App\Http\Middleware\EnsureTenantActive;
+use App\Http\Middleware\EnsurePlatformHost;
+use App\Http\Middleware\EnsureMerchantHost;
+use App\Http\Middleware\EnsureSurfaceTokenAbility;
+use App\Http\Middleware\IdentifyRequestSurface;
+use App\Http\Middleware\ResolveTenantFromMerchantMembership;
+use App\Http\Middleware\ResolveTenantFromHost;
+use App\Http\Middleware\EnsureTenantResolved;
 use App\Http\Middleware\localization;
 use Illuminate\Foundation\Application;
 use Illuminate\Database\QueryException;
@@ -61,6 +70,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'localization' => localization::class,
             'installed' => Installed::class,
             'adminAccess' => AdminAccess::class,
+            'identifySurface' => IdentifyRequestSurface::class,
+            'ensurePlatformHost' => EnsurePlatformHost::class,
+            'ensureMerchantHost' => EnsureMerchantHost::class,
+            'surfaceToken' => EnsureSurfaceTokenAbility::class,
+            'resolveTenantFromMerchantMembership' => ResolveTenantFromMerchantMembership::class,
+            'resolveTenantFromHost' => ResolveTenantFromHost::class,
+            'ensureTenantResolved' => EnsureTenantResolved::class,
+            'ensureTenantActive' => EnsureTenantActive::class,
+            'setTenantContext' => SetTenantContext::class,
 
         ]);
     })

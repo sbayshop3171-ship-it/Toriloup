@@ -5,8 +5,8 @@ namespace App\Http\Requests;
 use App\Models\Product;
 use App\Libraries\AppLibrary;
 use App\Models\ProductVariation;
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class ProductVariationRequest extends FormRequest
 {
@@ -39,6 +39,9 @@ class ProductVariationRequest extends FormRequest
             $status     = false;
             $message    = "";
             $variations = json_decode($this->attribute);
+            $tenantId   = app(TenantContext::class)->currentId($this);
+            $productVariation = $this->route('productVariation');
+            $productVariationId = is_object($productVariation) ? $productVariation->id : $productVariation;
 
 
             if (is_array($variations) && count($variations)) {
@@ -48,11 +51,21 @@ class ProductVariationRequest extends FormRequest
                     }
 
                     $price           = AppLibrary::amountCheck($variation->price);
-                    $checkProductSku = Product::where(['sku' => $variation->sku])->first();
-                    if ($this->route('productVariation.id')) {
-                        $checkVariationSku = ProductVariation::where('sku', $variation->sku)->where('id', '!=', $this->route('productVariation.id'))->first();
+                    $checkProductSku = Product::query()
+                        ->where('sku', $variation->sku)
+                        ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+                        ->first();
+                    if ($productVariationId) {
+                        $checkVariationSku = ProductVariation::query()
+                            ->where('sku', $variation->sku)
+                            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+                            ->where('id', '!=', $productVariationId)
+                            ->first();
                     } else {
-                        $checkVariationSku = ProductVariation::where('sku', $variation->sku)->first();
+                        $checkVariationSku = ProductVariation::query()
+                            ->where('sku', $variation->sku)
+                            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+                            ->first();
                     }
 
                     if(empty($variation->price)){

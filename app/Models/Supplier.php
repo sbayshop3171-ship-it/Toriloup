@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Spatie\MediaLibrary\HasMedia;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -9,13 +10,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Supplier extends Model implements HasMedia
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
     use InteractsWithMedia;
 
     protected $table = "suppliers";
-    protected $fillable = ['company', 'name', 'email', 'country_code', 'phone', 'address', 'country', 'state', 'city', 'postal_code'];
+    protected $fillable = ['tenant_id', 'company', 'name', 'email', 'country_code', 'phone', 'address', 'country', 'state', 'city', 'postal_code'];
     protected $casts = [
         'id'           => 'integer',
+        'tenant_id'    => 'integer',
         'company'      => 'string',
         'name'         => 'string',
         'email'        => 'string',

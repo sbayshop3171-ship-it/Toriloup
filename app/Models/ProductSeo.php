@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Image\Enums\CropPosition;
@@ -11,11 +12,13 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ProductSeo extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
     protected $table = "product_seos";
-    protected $fillable = ['product_id', 'title', 'description', 'meta_keyword'];
+    protected $fillable = ['tenant_id', 'product_id', 'title', 'description', 'meta_keyword'];
     protected $casts = [
         'id'           => 'integer',
+        'tenant_id'    => 'integer',
         'product_id'   => 'integer',
         'title'        => 'string',
         'description'  => 'string',

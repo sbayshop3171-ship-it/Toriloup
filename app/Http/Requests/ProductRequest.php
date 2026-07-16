@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\ProductVariation;
+use App\Services\Tenancy\TenantContext;
 use App\Rules\IniAmount;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,18 +27,28 @@ class ProductRequest extends FormRequest
      */
     public function rules(): array
     {
+        $product = $this->route('product');
+        $productId = is_object($product) ? $product->id : $product;
+        $tenantId = app(TenantContext::class)->currentId($this);
+
         return [
             'name'                       => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique("products", "name")->whereNull('deleted_at')->ignore($this->route('product.id'))
+                Rule::unique('products', 'name')
+                    ->whereNull('deleted_at')
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($productId)
             ],
             'sku'                        => [
                 'required',
                 'numeric',
                 'max_digits:7',
-                Rule::unique("products", "sku")->whereNull('deleted_at')->ignore($this->route('product.id'))
+                Rule::unique('products', 'sku')
+                    ->whereNull('deleted_at')
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($productId)
             ],
             'product_category_id'        => ['required', 'numeric', 'not_in:0'],
             'barcode_id'                 => ['required', 'numeric', 'not_in:0'],

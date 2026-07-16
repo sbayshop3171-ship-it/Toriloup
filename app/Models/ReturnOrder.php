@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
@@ -9,10 +10,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class ReturnOrder extends Model implements HasMedia
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
     use InteractsWithMedia;
 
     protected $fillable = [
+        'tenant_id',
         'user_id',
         'date',
         'reference_no',
@@ -25,6 +27,7 @@ class ReturnOrder extends Model implements HasMedia
 
     protected $casts = [
         'id'            => 'integer',
+        'tenant_id'     => 'integer',
         'user_id'       => 'integer',
         'date'          => 'datetime',
         'reference_no'  => 'string',

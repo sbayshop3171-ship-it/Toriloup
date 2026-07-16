@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\Role;
+use App\Services\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +16,10 @@ class AdminAccess
         Role::POS_OPERATOR,
         Role::STUFF,
     ];
+
+    public function __construct(private readonly TenantContext $tenantContext)
+    {
+    }
 
     /**
      * Restrict admin endpoints to admin/staff roles only.
@@ -30,6 +35,8 @@ class AdminAccess
                 'message' => 'Forbidden. Admin access only.',
             ], 403);
         }
+
+        $this->tenantContext->hydrateFromRequest($request);
 
         return $next($request);
     }

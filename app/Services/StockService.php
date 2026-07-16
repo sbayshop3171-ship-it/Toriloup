@@ -34,6 +34,7 @@ class StockService
             $methodValue = $request->get('paginate', 0) == 1 ? $request->get('per_page', 10) : '*';
             $orderColumn = $request->get('order_column') ?? 'id';
             $orderType   = $request->get('order_type') ?? 'desc';
+            $this->items = collect();
 
             $stocks =  Stock::with('product')->where('status', Status::ACTIVE)->where(function ($query) use ($requests) {
                 foreach ($requests as $key => $request) {
@@ -52,22 +53,22 @@ class StockService
             if (!blank($stocks)) {
                 $stocks->groupBy('product_id')?->map(function ($product) {
                     $product->groupBy('item_id')?->map(function ($item) {
-                        $this->items[] = [
+                        $this->items->push([
                             'product_id'         => $item->first()['product_id'],
                             'product_name'       => $item->first()['product']['name'],
                             'variation_names'    => $item->first()['variation_names'],
                             'status'             => $item->first()['product']['status'],
                             'stock'              => $item->first()['product']['can_purchasable'] === Ask::NO ? (int)$item->first()['product']['maximum_purchase_quantity'] : $item->sum('quantity'),
 
-                        ];
+                        ]);
                     });
                 });
             } else {
-                $this->items = [];
+                $this->items = collect();
             }
 
             if ($method == 'paginate') {
-                return $this->paginate($this->items, $methodValue, null, URL::to('/') . '/api/admin/stock');
+                return $this->paginate($this->items, $methodValue, null, $request->url());
             }
 
             return $this->items;

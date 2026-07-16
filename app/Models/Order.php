@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Enums\OrderStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Order extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $table = "orders";
     protected $fillable = [
+        'tenant_id',
         'order_serial_no',
         'user_id',
         'tax',
@@ -34,6 +36,7 @@ class Order extends Model
 
     protected $casts = [
         'id'                  => 'integer',
+        'tenant_id'           => 'integer',
         'order_serial_no'     => 'string',
         'user_id'             => 'integer',
         'tax'                 => 'decimal:6',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,11 +25,15 @@ class SupplierRequest extends FormRequest
      */
     public function rules(): array
     {
+        $supplier = $this->route('supplier');
+        $supplierId = is_object($supplier) ? $supplier->id : $supplier;
+        $tenantId = app(TenantContext::class)->currentId($this);
+
         return [
-            'company'      => ['required', 'string', 'max:190', Rule::unique("suppliers", "company")->ignore($this->route('supplier.id'))],
-            'name'         => ['required', 'string', 'max:190', Rule::unique("suppliers", "name")->ignore($this->route('supplier.id'))],
-            'email'        => ['nullable', 'email', 'max:190', Rule::unique("suppliers", "email")->ignore($this->route('supplier.id'))],
-            'phone'        => ['nullable', 'string', 'max:20', Rule::unique("suppliers", "phone")->ignore($this->route('supplier.id'))],
+            'company'      => ['required', 'string', 'max:190', Rule::unique('suppliers', 'company')->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))->ignore($supplierId)],
+            'name'         => ['required', 'string', 'max:190', Rule::unique('suppliers', 'name')->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))->ignore($supplierId)],
+            'email'        => ['nullable', 'email', 'max:190', Rule::unique('suppliers', 'email')->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))->ignore($supplierId)],
+            'phone'        => ['nullable', 'string', 'max:20', Rule::unique('suppliers', 'phone')->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))->ignore($supplierId)],
             'address'      => ['nullable', 'string', 'max:500'],
             'country'      => ['nullable', 'string', 'max:200'],
             'state'        => ['nullable', 'string', 'max:200'],

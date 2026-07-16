@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Image\Enums\CropPosition;
@@ -11,11 +12,13 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ReturnAndRefund extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
     protected $table = "return_and_refunds";
-    protected $fillable = ['return_reason_id', 'note', 'reject_reason', 'order_id', 'user_id', 'order_serial_no', 'status'];
+    protected $fillable = ['tenant_id', 'return_reason_id', 'note', 'reject_reason', 'order_id', 'user_id', 'order_serial_no', 'status'];
     protected $casts = [
         'id'               => 'integer',
+        'tenant_id'        => 'integer',
         'return_reason_id' => 'integer',
         'note'             => 'string',
         'reject_reason'    => 'string',

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Image\Enums\CropPosition;
@@ -11,11 +12,13 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ProductReview extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
     protected $table    = "product_reviews";
-    protected $fillable = ['user_id', 'product_id', 'star', 'review'];
+    protected $fillable = ['tenant_id', 'user_id', 'product_id', 'star', 'review'];
     protected $casts    = [
         'id'         => 'integer',
+        'tenant_id'  => 'integer',
         'user_id'    => 'integer',
         'product_id' => 'integer',
         'star'       => 'integer',

@@ -16,6 +16,19 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+foreach ([
+    __DIR__ . '/web/install.php',
+    __DIR__ . '/web/marketing.php',
+    __DIR__ . '/web/platform.php',
+    __DIR__ . '/web/merchant.php',
+    __DIR__ . '/web/storefront.php',
+    __DIR__ . '/web/payment.php',
+] as $saasRouteFile) {
+    if (file_exists($saasRouteFile)) {
+        require $saasRouteFile;
+    }
+}
+
 Route::prefix('install')->name('installer.')->middleware(['web'])->group(function () {
     Route::get('/', [InstallerController::class, 'index'])->name('index');
     Route::get('/requirement', [InstallerController::class, 'requirement'])->name('requirement');

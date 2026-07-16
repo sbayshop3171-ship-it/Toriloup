@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,14 +25,21 @@ class ProductAttributeOptionRequest extends FormRequest
      */
     public function rules() : array
     {
+        $productAttributeOption = $this->route('productAttributeOption');
+        $productAttributeOptionId = is_object($productAttributeOption) ? $productAttributeOption->id : $productAttributeOption;
+        $productAttribute = $this->route('productAttribute');
+        $productAttributeId = is_object($productAttribute) ? $productAttribute->id : $productAttribute;
+        $tenantId = app(TenantContext::class)->currentId($this);
+
         return [
             'name' => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique("product_attribute_options", "name")->ignore(
-                    $this->route('productAttributeOption.id')
-                )->where('product_attribute_id', $this->route('productAttribute.id'))
+                Rule::unique('product_attribute_options', 'name')
+                    ->ignore($productAttributeOptionId)
+                    ->where('product_attribute_id', $productAttributeId)
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
             ]
         ];
     }

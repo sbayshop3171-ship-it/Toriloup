@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Purchase;
 use App\Models\PurchasePayment;
+use App\Services\Tenancy\TenantInventoryGuard;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PurchasePaymentRequest extends FormRequest
@@ -38,6 +39,12 @@ class PurchasePaymentRequest extends FormRequest
         $validator->after(function ($validator) {
             $status = false;
             $message  = '';
+            $inventoryGuard = app(TenantInventoryGuard::class);
+
+            if (!$inventoryGuard->purchaseBelongsToCurrentTenant(request('purchase_id'))) {
+                $validator->errors()->add('purchase_id', 'The selected purchase is invalid.');
+                return;
+            }
 
             $purchasePaymentAmount = PurchasePayment::where('purchase_id', request('purchase_id'))->sum('amount');
             $purchase = Purchase::findOrFail(request('purchase_id'));

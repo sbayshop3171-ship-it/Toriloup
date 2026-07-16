@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\ProductCategory;
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -26,12 +27,19 @@ class ProductCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
+        $productCategory = $this->route('productCategory');
+        $productCategoryId = is_object($productCategory) ? $productCategory->id : $productCategory;
+        $tenantId = app(TenantContext::class)->currentId($this);
+
         return [
             'name'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique("product_categories", "name")->where('parent_id', $this->input('parent_id'))->ignore($this->route('productCategory.id'))
+                Rule::unique('product_categories', 'name')
+                    ->where('parent_id', $this->input('parent_id'))
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($productCategoryId)
             ],
             'parent_id'   => ['nullable', 'string', 'max:900'],
             'description' => ['nullable', 'string', 'max:900'],
@@ -44,9 +52,12 @@ class ProductCategoryRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                if ($this->route('productCategory.id')) {
+                $productCategory = $this->route('productCategory');
+                $productCategoryId = is_object($productCategory) ? $productCategory->id : $productCategory;
+
+                if ($productCategoryId) {
                     if ($this->input('parent_id') != 'NULL') {
-                        if ($this->input('parent_id') == $this->route('productCategory.id')) {
+                        if ((int) $this->input('parent_id') === (int) $productCategoryId) {
                             $validator->errors()->add(
                                 'parent_id',
                                 'The parent filed and edit field is same data.'
@@ -56,7 +67,7 @@ class ProductCategoryRequest extends FormRequest
                             $productCategoryParents = ProductCategory::find($this->input('parent_id'))->ancestors()->get();
                             if ($productCategoryParents) {
                                 foreach ($productCategoryParents as $productCategoryParent) {
-                                    if ($productCategoryParent->id == $this->route('productCategory.id')) {
+                                    if ($productCategoryParent->id == $productCategoryId) {
                                         $status = true;
                                     }
                                 }

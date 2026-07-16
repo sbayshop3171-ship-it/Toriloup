@@ -3,6 +3,7 @@
 namespace App\Models;
 
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Enums\Status;
 use Spatie\MediaLibrary\HasMedia;
 use Illuminate\Database\Eloquent\Model;
@@ -13,13 +14,15 @@ use Staudenmeir\LaravelAdjacencyList\Eloquent\HasRecursiveRelationships;
 
 class ProductCategory extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
     use HasRecursiveRelationships;
 
     protected $table = "product_categories";
-    protected $fillable = ['name', 'slug', 'description', 'status', 'parent_id'];
+    protected $fillable = ['tenant_id', 'name', 'slug', 'description', 'status', 'parent_id'];
     protected $casts = [
         'id'          => 'integer',
+        'tenant_id'   => 'integer',
         'name'        => 'string',
         'slug'        => 'string',
         'description' => 'string',

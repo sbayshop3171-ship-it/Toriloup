@@ -1,4 +1,4 @@
-name: CI & Deploy
+name: CI
 
 on:
   push:
@@ -13,194 +13,44 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-main-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  php_syntax:
-    name: PHP Syntax Check
+  build-test:
+    name: Build And Test
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          extensions: bcmath, ctype, curl, dom, fileinfo, filter, gd, intl, json, mbstring, openssl, pdo, pdo_sqlite, tokenizer, xml, zip
+          coverage: none
 
-      - name: Lint PHP files
-        run: |
-          find app bootstrap config database routes tests -type f -name '*.php' -print0 \
-            | xargs -0 -n1 php -l
-
-  language_json:
-    name: Language JSON Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Validate translation JSON files
-        run: |
-          find resources/js/languages -type f -name '*.json' -print0 \
-            | xargs -0 -n1 jq empty
-
-  deploy:
-    name: Deploy To Live Server
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs:
-      - php_syntax
-      - language_json
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Validate required deploy secrets
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          missing=0
-
-          for name in SSH_HOST SSH_USER SSH_PORT SSH_PRIVATE_KEY; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error title=Missing secret::Repository secret '$name' is empty or not set."
-              missing=1
-            fi
-          done
-
-          if [ "$missing" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Validate SSH private key format
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          case "$SSH_PRIVATE_KEY" in
-            *"BEGIN OPENSSH PRIVATE KEY"*|*"BEGIN RSA PRIVATE KEY"*|*"BEGIN EC PRIVATE KEY"*|*"BEGIN DSA PRIVATE KEY"*)
-              echo "SSH private key format looks valid."
-              ;;
-            *)
-              echo "::error title=Invalid SSH key::SSH_PRIVATE_KEY must be a private key, not a public key."
-              exit 1
-              ;;
-          esac
-
-      - name: Probe SSH port reachability
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          set -eu
-          echo "Probing SSH endpoint ${SSH_HOST}:${SSH_PORT}"
-          if command -v nc >/dev/null 2>&1; then
-            nc -vz -w 10 "$SSH_HOST" "$SSH_PORT"
-          else
-            timeout 10 bash -lc "cat < /dev/null > /dev/tcp/${SSH_HOST}/${SSH_PORT}"
-          fi
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          port: ${{ secrets.SSH_PORT }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          debug: true
-          timeout: 120s
-          command_timeout: 60m
-          script: |
-            set -eu
+          node-version: '20'
+          cache: npm
 
-            LOCK_FILE="/tmp/gachwalas-live-deploy.lock"
-            exec 9>"$LOCK_FILE"
-            if ! flock -n 9; then
-              echo "[deploy] another deploy is already running"
-              exit 1
-            fi
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
 
-            DEPLOY_PATH="/var/www/ecomuser/data/www/gachwalas.com"
-            BRANCH="main"
-            export COMPOSER_ALLOW_SUPERUSER=1
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
 
-            if [ ! -d "$DEPLOY_PATH" ]; then
-              echo "[deploy] DEPLOY_PATH does not exist: $DEPLOY_PATH"
-              exit 1
-            fi
+      - name: Install JS dependencies
+        run: npm ci
 
-            cd "$DEPLOY_PATH"
+      - name: Build frontend assets
+        run: npm run build
 
-            if [ ! -d .git ]; then
-              echo "[deploy] .git directory not found in $DEPLOY_PATH"
-              exit 1
-            fi
-
-            if [ ! -f .env ]; then
-              echo "[deploy] .env file not found in $DEPLOY_PATH"
-              exit 1
-            fi
-
-            read_env() {
-              grep -E "^$1=" .env | tail -n 1 | cut -d= -f2-
-            }
-
-            APP_ENV_VALUE="$(read_env APP_ENV)"
-            APP_URL_VALUE="$(read_env APP_URL)"
-            DB_DATABASE_VALUE="$(read_env DB_DATABASE)"
-            DB_USERNAME_VALUE="$(read_env DB_USERNAME)"
-            DB_PASSWORD_VALUE="$(read_env DB_PASSWORD)"
-
-            if [ -z "$DB_DATABASE_VALUE" ] || [ -z "$DB_USERNAME_VALUE" ] || [ -z "$DB_PASSWORD_VALUE" ]; then
-              echo "[deploy] database configuration is incomplete in .env"
-              exit 1
-            fi
-
-            if [ "$APP_ENV_VALUE" = "local" ] || [ "$APP_URL_VALUE" = "http://localhost" ]; then
-              echo "[deploy] live server .env still uses local defaults (APP_ENV=$APP_ENV_VALUE, APP_URL=$APP_URL_VALUE)"
-              exit 1
-            fi
-
-            git config --global --add safe.directory "$DEPLOY_PATH"
-
-            echo "[deploy] before: $(git rev-parse --short HEAD)"
-            git fetch --prune origin "$BRANCH"
-            git checkout -B "$BRANCH" "origin/$BRANCH"
-            echo "[deploy] after: $(git rev-parse --short HEAD)"
-            echo "[deploy] user: $(whoami)"
-            echo "[deploy] cwd: $(pwd)"
-
-            if ! command -v composer >/dev/null 2>&1; then
-              echo "[deploy] composer command not found on server"
-              exit 1
-            fi
-            composer install --no-dev --optimize-autoloader
-
-            php artisan config:clear
-            php artisan migrate:status --no-ansi >/dev/null
-
-            if ! command -v npm >/dev/null 2>&1; then
-              echo "[deploy] npm command not found on server"
-              exit 1
-            fi
-            rm -rf .npm-cache node_modules
-            npm ci --include=dev --cache .npm-cache --no-audit --no-fund
-            npm run build
-
-            if ! command -v php >/dev/null 2>&1; then
-              echo "[deploy] php command not found on server"
-              exit 1
-            fi
-            php artisan migrate --force
-            php artisan optimize:clear
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            echo "[deploy] completed successfully"
+      - name: Run test suite
+        run: php artisan test

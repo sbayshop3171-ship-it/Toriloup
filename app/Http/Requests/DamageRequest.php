@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Tenancy\TenantInventoryGuard;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DamageRequest extends FormRequest
@@ -34,6 +35,7 @@ class DamageRequest extends FormRequest
             $status   = false;
             $message  = '';
             $products = json_decode($this->products, true);
+            $inventoryGuard = app(TenantInventoryGuard::class);
             if (is_array($products) && count($products)) {
                 foreach ($products as $product) {
                     if ($product['quantity'] < 1 || !is_numeric($product['quantity']) || !is_int((int)$product['quantity'])) {
@@ -46,6 +48,11 @@ class DamageRequest extends FormRequest
                         $status  = true;
                         $message = trans('all.message.product_price_total_invalid');
                     }
+                }
+
+                if (!$status && ($inventoryMessage = $inventoryGuard->invalidInventoryPayload($products))) {
+                    $status = true;
+                    $message = $inventoryMessage;
                 }
             } else {
                 $validator->errors()->add('products', trans('all.message.product_invalid'));

@@ -1,5 +1,21 @@
 import axios from "axios";
 
+const authEndpoint = function (context, action) {
+    if (context === "platform") {
+        return `platform/auth/${action}`;
+    }
+
+    if (context === "merchant") {
+        return `merchant/auth/${action}`;
+    }
+
+    if (context === "storefront") {
+        return `storefront/auth/${action}`;
+    }
+
+    return `auth/${action}`;
+};
+
 export const auth = {
     state: {
         authStatus: false,
@@ -64,7 +80,7 @@ export const auth = {
         login: function (context, payload) {
             return new Promise((resolve, reject) => {
                 axios
-                    .post("auth/login", payload)
+                    .post(authEndpoint(payload?.context, "login"), payload)
                     .then((res) => {
                         context.commit("authLogin", res.data);
                         resolve(res);
@@ -91,10 +107,24 @@ export const auth = {
         },
         logout: function (context) {
             return new Promise((resolve, reject) => {
+                const surface = context.state.authInfo?.surface || context.state.authInfo?.auth_surface || null;
                 axios
-                    .post("auth/logout")
+                    .post(authEndpoint(surface, "logout"))
                     .then((res) => {
                         context.commit("authLogout");
+                        resolve(res);
+                    })
+                    .catch((err) => {
+                        reject(err);
+                    });
+            });
+        },
+        merchantRegister: function (context, payload) {
+            return new Promise((resolve, reject) => {
+                axios
+                    .post("merchant/auth/register", payload)
+                    .then((res) => {
+                        context.commit("authLogin", res.data);
                         resolve(res);
                     })
                     .catch((err) => {
@@ -243,7 +273,12 @@ export const auth = {
         authLogin: function (state, payload) {
             state.authStatus = true;
             state.authToken = payload.token;
-            state.authInfo = payload.user;
+            state.authInfo = {
+                ...(payload.user || {}),
+                surface: payload.surface || payload.user?.surface || null,
+                tenants: payload.tenants || [],
+                current_tenant: payload.current_tenant || payload.tenant || null,
+            };
             state.authMenu = payload.menu;
             state.authPermission = payload.permission;
             state.authDefaultPermission = payload.defaultPermission;

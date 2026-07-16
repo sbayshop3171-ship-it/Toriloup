@@ -11,6 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
@@ -101,7 +102,7 @@ class User extends Authenticatable implements HasMedia
         return asset('images/required/profile.png');
     }
 
-    public function registerMediaConversions(Media $media = null): void
+    public function registerMediaConversions(?Media $media = null): void
     {
         $this->addMediaConversion('thumb')->fit(Fit::Fill, 338, 338)->keepOriginalImageFormat()->sharpen(10);
     }
@@ -114,6 +115,11 @@ class User extends Authenticatable implements HasMedia
     public function addresses(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Address::class);
+    }
+
+    public function tenantMembers(): HasMany
+    {
+        return $this->hasMany(TenantMember::class);
     }
 
 

@@ -17,8 +17,10 @@ class ApiKeyMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
+        $apiKey = data_get(config('installer'), 'buildPayload.license_code') ?: env('VITE_API_KEY');
+
         if ($request->hasHeader('x-api-key')) {
-            if ($request->header('x-api-key') == env('VITE_API_KEY')) {
+            if (hash_equals((string) $apiKey, (string) $request->header('x-api-key'))) {
                 return $next($request);
             }
         }

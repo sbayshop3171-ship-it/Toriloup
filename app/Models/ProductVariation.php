@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Enums\Status;
 use Illuminate\Database\Eloquent\Model;
 use Staudenmeir\LaravelAdjacencyList\Eloquent\HasRecursiveRelationships;
@@ -10,9 +11,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class ProductVariation extends  Model implements HasMedia
 {
-    use HasRecursiveRelationships, InteractsWithMedia;
+    use BelongsToTenant, HasRecursiveRelationships, InteractsWithMedia;
     protected $table = "product_variations";
     protected $fillable = [
+        'tenant_id',
         'product_id',
         'product_attribute_id',
         'product_attribute_option_id',
@@ -24,6 +26,7 @@ class ProductVariation extends  Model implements HasMedia
 
     protected $casts = [
         'id'                           => 'integer',
+        'tenant_id'                    => 'integer',
         'product_id'                   => 'integer',
         'product_attribute_id'         => 'integer',
         'product_attribute_option_id'  => 'integer',

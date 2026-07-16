@@ -58,9 +58,16 @@
     @endif
 
     <script>
-        const APP_URL = "{{ env('VITE_HOST') }}";
-        const APP_DEMO = "{{ env('VITE_DEMO') }}";
-        const APP_KEY = "{{ env('VITE_API_KEY') }}";
+        window.APP_URL = window.location.origin;
+        window.APP_DEMO = @js(env('VITE_DEMO'));
+        window.APP_KEY = @js(data_get(config('installer'), 'buildPayload.license_code') ?: env('VITE_API_KEY'));
+        window.APP_OWNER_HOST = @js(config('saas.owner_host'));
+        window.APP_MERCHANT_HOST = @js(config('saas.merchant_host'));
+        window.APP_MARKETING_HOST = @js(config('saas.marketing_host'));
+
+        const APP_URL = window.APP_URL;
+        const APP_DEMO = window.APP_DEMO;
+        const APP_KEY = window.APP_KEY;
     </script>
 
     <script src="{{ asset('themes/default/js/modal.js') }}"></script>

@@ -6,6 +6,7 @@ use App\Enums\Activity;
 use App\Enums\OrderType;
 use App\Rules\ValidJsonOrder;
 use App\Enums\PosPaymentMethod;
+use App\Services\Tenancy\TenantInventoryGuard;
 use Illuminate\Validation\Rule;
 use Dipokhalder\Settings\Facades\Settings;
 use Illuminate\Foundation\Http\FormRequest;
@@ -49,5 +50,27 @@ class PosOrderRequest extends FormRequest
             'pos_payment_note.required'    => request('pos_payment_method') == PosPaymentMethod::CARD ? 'Last 4 digits of card is required' : (request('pos_payment_method') == PosPaymentMethod::MOBILE_BANKING ? 'Transaction ID field is required' : 'Payment note field is required'),
             'pos_received_amount.required' => 'The received amount field is required'
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $inventoryGuard = app(TenantInventoryGuard::class);
+
+            if (!$inventoryGuard->legacyCustomerBelongsToCurrentTenant($this->customer_id)) {
+                $validator->errors()->add('customer_id', 'The selected customer is invalid.');
+                return;
+            }
+
+            $products = json_decode($this->products, true);
+
+            if (is_array($products) && count($products)) {
+                $inventoryMessage = $inventoryGuard->invalidInventoryPayload($products);
+
+                if ($inventoryMessage !== null) {
+                    $validator->errors()->add('products', $inventoryMessage);
+                }
+            }
+        });
     }
 }

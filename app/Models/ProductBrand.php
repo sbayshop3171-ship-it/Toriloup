@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Enums\Status;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
@@ -12,11 +13,13 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ProductBrand extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
     protected $table = "product_brands";
-    protected $fillable = ['name', 'slug', 'description', 'status'];
+    protected $fillable = ['tenant_id', 'name', 'slug', 'description', 'status'];
     protected $casts = [
         'id'          => 'integer',
+        'tenant_id'   => 'integer',
         'name'        => 'string',
         'slug'        => 'string',
         'description' => 'string',
