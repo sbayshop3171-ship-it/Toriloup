@@ -16,22 +16,59 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  APP_ENV: testing
+  VITE_API_KEY: testing-key
+  DB_CONNECTION: sqlite
+  DB_DATABASE: ':memory:'
+  CACHE_STORE: array
+  SESSION_DRIVER: array
+  QUEUE_CONNECTION: sync
+  SAAS_MARKETING_HOST: company.com
+  SAAS_OWNER_HOST: owner.company.com
+  SAAS_MERCHANT_HOST: merchant.company.com
+  SAAS_STOREFRONT_SUFFIX: company.com
+
 jobs:
-  build-test:
-    name: Build And Test
+  build:
+    name: Build Frontend
     runs-on: ubuntu-latest
-    env:
-      APP_ENV: testing
-      VITE_API_KEY: testing-key
-      DB_CONNECTION: sqlite
-      DB_DATABASE: ':memory:'
-      CACHE_STORE: array
-      SESSION_DRIVER: array
-      QUEUE_CONNECTION: sync
-      SAAS_MARKETING_HOST: company.com
-      SAAS_OWNER_HOST: owner.company.com
-      SAAS_MERCHANT_HOST: merchant.company.com
-      SAAS_STOREFRONT_SUFFIX: company.com
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+  tests:
+    name: Tests (${{ matrix.suite.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: Unit
+            path: tests/Unit
+          - name: Basic Feature
+            path: tests/Feature/ExampleTest.php
+          - name: SaaS Foundation
+            path: tests/Feature/SaasFoundationTest.php
+          - name: Platform Workspace
+            path: tests/Feature/PlatformWorkspaceTest.php
+          - name: Billing Workspace
+            path: tests/Feature/BillingWorkspaceTest.php
+          - name: Merchant Isolation
+            path: tests/Feature/MerchantTenantIsolationTest.php
 
     steps:
       - name: Checkout
@@ -41,14 +78,8 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: bcmath, ctype, curl, dom, fileinfo, filter, gd, intl, json, mbstring, openssl, pdo, pdo_sqlite, tokenizer, xml, zip
+          extensions: bcmath, ctype, curl, dom, exif, fileinfo, filter, gd, intl, json, mbstring, openssl, pdo, pdo_sqlite, simplexml, sodium, tokenizer, xml, xmlreader, xmlwriter, zip
           coverage: none
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -58,11 +89,5 @@ jobs:
           cp .env.example .env
           php artisan key:generate --force
 
-      - name: Install JS dependencies
-        run: npm ci
-
-      - name: Build frontend assets
-        run: npm run build
-
       - name: Run test suite
-        run: php artisan test --env=testing
+        run: php artisan test "${{ matrix.suite.path }}" --env=testing
