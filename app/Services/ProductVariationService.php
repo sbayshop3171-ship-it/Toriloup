@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use App\Libraries\AppLibrary;
 use App\Models\ProductVariation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use App\Http\Requests\PaginateRequest;
 use Picqer\Barcode\BarcodeGeneratorJPG;
@@ -28,6 +29,15 @@ class ProductVariationService
         'parent_id',
         'order'
     ];
+
+    private function writeBarcodeImage(string $barcode): string
+    {
+        $tempFilePath = storage_path('app/public/barcode.jpg');
+        File::ensureDirectoryExists(dirname($tempFilePath));
+        file_put_contents($tempFilePath, $barcode);
+
+        return $tempFilePath;
+    }
 
     private function variationChild($arrays, $filters): void
     {
@@ -297,8 +307,7 @@ class ProductVariationService
                             }
 
                             if ($barcode) {
-                                $tempFilePath = storage_path('app/public/barcode.jpg');
-                                file_put_contents($tempFilePath, $barcode);
+                                $tempFilePath = $this->writeBarcodeImage($barcode);
                                 $productVariation->addMedia($tempFilePath)->toMediaCollection('product-variation-barcode');
                             }
                         }
@@ -389,8 +398,7 @@ class ProductVariationService
                                 }
 
                                 if ($barcode) {
-                                    $tempFilePath = storage_path('app/public/barcode.jpg');
-                                    file_put_contents($tempFilePath, $barcode);
+                                    $tempFilePath = $this->writeBarcodeImage($barcode);
                                     $productVariation->clearMediaCollection('product-variation-barcode');
                                     $productVariationExistCheck->addMedia($tempFilePath)->toMediaCollection('product-variation-barcode');
                                 }
@@ -440,8 +448,7 @@ class ProductVariationService
                             }
 
                             if ($barcode) {
-                                $tempFilePath = storage_path('app/public/barcode.jpg');
-                                file_put_contents($tempFilePath, $barcode);
+                                $tempFilePath = $this->writeBarcodeImage($barcode);
                                 $productVariation->clearMediaCollection('product-variation-barcode');
                                 $createProductVariation->addMedia($tempFilePath)->toMediaCollection('product-variation-barcode');
                             }

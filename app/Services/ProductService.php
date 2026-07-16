@@ -17,6 +17,7 @@ use App\Libraries\AppLibrary;
 use App\Models\ProductCategory;
 use App\Models\ProductVariation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Requests\ProductRequest;
@@ -135,8 +136,7 @@ class ProductService
                 if ($this->product->barcode_id == BarcodeType::UPC_A) {
                     $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_UPC_A);
                 }
-                $tempFilePath = storage_path('app/public/barcode.jpg');
-                file_put_contents($tempFilePath, $barcode);
+                $tempFilePath = $this->writeBarcodeImage($barcode);
                 $this->product->addMedia($tempFilePath)->toMediaCollection('product-barcode');
             });
             return $this->product;
@@ -170,8 +170,7 @@ class ProductService
                     if ($product->barcode_id === BarcodeType::UPC_A) {
                         $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_UPC_A);
                     }
-                    $tempFilePath = storage_path('app/public/barcode.jpg');
-                    file_put_contents($tempFilePath, $barcode);
+                    $tempFilePath = $this->writeBarcodeImage($barcode);
                     $product->clearMediaCollection('product-barcode');
                     $product->addMedia($tempFilePath)->toMediaCollection('product-barcode');
                 } else {
@@ -223,6 +222,15 @@ class ProductService
     public function downloadBarcode(Product $product)
     {
         return $product->getMedia('product-barcode')->first();
+    }
+
+    private function writeBarcodeImage(string $barcode): string
+    {
+        $tempFilePath = storage_path('app/public/barcode.jpg');
+        File::ensureDirectoryExists(dirname($tempFilePath));
+        file_put_contents($tempFilePath, $barcode);
+
+        return $tempFilePath;
     }
 
     /**
