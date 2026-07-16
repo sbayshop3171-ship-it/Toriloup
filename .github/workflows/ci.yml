@@ -90,4 +90,30 @@ jobs:
           php artisan key:generate --force
 
       - name: Run test suite
-        run: php artisan test "${{ matrix.suite.path }}" --env=testing
+        run: |
+          set +e
+          php artisan test "${{ matrix.suite.path }}" --env=testing 2>&1 | tee test-output.log
+          status=${PIPESTATUS[0]}
+
+          if [ "$status" -ne 0 ]; then
+            echo "::group::Failing test output"
+            tail -200 test-output.log
+            echo "::endgroup::"
+
+            {
+              echo "### Failed suite: ${{ matrix.suite.name }}"
+              echo
+              echo '```text'
+              tail -200 test-output.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            tail -80 test-output.log | while IFS= read -r line; do
+              safe_line="${line//'%'/'%25'}"
+              safe_line="${safe_line//$'\r'/'%0D'}"
+              safe_line="${safe_line//$'\n'/'%0A'}"
+              echo "::error title=${{ matrix.suite.name }}::$safe_line"
+            done
+          fi
+
+          exit "$status"
