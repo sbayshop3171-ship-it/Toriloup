@@ -25,7 +25,13 @@ class EnsureSurfaceTokenAbility
 
         $ability = 'surface:'.strtolower($surface);
 
-        if ($token instanceof TransientToken || ($request->bearerToken() === null && app()->runningUnitTests())) {
+        if (
+            $token instanceof TransientToken ||
+            (
+                $request->bearerToken() === null &&
+                $token->can($ability)
+            )
+        ) {
             return $next($request);
         }
 
