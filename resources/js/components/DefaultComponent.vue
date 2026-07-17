@@ -100,6 +100,20 @@ export default {
                 (env.MERCHANT_HOST && hostname === env.MERCHANT_HOST)
             );
         },
+        isAuthRoute: function (route = this.$route) {
+            const authRoutes = [
+                "auth.login",
+                "auth.adminLogin",
+                "auth.merchantRegister",
+                "auth.signup",
+                "auth.signupVerify",
+                "auth.forgotPassword",
+                "auth.forgotPasswordVerify",
+                "auth.resetPassword",
+            ];
+
+            return authRoutes.includes(route?.name);
+        },
         resolveTheme: function (route) {
             const adminSurfaceAuthRoutes = [
                 "auth.login",
@@ -116,16 +130,18 @@ export default {
 
             return route?.meta?.isFrontend === true ? "frontend" : "backend";
         },
-        displayModeDefine: function () {
+        displayModeDefine: function (route = this.$route) {
             let dir = "ltr";
             const attributes = {
                 dir: "ltr",
             };
-            if (this.$store.getters['globalState/lists'].display_mode === DisplayModeEnum.LTR) {
-                dir = "ltr";
-            } else {
+
+            if (!this.isAuthRoute(route) && this.$store.getters['globalState/lists'].display_mode !== DisplayModeEnum.LTR) {
                 dir = "rtl";
+            } else {
+                dir = "ltr";
             }
+
             Object.keys(attributes).forEach(attr => {
                 document.documentElement.setAttribute(attr, dir);
             });
@@ -135,6 +151,7 @@ export default {
     watch: {
         $route(e) {
             this.theme = this.resolveTheme(e);
+            this.displayModeDefine(e);
         },
         displayMode() {
             this.displayModeDefine();

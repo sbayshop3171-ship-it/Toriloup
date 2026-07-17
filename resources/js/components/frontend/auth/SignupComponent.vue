@@ -1,17 +1,19 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="w-full max-w-3xl mx-auto rounded-2xl flex overflow-hidden gap-y-6 bg-white shadow-card mb-24 !sm:mb-0">
-        <img :src="APP_URL + '/images/required/auth.jpg'" alt="banners"
-            class="w-full hidden sm:block sm:max-w-xs md:max-w-sm flex-shrink-0" loading="lazy">
-        <form class="w-full p-6" @submit.prevent="signup">
+    <section class="w-full min-h-[calc(100vh_-_160px)] flex items-center justify-center px-4 py-8 sm:py-10"
+        dir="ltr">
+        <div class="w-full max-w-3xl rounded-2xl flex overflow-hidden gap-y-6 bg-white shadow-card" dir="ltr">
+            <img :src="APP_URL + '/images/required/auth.jpg'" alt="banners"
+                class="w-full hidden sm:block sm:max-w-xs md:max-w-sm flex-shrink-0" loading="lazy">
+        <form class="w-full p-6" dir="ltr" @submit.prevent="signup">
             <div class="text-center mb-8">
                 <h3 class="capitalize text-2xl mb-2 font-bold text-primary">{{ $t('label.sign_up') }}</h3>
             </div>
             <div class="mb-6">
                 <label for="formName" class="text-sm font-medium capitalize mb-1 field-title required">{{
                     $t('label.name') }}</label>
-                <input v-model="form.name" :class="errors.name ? 'invalid' : ''" id="formName" type="text"
-                    class="w-full h-12 px-4 rounded-lg text-base border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
+                <input v-model="form.name" :class="errors.name ? 'invalid' : ''" id="formName" type="text" dir="ltr"
+                    class="w-full h-12 px-4 rounded-lg text-base text-left border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
                 <small class="db-field-alert" v-if="errors.name">{{ errors.name[0] }}</small>
             </div>
 
@@ -43,11 +45,11 @@
 
                     </div>
                     <input v-model="form.phone" v-on:keypress="phoneNumber($event)" v-bind:class="errors.phone
-                        ? 'invalid' : ''" type="text" id="phone" class="pl-2 text-sm w-full h-full" />
+                        ? 'invalid' : ''" type="text" id="phone" dir="ltr" class="pl-2 text-sm text-left w-full h-full" />
                 </div>
                 <input v-if="!toggleValue" v-model="form.email" :class="errors.email ? 'invalid' : ''" id="formEmail"
-                    type="email"
-                    class="w-full h-12 px-4 rounded-lg text-base border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
+                    type="email" dir="ltr"
+                    class="w-full h-12 px-4 rounded-lg text-base text-left border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
                 <small class="db-field-alert" v-if="errors.email_or_phone">{{ errors.email_or_phone }}</small>
                 <span v-else>
                     <small class="db-field-alert" v-if="errors.phone && toggleValue">{{ errors.phone[0] }}</small>
@@ -58,8 +60,9 @@
             <div class="mb-6">
                 <label for="formPassword" class="text-sm font-medium capitalize mb-1 field-title required">{{
                     $t('label.password') }}</label>
-                <input v-model="form.password" :class="errors.password ? 'invalid' : ''" id="formPassword" type="password"
-                    class="w-full h-12 px-4 rounded-lg text-base border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
+                <input v-model="form.password" :class="errors.password ? 'invalid' : ''" id="formPassword"
+                    type="password" dir="ltr"
+                    class="w-full h-12 px-4 rounded-lg text-base text-left border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
                 <small class="db-field-alert" v-if="errors.password">{{ errors.password[0] }}</small>
             </div>
             <button type="submit"
@@ -73,7 +76,8 @@
                 </router-link>
             </div>
         </form>
-    </div>
+        </div>
+    </section>
 </template>
 
 <script>
