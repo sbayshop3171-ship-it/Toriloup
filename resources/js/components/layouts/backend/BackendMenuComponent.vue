@@ -2,7 +2,11 @@
     <aside class="db-sidebar">
         <div class="db-sidebar-header">
             <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden" :to="workspaceHomeRoute">
-                <img class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
+                <img v-if="logoSrc" class="w-full h-full object-contain" :src="logoSrc" alt="logo">
+                <span v-else
+                    class="w-full h-full rounded-xl border border-dashed border-[#D9DBE9] bg-white text-[#A0A3BD] flex items-center justify-center">
+                    <i class="fa-regular fa-image"></i>
+                </span>
             </router-link>
             <button @click="closeSidebar" class="fa-solid fa-xmark xmark-btn close-db-menu"></button>
         </div>
@@ -177,6 +181,19 @@ export default {
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
         },
+        merchantSetup: function () {
+            return this.$store.getters['merchantDashboard/setup'];
+        },
+        merchantBrandLogo: function () {
+            return this.merchantSetup?.branding?.company_logo_url || "";
+        },
+        logoSrc: function () {
+            if (isMerchantHost()) {
+                return this.merchantBrandLogo;
+            }
+
+            return this.setting?.theme_logo || "";
+        },
         menus: function () {
             if (isPlatformHost()) {
                 return cloneMenus(ownerMenus);
@@ -204,6 +221,7 @@ export default {
 
     mounted() {
         this.defaultSidebarActive();
+        this.loadMerchantBranding();
         this.loadNotificationItems();
         this.markOnlineOrderNotificationsAsReadByRoute(this.$route.path);
         window.addEventListener('storage', this.handleNotificationStorageEvent);
@@ -230,6 +248,13 @@ export default {
         },
         closeSidebar : function(){
             return appService.closeSidebar()
+        },
+        loadMerchantBranding: function () {
+            if (!isMerchantHost() || this.merchantSetup) {
+                return;
+            }
+
+            this.$store.dispatch("merchantDashboard/setup").catch(() => {});
         },
         normalizeMenuUrl: function (url) {
             return String(url || '').replace(/^\/+|\/+$/g, '');

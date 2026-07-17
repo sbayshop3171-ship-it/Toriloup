@@ -62,6 +62,7 @@
         window.APP_DEMO = @js(env('VITE_DEMO'));
         window.APP_KEY = @js(data_get(config('installer'), 'buildPayload.license_code') ?: env('VITE_API_KEY'));
         window.APP_OWNER_HOST = @js(config('saas.owner_host'));
+        window.APP_OWNER_HOST_ALIASES = @js(implode(',', config('saas.owner_host_aliases', [])));
         window.APP_MERCHANT_HOST = @js(config('saas.merchant_host'));
         window.APP_MARKETING_HOST = @js(config('saas.marketing_host'));
         window.APP_STOREFRONT_SUFFIX = @js(config('saas.fallback_subdomain_suffix'));

@@ -2,7 +2,11 @@
     <div class="backdrop" @click="notificationDropdownStatus = false"></div>
     <header class="db-header">
         <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden flex-shrink-0" :to="workspaceHomeRoute">
-            <img class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
+            <img v-if="logoSrc" class="w-full h-full object-contain" :src="logoSrc" alt="logo">
+            <span v-else
+                class="w-full h-full rounded-xl border border-dashed border-[#D9DBE9] bg-white text-[#A0A3BD] flex items-center justify-center">
+                <i class="fa-regular fa-image"></i>
+            </span>
         </router-link>
         <div class="flex items-center justify-end w-full gap-4">
             <div
@@ -175,7 +179,7 @@ import _ from "lodash";
 import alertService from "../../../services/alertService";
 import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
-import { resolveGuestHomeRoute, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
+import { isMerchantHost, resolveGuestHomeRoute, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import axios from 'axios';
@@ -230,6 +234,22 @@ export default {
         permissions: function () {
             return this.$store.getters.authPermission;
         },
+        isMerchantWorkspace: function () {
+            return isMerchantHost();
+        },
+        merchantSetup: function () {
+            return this.$store.getters['merchantDashboard/setup'];
+        },
+        merchantBrandLogo: function () {
+            return this.merchantSetup?.branding?.company_logo_url || "";
+        },
+        logoSrc: function () {
+            if (this.isMerchantWorkspace) {
+                return this.merchantBrandLogo;
+            }
+
+            return this.setting?.theme_logo || "";
+        },
         unreadNotificationCount: function () {
             return this.notificationItems.filter((item) => !item.read).length;
         },
@@ -247,6 +267,7 @@ export default {
         appService.responsiveLoad();
         this.posPermissionCheck();
         this.orderPermissionCheck();
+        this.loadMerchantBranding();
         this.loadNotificationItems();
         document.addEventListener('click', this.handleDocumentClick);
         window.addEventListener('storage', this.handleNotificationStorageEvent);
@@ -333,6 +354,13 @@ export default {
                 return '';
             }
             return '/admin/' + String(url).replace(/^\/+/, '');
+        },
+        loadMerchantBranding: function () {
+            if (!this.isMerchantWorkspace || this.merchantSetup) {
+                return;
+            }
+
+            this.$store.dispatch("merchantDashboard/setup").catch(() => {});
         },
         handleDocumentClick: function (event) {
             const notificationWrapper = this.$refs.notificationWrapper;

@@ -17,6 +17,7 @@ use App\Services\Saas\TenantSettingsService;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MerchantDashboardController extends Controller
 {
@@ -56,6 +57,11 @@ class MerchantDashboardController extends Controller
             'status' => true,
             'data' => [
                 'tenant' => $tenant->only(['id', 'uuid', 'name', 'slug', 'status', 'plan_code', 'onboarding_status']),
+                'branding' => [
+                    'company_name' => $settings['company_name'] ?? $tenant->name,
+                    'company_logo' => $settings['company_logo'] ?? null,
+                    'company_logo_url' => $this->tenantLogoUrl($settings['company_logo'] ?? null),
+                ],
                 'metrics' => $metrics,
                 'checklist' => $checklist,
                 'progress' => [
@@ -242,5 +248,10 @@ class MerchantDashboardController extends Controller
             'ssl_status' => $domain->ssl_status,
             'verification_status' => $domain->verification_status,
         ];
+    }
+
+    private function tenantLogoUrl(?string $path): ?string
+    {
+        return filled($path) ? Storage::disk('public')->url($path) : null;
     }
 }

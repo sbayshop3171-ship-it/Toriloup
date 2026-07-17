@@ -44,6 +44,7 @@ class TenantDomainStoreRequest extends FormRequest
                             config('saas.marketing_host'),
                             config('saas.owner_host'),
                             config('saas.merchant_host'),
+                            ...((array) config('saas.owner_host_aliases', [])),
                         ])
                     );
 

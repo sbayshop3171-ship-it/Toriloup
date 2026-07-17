@@ -90,6 +90,7 @@ class TenantResolver
             $this->normalizeHost((string) config('saas.marketing_host', '')),
             $this->normalizeHost((string) config('saas.owner_host', '')),
             $this->normalizeHost((string) config('saas.merchant_host', '')),
+            ...array_map(fn (mixed $host): string => $this->normalizeHost((string) $host), (array) config('saas.owner_host_aliases', [])),
         ]));
     }
 }

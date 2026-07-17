@@ -51,14 +51,46 @@
                         </div>
                     </div>
                     <div class="px-5 pb-5">
-                        <div class="p-4 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] mb-4">
-                            <p class="text-xs uppercase tracking-wide text-paragraph mb-1">Default storefront</p>
-                            <a v-if="storefrontUrl" class="font-semibold text-primary break-all" :href="storefrontUrl"
-                                target="_blank" rel="noopener">
-                                {{ storefrontHost }}
-                            </a>
-                            <p v-else class="font-semibold text-heading">Not ready yet</p>
-                            <p class="text-xs text-paragraph mt-2">
+                        <div class="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E5E7EB] mb-4">
+                            <div v-if="storefrontUrl">
+                                <div class="flex items-start gap-3 mb-4">
+                                    <span
+                                        class="w-10 h-10 rounded-xl bg-white border border-[#E5E7EB] text-primary flex items-center justify-center shrink-0">
+                                        <i class="fa-solid fa-link"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs uppercase tracking-wide text-paragraph mb-1">Website link</p>
+                                        <a class="font-semibold text-heading hover:text-primary break-all"
+                                            :href="storefrontUrl" target="_blank" rel="noopener">
+                                            {{ storefrontHost }}
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2">
+                                    <a class="inline-flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-primary text-primary bg-white font-semibold hover:bg-primary hover:text-white transition"
+                                        :href="storefrontUrl" target="_blank" rel="noopener">
+                                        <i class="fa-solid fa-globe"></i>
+                                        <span>Visit Website</span>
+                                    </a>
+                                    <button
+                                        class="inline-flex items-center gap-2 h-10 px-4 rounded-xl border border-[#D9DBE9] text-heading bg-white font-semibold hover:border-primary hover:text-primary transition"
+                                        type="button" @click="copyStorefrontUrl">
+                                        <i class="fa-regular fa-copy"></i>
+                                        <span>{{ copied ? 'Copied' : 'Copy Website' }}</span>
+                                    </button>
+                                    <button
+                                        class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-[#D9DBE9] text-heading bg-white hover:border-primary hover:text-primary transition"
+                                        type="button" title="Copy website link" @click="copyStorefrontUrl">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-else>
+                                <p class="text-xs uppercase tracking-wide text-paragraph mb-1">Default storefront</p>
+                                <p class="font-semibold text-heading">Not ready yet</p>
+                            </div>
+                            <p class="text-xs text-paragraph mt-3">
                                 Custom domains can be connected from Domain settings.
                             </p>
                         </div>
@@ -122,11 +154,49 @@ export default {
             return this.metrics.storefront_url || (this.storefrontHost ? "https://" + this.storefrontHost : "");
         },
     },
+    data() {
+        return {
+            copied: false,
+        };
+    },
     methods: {
         goStep(step) {
             if (step.route_name) {
                 this.$router.push({ name: step.route_name });
             }
+        },
+        copyStorefrontUrl() {
+            if (!this.storefrontUrl) {
+                return;
+            }
+
+            const done = () => {
+                this.copied = true;
+                window.setTimeout(() => {
+                    this.copied = false;
+                }, 1800);
+            };
+
+            if (navigator?.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(this.storefrontUrl).then(done).catch(() => {
+                    this.copyWithTextarea(done);
+                });
+                return;
+            }
+
+            this.copyWithTextarea(done);
+        },
+        copyWithTextarea(done) {
+            const textarea = document.createElement("textarea");
+            textarea.value = this.storefrontUrl;
+            textarea.setAttribute("readonly", "readonly");
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+            done();
         },
     },
 };

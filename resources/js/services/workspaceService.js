@@ -4,12 +4,20 @@ const normalizeHost = function (host) {
     return String(host || "").trim().toLowerCase();
 };
 
+const splitHosts = function (hosts) {
+    return String(hosts || "")
+        .split(",")
+        .map((host) => normalizeHost(host))
+        .filter((host) => host.length > 0);
+};
+
 export const detectWorkspaceHost = function (hostname = window.location.hostname) {
     const host = normalizeHost(hostname);
     const ownerHost = normalizeHost(ENV.OWNER_HOST);
+    const ownerHostAliases = splitHosts(ENV.OWNER_HOST_ALIASES);
     const merchantHost = normalizeHost(ENV.MERCHANT_HOST);
 
-    if (ownerHost && host === ownerHost) {
+    if ((ownerHost && host === ownerHost) || ownerHostAliases.includes(host)) {
         return "platform";
     }
 
