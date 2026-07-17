@@ -138,6 +138,20 @@
                     </div>
 
                     <div class="form-col-12">
+                        <label for="company_logo" class="db-field-title">
+                            {{ $t("label.logo") }}
+                        </label>
+                        <div class="flex flex-col gap-3">
+                            <div v-if="currentLogo" class="w-28 h-28 p-2 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
+                                <img :src="currentLogo" alt="company logo" class="w-full h-full object-contain" />
+                            </div>
+                            <input id="company_logo" type="file" accept="image/png,image/jpeg" class="db-field-control"
+                                @change="changeLogo" />
+                            <small class="db-field-alert" v-if="errors.company_logo_file">{{ errors.company_logo_file[0] }}</small>
+                        </div>
+                    </div>
+
+                    <div class="form-col-12">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>
@@ -178,6 +192,8 @@ export default {
             },
             address: '',
             flag: '',
+            currentLogo: null,
+            logoFile: null,
             errors: {},
         };
     },
@@ -196,6 +212,14 @@ export default {
         change: function (e) {
             this.flag = e.flag_emoji;
             this.form.company_calling_code = e.calling_code;
+        },
+        changeLogo: function (event) {
+            const file = event?.target?.files?.[0] || null;
+
+            this.logoFile = file;
+            if (file) {
+                this.currentLogo = URL.createObjectURL(file);
+            }
         },
         fetchCompany: async function () {
             try {
@@ -224,6 +248,7 @@ export default {
                             company_longitude: res.data.data.company_longitude,
                             company_address: res.data.data.company_address,
                         };
+                        this.currentLogo = res.data.data.company_logo;
                         if (res.data.data.company_calling_code !== "") {
                             this.$store.dispatch('countryCode/callingCode', res.data.data.company_calling_code).then(res => {
                                 this.flag = res.data.data.flag_emoji;
@@ -246,8 +271,19 @@ export default {
         save: function () {
             try {
                 this.loading.isActive = true;
-                this.$store.dispatch("company/save", this.form).then((res) => {
+                const formData = new FormData();
+
+                Object.entries(this.form).forEach(([key, value]) => {
+                    formData.append(key, value ?? "");
+                });
+
+                if (this.logoFile) {
+                    formData.append("company_logo_file", this.logoFile);
+                }
+
+                this.$store.dispatch("company/save", formData).then((res) => {
                     this.loading.isActive = false;
+                    this.currentLogo = res.data.data.company_logo;
                     alertService.successFlip(
                         res.config.method === "put" ?? 0,
                         this.$t("menu.company")

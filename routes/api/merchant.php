@@ -6,6 +6,7 @@ use App\Http\Controllers\Saas\MerchantOrderController;
 use App\Http\Controllers\Saas\MerchantCatalogController;
 use App\Http\Controllers\Saas\MerchantProductController;
 use App\Http\Controllers\Saas\MerchantCustomerController;
+use App\Http\Controllers\Saas\MerchantSettingsController;
 use App\Http\Controllers\Saas\MerchantStockController;
 use App\Http\Controllers\Saas\MerchantSupplierController;
 use App\Http\Controllers\Saas\MerchantAttributeController;
@@ -47,10 +48,19 @@ Route::prefix('merchant')
                 Route::prefix('catalog')->group(function () {
                     Route::get('/categories', [MerchantCatalogController::class, 'categories']);
                     Route::post('/categories', [MerchantCatalogController::class, 'storeCategory']);
+                    Route::get('/categories/{productCategory}', [MerchantCatalogController::class, 'showCategory'])->whereNumber('productCategory');
+                    Route::match(['put', 'patch', 'post'], '/categories/{productCategory}', [MerchantCatalogController::class, 'updateCategory'])->whereNumber('productCategory');
+                    Route::delete('/categories/{productCategory}', [MerchantCatalogController::class, 'destroyCategory'])->whereNumber('productCategory');
                     Route::get('/brands', [MerchantCatalogController::class, 'brands']);
                     Route::post('/brands', [MerchantCatalogController::class, 'storeBrand']);
+                    Route::get('/brands/{productBrand}', [MerchantCatalogController::class, 'showBrand'])->whereNumber('productBrand');
+                    Route::match(['put', 'patch', 'post'], '/brands/{productBrand}', [MerchantCatalogController::class, 'updateBrand'])->whereNumber('productBrand');
+                    Route::delete('/brands/{productBrand}', [MerchantCatalogController::class, 'destroyBrand'])->whereNumber('productBrand');
                     Route::get('/units', [MerchantCatalogController::class, 'units']);
                     Route::post('/units', [MerchantCatalogController::class, 'storeUnit']);
+                    Route::get('/units/{unit}', [MerchantCatalogController::class, 'showUnit'])->whereNumber('unit');
+                    Route::match(['put', 'patch', 'post'], '/units/{unit}', [MerchantCatalogController::class, 'updateUnit'])->whereNumber('unit');
+                    Route::delete('/units/{unit}', [MerchantCatalogController::class, 'destroyUnit'])->whereNumber('unit');
                     Route::get('/attributes', [MerchantAttributeController::class, 'index']);
                     Route::post('/attributes', [MerchantAttributeController::class, 'store']);
                     Route::get('/attributes/{attributeId}', [MerchantAttributeController::class, 'show'])->whereNumber('attributeId');
@@ -138,6 +148,15 @@ Route::prefix('merchant')
                     Route::get('/', [MerchantDomainController::class, 'index']);
                     Route::post('/', [MerchantDomainController::class, 'store']);
                     Route::post('/{domainId}/primary', [MerchantDomainController::class, 'setPrimary'])->whereNumber('domainId');
+                });
+
+                Route::prefix('settings')->group(function () {
+                    Route::get('/company', [MerchantSettingsController::class, 'company']);
+                    Route::match(['put', 'patch', 'post'], '/company', [MerchantSettingsController::class, 'updateCompany']);
+                    Route::get('/shipping', [MerchantSettingsController::class, 'shipping']);
+                    Route::match(['put', 'patch'], '/shipping', [MerchantSettingsController::class, 'updateShipping']);
+                    Route::get('/payment-methods', [MerchantSettingsController::class, 'paymentMethods']);
+                    Route::match(['put', 'patch'], '/payment-methods', [MerchantSettingsController::class, 'updatePaymentMethods']);
                 });
 
                 Route::prefix('billing')->group(function () {

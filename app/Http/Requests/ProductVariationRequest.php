@@ -40,7 +40,7 @@ class ProductVariationRequest extends FormRequest
             $message    = "";
             $variations = json_decode($this->attribute);
             $tenantId   = app(TenantContext::class)->currentId($this);
-            $productVariation = $this->route('productVariation');
+            $productVariation = $this->route('productVariation') ?? $this->route('variationId');
             $productVariationId = is_object($productVariation) ? $productVariation->id : $productVariation;
 
 

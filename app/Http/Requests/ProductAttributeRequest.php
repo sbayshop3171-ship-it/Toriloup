@@ -25,7 +25,7 @@ class ProductAttributeRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productAttribute = $this->route('productAttribute');
+        $productAttribute = $this->route('productAttribute') ?? $this->route('attributeId');
         $productAttributeId = is_object($productAttribute) ? $productAttribute->id : $productAttribute;
         $tenantId = app(TenantContext::class)->currentId($this);
 

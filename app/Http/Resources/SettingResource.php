@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 
 use App\Models\ThemeSetting;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SettingResource extends JsonResource
@@ -41,8 +42,8 @@ class SettingResource extends JsonResource
             'shipping_setup_method'                 => $this->info['shipping_setup_method'],
             'shipping_setup_flat_rate_wise_cost'    => $this->info['shipping_setup_flat_rate_wise_cost'],
             'shipping_setup_area_wise_default_cost' => $this->info['shipping_setup_area_wise_default_cost'],
-            'theme_logo'                            => $this->themeImage('theme_logo')->logo,
-            'theme_footer_logo'                     => $this->themeImage('theme_footer_logo')->footerLogo,
+            'theme_logo'                            => $this->tenantLogo('company_logo') ?? $this->themeImage('theme_logo')->logo,
+            'theme_footer_logo'                     => $this->tenantLogo('company_logo') ?? $this->themeImage('theme_footer_logo')->footerLogo,
             'theme_favicon_logo'                    => $this->themeImage('theme_favicon_logo')->faviconLogo,
             'otp_type'                              => $this->info['otp_type'],
             'otp_digit_limit'                       => $this->info['otp_digit_limit'],
@@ -76,5 +77,12 @@ class SettingResource extends JsonResource
     public function themeImage($key)
     {
         return ThemeSetting::where(['key' => $key])->first() ?? new ThemeSetting();
+    }
+
+    private function tenantLogo(string $key): ?string
+    {
+        $path = $this->info[$key] ?? null;
+
+        return filled($path) ? Storage::disk('public')->url($path) : null;
     }
 }

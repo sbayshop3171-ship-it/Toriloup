@@ -1,7 +1,6 @@
-import axios from 'axios'
+import axios from "axios";
 
-
-export const shippingSetup = {
+export const merchantDomain = {
     namespaced: true,
     state: {
         lists: [],
@@ -9,12 +8,12 @@ export const shippingSetup = {
     getters: {
         lists: function (state) {
             return state.lists;
-        }
+        },
     },
     actions: {
         lists: function (context) {
             return new Promise((resolve, reject) => {
-                axios.get("merchant/settings/shipping").then((res) => {
+                axios.get("merchant/domains").then((res) => {
                     context.commit("lists", res.data.data);
                     resolve(res);
                 }).catch((err) => {
@@ -24,8 +23,18 @@ export const shippingSetup = {
         },
         save: function (context, payload) {
             return new Promise((resolve, reject) => {
-                axios.put(`/merchant/settings/shipping`, payload).then((res) => {
-                    context.commit("lists", res.data.data);
+                axios.post("merchant/domains", payload).then((res) => {
+                    context.dispatch("lists").then().catch();
+                    resolve(res);
+                }).catch((err) => {
+                    reject(err);
+                });
+            });
+        },
+        setPrimary: function (context, payload) {
+            return new Promise((resolve, reject) => {
+                axios.post(`merchant/domains/${payload.id}/primary`).then((res) => {
+                    context.dispatch("lists").then().catch();
                     resolve(res);
                 }).catch((err) => {
                     reject(err);
@@ -35,7 +44,7 @@ export const shippingSetup = {
     },
     mutations: {
         lists: function (state, payload) {
-            state.lists = payload
-        }
+            state.lists = payload;
+        },
     },
-}
+};

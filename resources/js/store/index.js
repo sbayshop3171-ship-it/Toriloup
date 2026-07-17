@@ -53,6 +53,9 @@ import { globalState } from "./modules/frontend/globalState";
 import { language } from "./modules/language";
 import { license } from "./modules/license";
 import { mail } from "./modules/mail";
+import { merchantBilling } from "./modules/merchantBilling";
+import { merchantDomain } from "./modules/merchantDomain";
+import { merchantPaymentMethod } from "./modules/merchantPaymentMethod";
 import { menuSection } from "./modules/menuSection";
 import { menuTemplate } from "./modules/menuTemplate";
 import { myOrderDetails } from "./modules/myOrderDetails";
@@ -116,6 +119,9 @@ export default new createStore({
         company,
         countryCode,
         mail,
+        merchantBilling,
+        merchantDomain,
+        merchantPaymentMethod,
         otp,
         notification,
         socialMedia,

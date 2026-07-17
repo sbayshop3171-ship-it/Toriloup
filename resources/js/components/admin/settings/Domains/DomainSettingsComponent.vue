@@ -1,0 +1,129 @@
+<template>
+    <LoadingComponent :props="loading" />
+
+    <div class="db-card mb-4">
+        <div class="db-card-header">
+            <div>
+                <h3 class="db-card-title">Domains</h3>
+                <p class="text-sm text-gray-500">Keep the fallback subdomain forever and connect custom storefront domains when you are ready.</p>
+            </div>
+        </div>
+        <div class="db-card-body">
+            <form class="form-row" @submit.prevent="save">
+                <div class="form-col-12 sm:form-col-8">
+                    <label for="hostname" class="db-field-title required">Hostname</label>
+                    <input id="hostname" v-model="form.hostname" type="text" class="db-field-control" :class="errors.hostname ? 'invalid' : ''" placeholder="store.yourdomain.com" />
+                    <small v-if="errors.hostname" class="db-field-alert">{{ errors.hostname[0] }}</small>
+                </div>
+                <div class="form-col-12 sm:form-col-4">
+                    <label for="dns_provider" class="db-field-title">DNS Provider</label>
+                    <input id="dns_provider" v-model="form.dns_provider" type="text" class="db-field-control" placeholder="cloudflare" />
+                </div>
+                <div class="form-col-12">
+                    <button type="submit" class="db-btn text-white bg-primary">
+                        <i class="lab lab-fill-save"></i>
+                        <span>Request Domain</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="grid gap-4">
+        <div v-for="domain in domains" :key="domain.id" class="db-card">
+            <div class="db-card-body">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h4 class="text-base font-semibold text-gray-900">{{ domain.hostname }}</h4>
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 uppercase">{{ domain.domain_type }}</span>
+                            <span v-if="domain.is_fallback" class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Fallback</span>
+                            <span v-if="domain.is_primary" class="px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Primary</span>
+                        </div>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Verification: <span class="font-medium capitalize">{{ domain.verification_status }}</span>
+                            · SSL: <span class="font-medium capitalize">{{ domain.ssl_status }}</span>
+                        </p>
+                    </div>
+
+                    <button v-if="!domain.is_primary" type="button" class="db-btn py-2 text-white bg-primary" @click="setPrimary(domain.id)">
+                        Make Primary
+                    </button>
+                </div>
+
+                <div v-if="domain.domain_type === 'custom'" class="grid gap-3 mt-4 md:grid-cols-2">
+                    <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">CNAME Target</p>
+                        <p class="mt-1 text-sm font-medium text-gray-900 break-all">{{ domain.dns_instructions?.cname_target || '-' }}</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Verification TXT</p>
+                        <p class="mt-1 text-sm font-medium text-gray-900 break-all">{{ domain.dns_instructions?.verification_txt_value || '-' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+import LoadingComponent from "../../components/LoadingComponent";
+import alertService from "../../../../services/alertService";
+
+export default {
+    name: "DomainSettingsComponent",
+    components: { LoadingComponent },
+    data() {
+        return {
+            loading: {
+                isActive: false,
+            },
+            form: {
+                hostname: "",
+                dns_provider: "cloudflare",
+            },
+            errors: {},
+        };
+    },
+    computed: {
+        domains: function () {
+            return this.$store.getters["merchantDomain/lists"];
+        },
+    },
+    mounted() {
+        this.fetchDomains();
+    },
+    methods: {
+        fetchDomains: function () {
+            this.loading.isActive = true;
+            this.$store.dispatch("merchantDomain/lists").then(() => {
+                this.loading.isActive = false;
+            }).catch(() => {
+                this.loading.isActive = false;
+            });
+        },
+        save: function () {
+            this.loading.isActive = true;
+            this.$store.dispatch("merchantDomain/save", this.form).then(() => {
+                this.loading.isActive = false;
+                this.form.hostname = "";
+                this.errors = {};
+                alertService.success("Domain request submitted successfully.");
+            }).catch((err) => {
+                this.loading.isActive = false;
+                this.errors = err?.response?.data?.errors || {};
+            });
+        },
+        setPrimary: function (id) {
+            this.loading.isActive = true;
+            this.$store.dispatch("merchantDomain/setPrimary", { id }).then(() => {
+                this.loading.isActive = false;
+                alertService.success("Primary domain updated.");
+            }).catch((err) => {
+                this.loading.isActive = false;
+                alertService.error(err);
+            });
+        },
+    },
+};
+</script>

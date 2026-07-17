@@ -1,23 +1,20 @@
-import axios from 'axios'
+import axios from "axios";
 
-
-export const company = {
+export const merchantPaymentMethod = {
     namespaced: true,
     state: {
         lists: [],
     },
-
     getters: {
         lists: function (state) {
             return state.lists;
-        }
+        },
     },
-
     actions: {
         lists: function (context) {
             return new Promise((resolve, reject) => {
-                axios.get('merchant/settings/company').then((res) => {
-                    context.commit('lists', res.data.data);
+                axios.get("merchant/settings/payment-methods").then((res) => {
+                    context.commit("lists", res.data.data);
                     resolve(res);
                 }).catch((err) => {
                     reject(err);
@@ -26,23 +23,18 @@ export const company = {
         },
         save: function (context, payload) {
             return new Promise((resolve, reject) => {
-                axios.post('/merchant/settings/company', payload, {
-                    headers: payload instanceof FormData
-                        ? { 'Content-Type': 'multipart/form-data' }
-                        : {},
-                }).then(res => {
-                    context.commit('lists', res.data.data);
+                axios.put("merchant/settings/payment-methods", payload).then((res) => {
+                    context.commit("lists", res.data.data);
                     resolve(res);
                 }).catch((err) => {
                     reject(err);
                 });
             });
-        }
+        },
     },
-
     mutations: {
         lists: function (state, payload) {
-            state.lists = payload
-        }
+            state.lists = payload;
+        },
     },
-}
+};

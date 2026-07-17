@@ -4,6 +4,7 @@ namespace App\Services\Saas;
 
 use App\Models\Tenant;
 use App\Models\TenantSetting;
+use App\Models\User;
 use App\Services\SettingService;
 
 class TenantSettingsService
@@ -55,6 +56,33 @@ class TenantSettingsService
             ->all();
 
         return array_merge($settings, $tenantSettings);
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function syncForTenant(Tenant $tenant, array $settings, ?User $actor = null): array
+    {
+        $existing = $this->mergedForTenant($tenant);
+        $merged = array_merge($existing, $settings);
+
+        foreach ($settings as $settingKey => $settingValue) {
+            TenantSetting::query()->updateOrCreate(
+                [
+                    'tenant_id' => $tenant->id,
+                    'group_key' => $this->inferGroupKey($settingKey),
+                    'setting_key' => $settingKey,
+                ],
+                [
+                    'setting_value' => $this->serializeValue($settingValue),
+                    'value_type' => $this->inferValueType($settingValue),
+                    'is_encrypted' => false,
+                    'updated_by_user_id' => $actor?->id,
+                ]
+            );
+        }
+
+        return array_merge($merged, $settings);
     }
 
     private function inferGroupKey(string $settingKey): string
@@ -118,8 +146,15 @@ class TenantSettingsService
             'company_email' => null,
             'company_calling_code' => '+880',
             'company_phone' => null,
+            'company_website' => null,
+            'company_city' => null,
+            'company_state' => null,
             'company_country_code' => 'BD',
+            'company_zip_code' => null,
+            'company_latitude' => null,
+            'company_longitude' => null,
             'company_address' => null,
+            'company_logo' => null,
             'site_default_language' => 1,
             'site_android_app_link' => null,
             'site_ios_app_link' => null,

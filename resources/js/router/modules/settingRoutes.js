@@ -32,6 +32,8 @@ const LanguageListComponent = () =>  import("../../components/admin/settings/Lan
 const LanguageShowComponent = () =>  import("../../components/admin/settings/Language/LanguageShowComponent");
 const SmsGatewayComponent = () =>  import("../../components/admin/settings/SmsGateway/SmsGatewayComponent");
 const PaymentGatewayComponent = () =>  import("../../components/admin/settings/PaymentGateway/PaymentGatewayComponent");
+const DomainSettingsComponent = () => import("../../components/admin/settings/Domains/DomainSettingsComponent");
+const BillingSummaryComponent = () => import("../../components/admin/settings/Billing/BillingSummaryComponent");
 const RoleComponent = () =>  import("../../components/admin/settings/Role/RoleComponent");
 const RoleListComponent = () =>  import("../../components/admin/settings/Role/RoleListComponent");
 const RoleShowComponent = () =>  import("../../components/admin/settings/Role/RoleShowComponent");
@@ -595,6 +597,28 @@ export default [
                     auth: true,
                     permissionUrl: "settings",
                     breadcrumb: "payment_gateway",
+                },
+            },
+            {
+                path: "domains",
+                component: DomainSettingsComponent,
+                name: "admin.settings.domains",
+                meta: {
+                    isFrontend: false,
+                    auth: true,
+                    permissionUrl: "settings",
+                    breadcrumb: "domains",
+                },
+            },
+            {
+                path: "billing",
+                component: BillingSummaryComponent,
+                name: "admin.settings.billing",
+                meta: {
+                    isFrontend: false,
+                    auth: true,
+                    permissionUrl: "settings",
+                    breadcrumb: "billing",
                 },
             },
             {

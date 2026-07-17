@@ -140,6 +140,27 @@ const permission = store.getters.authPermission;
 appService.recursiveRouter(routes, permission);
 
 const API_URL = ENV.API_URL;
+const merchantAllowedSettingsPrefixes = [
+    "admin.settings",
+    "admin.settings.company",
+    "admin.settings.shippingSetup",
+    "admin.settings.paymentGateway",
+    "admin.settings.domains",
+    "admin.settings.billing",
+    "admin.settings.productCategory",
+    "admin.settings.productAttribute",
+    "admin.settings.productBrand",
+    "admin.settings.supplier",
+    "admin.settings.unit",
+    "admin.settings.returnReason",
+];
+
+const merchantAllowsSettingsRoute = function (routeName) {
+    const name = String(routeName || "");
+
+    return merchantAllowedSettingsPrefixes.some((prefix) => name === prefix || name.startsWith(prefix + "."));
+};
+
 const router = createRouter({
     linkActiveClass: "active",
     mode: "history",
@@ -192,6 +213,11 @@ router.beforeEach((to, from, next) => {
 
     if (isMerchantHost && isPlatformRoute) {
         next(isLoggedIn && authSurface === "merchant" ? { name: "merchant.dashboard" } : { name: "auth.login" });
+        return;
+    }
+
+    if (isMerchantHost && String(to.name || "").startsWith("admin.settings.") && !merchantAllowsSettingsRoute(to.name)) {
+        next({ name: "admin.settings.company" });
         return;
     }
 

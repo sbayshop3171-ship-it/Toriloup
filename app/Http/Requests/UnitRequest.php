@@ -25,7 +25,7 @@ class UnitRequest extends FormRequest
      */
     public function rules(): array
     {
-        $unit = $this->route('unit');
+        $unit = $this->route('unit') ?? $this->route('unitId');
         $unitId = is_object($unit) ? $unit->id : $unit;
         $tenantId = app(TenantContext::class)->currentId($this);
 

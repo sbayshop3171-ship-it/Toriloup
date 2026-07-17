@@ -27,7 +27,7 @@ class ProductCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productCategory = $this->route('productCategory');
+        $productCategory = $this->route('productCategory') ?? $this->route('categoryId');
         $productCategoryId = is_object($productCategory) ? $productCategory->id : $productCategory;
         $tenantId = app(TenantContext::class)->currentId($this);
 
@@ -52,7 +52,7 @@ class ProductCategoryRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                $productCategory = $this->route('productCategory');
+                $productCategory = $this->route('productCategory') ?? $this->route('categoryId');
                 $productCategoryId = is_object($productCategory) ? $productCategory->id : $productCategory;
 
                 if ($productCategoryId) {

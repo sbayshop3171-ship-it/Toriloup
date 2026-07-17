@@ -25,7 +25,7 @@ class ProductBrandRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productBrand = $this->route('productBrand');
+        $productBrand = $this->route('productBrand') ?? $this->route('brandId');
         $productBrandId = is_object($productBrand) ? $productBrand->id : $productBrand;
         $tenantId = app(TenantContext::class)->currentId($this);
 

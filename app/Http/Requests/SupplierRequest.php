@@ -25,7 +25,7 @@ class SupplierRequest extends FormRequest
      */
     public function rules(): array
     {
-        $supplier = $this->route('supplier');
+        $supplier = $this->route('supplier') ?? $this->route('supplierId');
         $supplierId = is_object($supplier) ? $supplier->id : $supplier;
         $tenantId = app(TenantContext::class)->currentId($this);
 

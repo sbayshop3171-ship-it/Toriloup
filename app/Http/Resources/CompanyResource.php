@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class CompanyResource extends JsonResource
@@ -37,6 +38,12 @@ class CompanyResource extends JsonResource
             "company_latitude"     => $this->info['company_latitude'] === null ? '' : $this->info['company_latitude'],
             "company_longitude"    => $this->info['company_longitude'] === null ? '' : $this->info['company_longitude'],
             "company_address"      => $this->info['company_address'],
+            "company_logo"         => $this->assetUrl($this->info['company_logo'] ?? null),
         ];
+    }
+
+    private function assetUrl(?string $path): ?string
+    {
+        return filled($path) ? Storage::disk('public')->url($path) : null;
     }
 }

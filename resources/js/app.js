@@ -46,6 +46,14 @@ axios.interceptors.request.use(
             const vuex = JSON.parse(localStorage.getItem('vuex'));
             const token = vuex.auth.authToken;
             config.headers['Authorization'] = token ? `Bearer ${token}` : '';
+            const authSurface = vuex.auth?.authInfo?.surface || null;
+            const currentTenantSlug = vuex.auth?.authInfo?.current_tenant?.slug || null;
+
+            if (authSurface === "merchant" && currentTenantSlug) {
+                config.headers['X-Tenant-Slug'] = currentTenantSlug;
+            } else if (config.headers['X-Tenant-Slug']) {
+                delete config.headers['X-Tenant-Slug'];
+            }
 
             if (vuex.globalState) {
                 config.headers['x-localization'] = vuex.globalState.lists.language_code;
