@@ -79,14 +79,26 @@ jobs:
             path: tests/Unit
           - name: Basic Feature
             path: tests/Feature/ExampleTest.php
+          - name: Admin Surface Password Reset
+            path: tests/Feature/AdminSurfacePasswordResetTest.php
+          - name: Legacy Admin Surface Separation
+            path: tests/Feature/LegacyAdminSurfaceSeparationTest.php
           - name: SaaS Foundation
             path: tests/Feature/SaasFoundationTest.php
           - name: Platform Workspace
             path: tests/Feature/PlatformWorkspaceTest.php
           - name: Billing Workspace
             path: tests/Feature/BillingWorkspaceTest.php
+          - name: Merchant Launch Configuration
+            path: tests/Feature/MerchantLaunchConfigurationTest.php
           - name: Merchant Isolation
             path: tests/Feature/MerchantTenantIsolationTest.php
+          - name: Production Operations Commands
+            path: tests/Feature/ProductionOperationsCommandsTest.php
+          - name: Soft Launch Readiness
+            path: tests/Feature/SoftLaunchReadinessTest.php
+          - name: Storefront Customer Flow
+            path: tests/Feature/StorefrontCustomerFlowTest.php
 
     steps:
       - name: Checkout
