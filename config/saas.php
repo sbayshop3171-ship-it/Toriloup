@@ -9,7 +9,7 @@ return [
     'fallback_subdomain_suffix'  => env('SAAS_STOREFRONT_SUFFIX', 'toriloup.com'),
     'reserved_store_slugs'       => array_values(array_filter(array_map('trim', explode(',', env(
         'SAAS_RESERVED_STORE_SLUGS',
-        'admin,administrator,api,app,assets,billing,blog,cdn,cpanel,dev,ftp,help,mail,merchant,owner,panel,platform,root,ssl,status,store,support,system,webdisk,webmail,www'
+        'admin,administrator,api,app,assets,billing,blog,cdn,cpanel,dev,ftp,help,mail,merchant,owner,panel,platform,root,ssl,status,store,storefront,support,system,webdisk,webmail,wildcard,www'
     ))))),
     'require_owner_2fa'          => filter_var(env('SAAS_REQUIRE_OWNER_2FA', true), FILTER_VALIDATE_BOOL),
 ];

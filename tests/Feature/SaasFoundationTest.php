@@ -116,7 +116,7 @@ class SaasFoundationTest extends TestCase
 
     public function test_merchant_register_blocks_reserved_platform_store_names(): void
     {
-        foreach (['admin', 'owner', 'merchant'] as $reservedStoreName) {
+        foreach (['admin', 'owner', 'merchant', 'storefront'] as $reservedStoreName) {
             $response = $this
                 ->withHeader('x-api-key', 'testing-key')
                 ->withHeader('x-localization', 'en')
