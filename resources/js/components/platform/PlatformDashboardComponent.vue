@@ -1,0 +1,141 @@
+<template>
+    <PlatformWorkspaceShell
+        title="Platform Dashboard"
+        subtitle="Owner-only platform health, merchant activation, and domain status.">
+        <LoadingComponent :props="loading" />
+
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <article
+                v-for="card in cards"
+                :key="card.key"
+                class="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#6B7280]">{{ card.label }}</p>
+                <p class="mt-3 text-3xl font-semibold text-[#111827]">{{ card.value }}</p>
+            </article>
+        </section>
+
+        <section class="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+            <article class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-semibold">Launch Readiness</h2>
+                        <p class="text-sm text-[#6B7280]">Critical owner checks before public launch.</p>
+                    </div>
+                </div>
+                <ul class="mt-5 space-y-3">
+                    <li
+                        v-for="item in readinessItems"
+                        :key="item.label"
+                        class="flex items-start justify-between gap-4 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
+                        <div>
+                            <p class="font-medium">{{ item.label }}</p>
+                            <p class="text-sm text-[#6B7280]">{{ item.description }}</p>
+                        </div>
+                        <span
+                            class="inline-flex rounded-full px-3 py-1 text-xs font-semibold"
+                            :class="item.emphasis === 'alert' ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#EFF6FF] text-[#1D4ED8]'">
+                            {{ item.value }}
+                        </span>
+                    </li>
+                </ul>
+            </article>
+
+            <article class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                <h2 class="text-lg font-semibold">Workspace Boundaries</h2>
+                <p class="text-sm text-[#6B7280]">This owner host now stays focused on platform-only work.</p>
+                <ul class="mt-5 space-y-3 text-sm text-[#374151]">
+                    <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
+                        Merchant daily operations remain on <span class="font-semibold">`merchant.company.com`</span>.
+                    </li>
+                    <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
+                        Legacy `api/admin/*` calls are now fenced to the merchant host only.
+                    </li>
+                    <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
+                        Owner workflows should use `api/platform/*` routes for tenants, plans, providers, domains, and subscriptions.
+                    </li>
+                </ul>
+            </article>
+        </section>
+    </PlatformWorkspaceShell>
+</template>
+
+<script>
+import axios from "axios";
+import LoadingComponent from "../frontend/components/LoadingComponent.vue";
+import PlatformWorkspaceShell from "./PlatformWorkspaceShell.vue";
+
+export default {
+    name: "PlatformDashboardComponent",
+    components: {
+        LoadingComponent,
+        PlatformWorkspaceShell,
+    },
+    data() {
+        return {
+            loading: {
+                isActive: false,
+            },
+            summary: {
+                tenants_total: 0,
+                tenants_active: 0,
+                tenants_suspended: 0,
+                tenants_live: 0,
+                custom_domains_pending: 0,
+                custom_domains_verified: 0,
+                merchant_memberships_active: 0,
+            },
+        };
+    },
+    computed: {
+        cards: function () {
+            return [
+                { key: "tenants_total", label: "Total Tenants", value: this.summary.tenants_total },
+                { key: "tenants_active", label: "Active Tenants", value: this.summary.tenants_active },
+                { key: "custom_domains_verified", label: "Verified Domains", value: this.summary.custom_domains_verified },
+                { key: "merchant_memberships_active", label: "Active Memberships", value: this.summary.merchant_memberships_active },
+            ];
+        },
+        readinessItems: function () {
+            return [
+                {
+                    label: "Pending custom domains",
+                    value: this.summary.custom_domains_pending,
+                    description: "Domains waiting for owner verification should be cleared before wide launch.",
+                    emphasis: this.summary.custom_domains_pending > 0 ? "alert" : "info",
+                },
+                {
+                    label: "Suspended tenants",
+                    value: this.summary.tenants_suspended,
+                    description: "Review suspended merchants before rollout so support and billing are aligned.",
+                    emphasis: this.summary.tenants_suspended > 0 ? "alert" : "info",
+                },
+                {
+                    label: "Live-ready tenants",
+                    value: this.summary.tenants_live,
+                    description: "Track which merchants are already beyond onboarding and ready for stricter launch testing.",
+                    emphasis: "info",
+                },
+            ];
+        },
+    },
+    mounted() {
+        this.fetchSummary();
+    },
+    methods: {
+        fetchSummary: function () {
+            this.loading.isActive = true;
+
+            axios.get("platform/overview")
+                .then((res) => {
+                    this.summary = {
+                        ...this.summary,
+                        ...(res?.data?.summary || {}),
+                    };
+                })
+                .finally(() => {
+                    this.loading.isActive = false;
+                });
+        },
+    },
+};
+</script>

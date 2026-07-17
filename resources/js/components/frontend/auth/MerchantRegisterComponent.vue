@@ -79,6 +79,7 @@
 import LoadingComponent from "../components/LoadingComponent";
 import alertService from "../../../services/alertService";
 import ENV from "../../../config/env";
+import { resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
 
 export default {
     name: "MerchantRegisterComponent",
@@ -129,7 +130,7 @@ export default {
             this.$store.dispatch("merchantRegister", this.form).then((res) => {
                 this.loading.isActive = false;
                 alertService.success(res.data.message || "Store created successfully.");
-                this.$router.push({ name: "admin.dashboard" });
+                this.$router.push(resolveWorkspaceDashboardRoute("merchant"));
             }).catch((err) => {
                 this.loading.isActive = false;
                 this.errors = err?.response?.data?.errors || {

@@ -77,9 +77,10 @@
                         $t('label.remember_me')
                         }}</label>
                 </div>
-                <router-link :to="{ name: 'auth.forgotPassword' }" class="field-label text-primary">
+                <router-link v-if="!isAdminLoginRoute" :to="{ name: 'auth.forgotPassword' }" class="field-label text-primary">
                     {{ $t('label.forgot_password') }}
                 </router-link>
+                <span v-else class="field-label text-[#6B7280]">Reset is handled by the platform team.</span>
             </div>
             <button type="submit"
                 class="font-bold text-center w-full h-12 leading-12 rounded-full bg-primary text-white capitalize mb-6">
@@ -136,6 +137,7 @@ import alertService from "../../../services/alertService";
 import appService from "../../../services/appService";
 import ENV from "../../../config/env";
 import roleEnum from "../../../enums/modules/roleEnum";
+import { detectWorkspaceHost, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
 
 export default {
     name: "LoginComponent",
@@ -179,14 +181,10 @@ export default {
             return this.authSurface === "merchant";
         },
         authSurface: function () {
-            const hostname = window.location.hostname;
+            const workspace = detectWorkspaceHost();
 
-            if (ENV.OWNER_HOST && hostname === ENV.OWNER_HOST) {
-                return "platform";
-            }
-
-            if (ENV.MERCHANT_HOST && hostname === ENV.MERCHANT_HOST) {
-                return "merchant";
+            if (workspace === "platform" || workspace === "merchant") {
+                return workspace;
             }
 
             return this.$route?.meta?.authContext === "admin" ? "admin" : "storefront";
@@ -257,7 +255,7 @@ export default {
                             return;
                         }
 
-                        router.push({ name: "admin.dashboard" });
+                        router.push(resolveWorkspaceDashboardRoute(this.authSurface));
                     } else {
                         if (!isCustomer) {
                             this.$store.dispatch("logout").catch(() => {

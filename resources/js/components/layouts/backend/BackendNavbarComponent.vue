@@ -1,7 +1,7 @@
 <template>
     <div class="backdrop" @click="notificationDropdownStatus = false"></div>
     <header class="db-header">
-        <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden flex-shrink-0" :to="{ name: 'frontend.home' }">
+        <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden flex-shrink-0" :to="workspaceHomeRoute">
             <img class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
         </router-link>
         <div class="flex items-center justify-end w-full gap-4">
@@ -175,6 +175,7 @@ import _ from "lodash";
 import alertService from "../../../services/alertService";
 import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
+import { resolveGuestHomeRoute, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import axios from 'axios';
@@ -237,6 +238,9 @@ export default {
                 return "99+";
             }
             return this.unreadNotificationCount;
+        },
+        workspaceHomeRoute: function () {
+            return resolveWorkspaceDashboardRoute(this.authInfo?.surface);
         }
     },
     mounted() {
@@ -456,7 +460,7 @@ export default {
         },
         logout: function () {
             this.$store.dispatch("logout").then(res => {
-                this.$router.push({ name: "frontend.home" });
+                this.$router.push(resolveGuestHomeRoute());
             }).catch();
         },
         changeLanguage: function (id, code, mode) {

@@ -5,6 +5,7 @@ import NotFoundComponent from "../components/exception/NotFoundComponent.vue";
 import ENV from "../config/env";
 import roleEnum from "../enums/modules/roleEnum";
 import appService from "../services/appService";
+import { detectWorkspaceHost, resolveAuthenticatedHomeRoute, resolveGuestHomeRoute } from "../services/workspaceService";
 import store from "../store";
 import administratorRoutes from "./modules/administratorRoutes";
 import authRoutes from "./modules/authRoutes";
@@ -20,6 +21,7 @@ import posRoutes from "./modules/posRoutes";
 import ProductSectionRoutes from "./modules/ProductSectionRoutes";
 import productsReportRoutes from "./modules/productsReportRoutes";
 import productsRoutes from "./modules/productsRoutes";
+import platformRoutes from "./modules/platformRoutes";
 import profileRoutes from "./modules/profileRoutes";
 import PromotionRoutes from "./modules/PromotionRoutes";
 import purchaseRoutes from "./modules/purchaseRoutes";
@@ -33,15 +35,35 @@ import stockRoutes from "./modules/stockRoutes";
 import subscriberRoutes from "./modules/subscriberRoutes";
 import transactionRoutes from "./modules/transactionRoutes";
 
+const resolveRootRedirect = function () {
+    const workspace = detectWorkspaceHost();
+    const isLoggedIn = store.getters.authStatus;
+    const authSurface = store.getters.authInfo?.surface || null;
+
+    if (workspace === "platform") {
+        return isLoggedIn && authSurface === "platform"
+            ? { name: "platform.dashboard" }
+            : { name: "auth.login" };
+    }
+
+    if (workspace === "merchant") {
+        return isLoggedIn && authSurface === "merchant"
+            ? { name: "merchant.dashboard" }
+            : { name: "auth.login" };
+    }
+
+    return { name: "frontend.home" };
+};
+
 const baseRoutes = [
     {
         path: "/",
-        redirect: { name: "frontend.home" },
+        redirect: () => resolveRootRedirect(),
         name: "root",
     },
     {
         path: "/admin",
-        redirect: { name: "admin.dashboard" },
+        redirect: () => detectWorkspaceHost() === "platform" ? { name: "platform.dashboard" } : { name: "merchant.dashboard" },
         name: "admin.root",
     },
     {
@@ -58,6 +80,18 @@ const baseRoutes = [
         component: ExceptionComponent,
     },
     {
+        path: "/dashboard",
+        component: DashboardComponent,
+        name: "merchant.dashboard",
+        meta: {
+            isFrontend: false,
+            auth: true,
+            permissionUrl: "dashboard",
+            breadcrumb: "dashboard",
+            workspace: "merchant",
+        },
+    },
+    {
         path: "/admin/dashboard",
         component: DashboardComponent,
         name: "admin.dashboard",
@@ -66,11 +100,13 @@ const baseRoutes = [
             auth: true,
             permissionUrl: "dashboard",
             breadcrumb: "dashboard",
+            workspace: "merchant",
         },
     },
 ];
 
 const routes = baseRoutes.concat(
+    platformRoutes,
     frontendRoutes,
     authRoutes,
     settingRoutes,
@@ -116,10 +152,14 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
     const hostname = window.location.hostname;
-    const isOwnerHost = Boolean(ENV.OWNER_HOST && hostname === ENV.OWNER_HOST);
-    const isMerchantHost = Boolean(ENV.MERCHANT_HOST && hostname === ENV.MERCHANT_HOST);
+    const workspaceHost = detectWorkspaceHost(hostname);
+    const isOwnerHost = workspaceHost === "platform";
+    const isMerchantHost = workspaceHost === "merchant";
     const isAdminRoute = to.path === "/admin" || to.path.startsWith("/admin/");
+    const isPlatformRoute = to.meta?.workspace === "platform" || String(to.name || "").startsWith("platform.");
+    const isMerchantWorkspaceRoute = to.meta?.workspace === "merchant" || isAdminRoute || String(to.name || "").startsWith("merchant.");
     const isLoggedIn = store.getters.authStatus;
+    const authSurface = store.getters.authInfo?.surface || null;
     const parsedRoleId = Number.parseInt(store.getters.authInfo?.role_id, 10);
     const roleId = Number.isFinite(parsedRoleId) ? parsedRoleId : null;
     const adminRoleIds = [
@@ -129,15 +169,40 @@ router.beforeEach((to, from, next) => {
         roleEnum.STUFF,
     ];
     const isAdminUser = roleId !== null && adminRoleIds.includes(roleId);
+    const guestOnlyRouteNames = [
+        "auth.login",
+        "auth.adminLogin",
+        "auth.merchantRegister",
+        "auth.signup",
+        "auth.signupVerify",
+        "auth.forgotPassword",
+        "auth.forgotPasswordVerify",
+        "auth.resetPassword",
+    ];
 
     if (to.name === "auth.merchantRegister" && !isMerchantHost) {
         next({ name: isOwnerHost ? "auth.login" : "auth.signup" });
         return;
     }
 
-    if (isAdminRoute && to.name !== "auth.adminLogin") {
+    if (isOwnerHost && isAdminRoute) {
+        next(isLoggedIn && authSurface === "platform" ? { name: "platform.dashboard" } : { name: "auth.login" });
+        return;
+    }
+
+    if (isMerchantHost && isPlatformRoute) {
+        next(isLoggedIn && authSurface === "merchant" ? { name: "merchant.dashboard" } : { name: "auth.login" });
+        return;
+    }
+
+    if ((isOwnerHost || isMerchantHost) && to.meta?.isFrontend === true && !guestOnlyRouteNames.includes(to.name) && to.name !== "route.notFound") {
+        next(isLoggedIn ? resolveAuthenticatedHomeRoute(store.getters.authInfo, hostname) : resolveGuestHomeRoute(hostname));
+        return;
+    }
+
+    if (isAdminRoute && to.name !== "auth.adminLogin" && !isOwnerHost) {
         if (!isLoggedIn) {
-            next({ name: "auth.adminLogin" });
+            next({ name: "auth.login" });
             return;
         }
 
@@ -149,7 +214,17 @@ router.beforeEach((to, from, next) => {
 
     if (to.meta.auth === true) {
         if (!isLoggedIn) {
-            next({ name: isAdminRoute ? "auth.adminLogin" : "auth.login" });
+            next(resolveGuestHomeRoute(hostname));
+            return;
+        }
+
+        if (isPlatformRoute && authSurface !== "platform") {
+            next(resolveAuthenticatedHomeRoute(store.getters.authInfo, hostname));
+            return;
+        }
+
+        if (isMerchantWorkspaceRoute && authSurface !== "merchant" && !isPlatformRoute) {
+            next(resolveAuthenticatedHomeRoute(store.getters.authInfo, hostname));
             return;
         }
 
@@ -164,19 +239,8 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
-    const guestOnlyRouteNames = [
-        "auth.login",
-        "auth.adminLogin",
-        "auth.merchantRegister",
-        "auth.signup",
-        "auth.signupVerify",
-        "auth.forgotPassword",
-        "auth.forgotPasswordVerify",
-        "auth.resetPassword",
-    ];
-
     if (isLoggedIn && guestOnlyRouteNames.includes(to.name)) {
-        next({ name: isAdminUser ? "admin.dashboard" : "frontend.account.overview" });
+        next(resolveAuthenticatedHomeRoute(store.getters.authInfo, hostname));
         return;
     }
 

@@ -186,7 +186,7 @@ Route::prefix('profile')->name('profile.')->middleware(['installed', 'apiKey', '
     Route::post('/change-image', [ProfileController::class, 'changeImage']);
 });
 
-Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'adminAccess'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'adminAccess', 'ensureMerchantHost'])->group(function () {
     Route::prefix('timezone')->name('timezone.')->group(function () {
         Route::get('/', [TimezoneController::class, 'index']);
     });

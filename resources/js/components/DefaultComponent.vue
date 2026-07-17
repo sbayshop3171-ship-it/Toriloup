@@ -25,6 +25,10 @@
             <router-view></router-view>
         </div>
     </div>
+
+    <div v-if="theme === 'platform'">
+        <router-view></router-view>
+    </div>
 </template>
 
 <script>
@@ -41,6 +45,7 @@ import FrontendCookiesComponent from "./layouts/frontend/FrontendCookiesComponen
 import DisplayModeEnum from "../enums/modules/displayModeEnum";
 import env from "../config/env";
 import LoadingComponent from "../components/frontend/components/LoadingComponent.vue";
+import { isAdminSurfaceHost, resolveGuestHomeRoute } from "../services/workspaceService";
 
 export default {
     name: "DefaultComponent",
@@ -78,7 +83,7 @@ export default {
         if (env.DEMO === "true" || env.DEMO === true || env.DEMO === "1" || env.DEMO === 1) {
             this.$store.dispatch("authcheck").then(res => {
                 if (res.data.status === false) {
-                    this.$router.push({ name: "frontend.home" });
+                    this.$router.push(resolveGuestHomeRoute());
                 };
             }).catch();
         }
@@ -93,12 +98,7 @@ export default {
     },
     methods: {
         isAdminSurfaceHost: function () {
-            const hostname = window.location.hostname;
-
-            return Boolean(
-                (env.OWNER_HOST && hostname === env.OWNER_HOST) ||
-                (env.MERCHANT_HOST && hostname === env.MERCHANT_HOST)
-            );
+            return isAdminSurfaceHost();
         },
         isAuthRoute: function (route = this.$route) {
             const authRoutes = [
@@ -126,6 +126,10 @@ export default {
 
             if (this.isAdminSurfaceHost() && adminSurfaceAuthRoutes.includes(route?.name)) {
                 return "backend";
+            }
+
+            if (route?.meta?.workspace === "platform") {
+                return "platform";
             }
 
             return route?.meta?.isFrontend === true ? "frontend" : "backend";

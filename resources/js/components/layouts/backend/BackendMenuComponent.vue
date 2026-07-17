@@ -1,7 +1,7 @@
 <template>
     <aside class="db-sidebar">
         <div class="db-sidebar-header">
-            <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden" :to="{ name: 'frontend.home' }">
+            <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden" :to="workspaceHomeRoute">
                 <img class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
             </router-link>
             <button @click="closeSidebar" class="fa-solid fa-xmark xmark-btn close-db-menu"></button>
@@ -44,6 +44,7 @@
 
 <script>
 import appService from "../../../services/appService";
+import { resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
 export default {
     name: "BackendMenuComponent",
     data: function () {
@@ -62,6 +63,9 @@ export default {
         },
         menus: function () {
             return this.$store.getters.authMenu;
+        },
+        workspaceHomeRoute: function () {
+            return resolveWorkspaceDashboardRoute(this.$store.getters.authInfo?.surface);
         },
         unreadOrderNotificationCount: function () {
             return this.notificationItems.filter((item) => !item.read && this.isOrderNotificationItem(item)).length;
