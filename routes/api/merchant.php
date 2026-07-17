@@ -6,6 +6,7 @@ use App\Http\Controllers\Saas\MerchantOrderController;
 use App\Http\Controllers\Saas\MerchantCatalogController;
 use App\Http\Controllers\Saas\MerchantProductController;
 use App\Http\Controllers\Saas\MerchantCustomerController;
+use App\Http\Controllers\Saas\MerchantDashboardController;
 use App\Http\Controllers\Saas\MerchantSettingsController;
 use App\Http\Controllers\Saas\MerchantStockController;
 use App\Http\Controllers\Saas\MerchantSupplierController;
@@ -44,6 +45,8 @@ Route::prefix('merchant')
                         'domain' => $tenantDomain?->only(['hostname', 'domain_type', 'is_primary', 'is_fallback']),
                     ]);
                 })->name('context');
+
+                Route::get('/dashboard/setup', [MerchantDashboardController::class, 'setup']);
 
                 Route::prefix('catalog')->group(function () {
                     Route::get('/categories', [MerchantCatalogController::class, 'categories']);

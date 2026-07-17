@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Role as LegacyRole;
+use App\Enums\PaymentStatus;
 use App\Models\Barcode;
 use App\Models\Customer;
 use App\Models\Order;
@@ -138,6 +139,152 @@ class MerchantTenantIsolationTest extends TestCase
             ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
             ->getJson("http://merchant.company.com/api/merchant/products/{$productB->id}")
             ->assertNotFound();
+    }
+
+    public function test_merchant_dashboard_setup_starts_empty_and_ignores_other_tenant_data(): void
+    {
+        $context = $this->createMerchantContext('fresh-dashboard-store');
+        $otherTenant = $this->createTenant('busy-dashboard-store');
+        $barcode = Barcode::query()->create(['name' => 'EAN 13']);
+        $customerRole = $this->seedLegacyRole(LegacyRole::CUSTOMER, 'customer');
+        $otherCustomer = User::factory()->create([
+            'status' => 5,
+            'username' => 'busy-dashboard-customer',
+            'country_code' => '+880',
+            'is_guest' => 0,
+        ]);
+        $otherCustomer->assignRole($customerRole);
+
+        $otherCategory = ProductCategory::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Busy Category',
+            'slug' => 'busy-category',
+            'status' => 1,
+        ]);
+        $otherUnit = Unit::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Box',
+            'code' => 'box',
+            'status' => 1,
+        ]);
+        Product::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Busy Product',
+            'slug' => 'busy-product',
+            'sku' => 'BUSY-001',
+            'product_category_id' => $otherCategory->id,
+            'barcode_id' => $barcode->id,
+            'unit_id' => $otherUnit->id,
+            'buying_price' => 10,
+            'selling_price' => 20,
+            'variation_price' => 20,
+            'status' => 5,
+            'can_purchasable' => 1,
+            'show_stock_out' => 1,
+            'maximum_purchase_quantity' => 10,
+            'low_stock_quantity_warning' => 2,
+            'refundable' => 1,
+        ]);
+        Order::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'user_id' => $otherCustomer->id,
+            'subtotal' => 200,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 200,
+            'payment_status' => PaymentStatus::PAID,
+            'status' => 1,
+            'active' => 1,
+            'order_datetime' => now(),
+        ]);
+
+        Sanctum::actingAs($context['user'], ['surface:merchant']);
+
+        $freshResponse = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/dashboard/setup')
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('data.metrics.total_sales_raw', 0)
+            ->assertJsonPath('data.metrics.total_orders', 0)
+            ->assertJsonPath('data.metrics.total_products', 0)
+            ->assertJsonPath('data.metrics.recent_orders', [])
+            ->assertJsonPath('data.metrics.fallback_domain.hostname', 'fresh-dashboard-store.company.com');
+
+        $firstProductStep = collect($freshResponse->json('data.checklist'))
+            ->firstWhere('key', 'first_product');
+        $this->assertSame(false, $firstProductStep['completed']);
+
+        $ownCustomer = User::factory()->create([
+            'status' => 5,
+            'username' => 'fresh-dashboard-customer',
+            'country_code' => '+880',
+            'is_guest' => 0,
+        ]);
+        $ownCustomer->assignRole($customerRole);
+
+        $ownCategory = ProductCategory::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Fresh Category',
+            'slug' => 'fresh-category',
+            'status' => 1,
+        ]);
+        $ownUnit = Unit::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Piece',
+            'code' => 'pc',
+            'status' => 1,
+        ]);
+        Product::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Fresh Product',
+            'slug' => 'fresh-product',
+            'sku' => 'FRESH-001',
+            'product_category_id' => $ownCategory->id,
+            'barcode_id' => $barcode->id,
+            'unit_id' => $ownUnit->id,
+            'buying_price' => 10,
+            'selling_price' => 25,
+            'variation_price' => 25,
+            'status' => 5,
+            'can_purchasable' => 1,
+            'show_stock_out' => 1,
+            'maximum_purchase_quantity' => 10,
+            'low_stock_quantity_warning' => 2,
+            'refundable' => 1,
+        ]);
+        Order::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'user_id' => $ownCustomer->id,
+            'order_serial_no' => 'FRESH-ORDER-001',
+            'subtotal' => 125,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 125,
+            'payment_status' => PaymentStatus::PAID,
+            'status' => 1,
+            'active' => 1,
+            'order_datetime' => now(),
+        ]);
+
+        $filledResponse = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/dashboard/setup')
+            ->assertOk()
+            ->assertJsonPath('data.metrics.total_sales_raw', 125)
+            ->assertJsonPath('data.metrics.total_orders', 1)
+            ->assertJsonPath('data.metrics.total_products', 1)
+            ->assertJsonPath('data.metrics.recent_orders.0.order_serial_no', 'FRESH-ORDER-001');
+
+        $firstProductStep = collect($filledResponse->json('data.checklist'))
+            ->firstWhere('key', 'first_product');
+        $this->assertSame(true, $firstProductStep['completed']);
     }
 
     public function test_merchant_can_create_same_product_sku_in_different_tenants(): void

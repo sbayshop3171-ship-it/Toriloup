@@ -11,8 +11,10 @@
         <h4 class="capitalize font-medium text-xl text-secondary">{{ authInfo.name }}</h4>
     </div>
     <!--========OVERVIEW START=============-->
-    <OverviewComponent />
+    <OverviewComponent :merchant-setup="merchantSetup" :is-merchant-workspace="isMerchantWorkspace" />
     <!--========OVERVIEW END=============-->
+
+    <MerchantSetupChecklistComponent v-if="isMerchantWorkspace" :setup="merchantSetup" />
 
     <!--========ORDER STATISTIC START=============-->
     <OrderStatisticsComponent />
@@ -49,7 +51,9 @@ import OrderSummaryComponent from "./OrderSummaryComponent";
 import CustomerStatsComponent from "./CustomerStatsComponent";
 import TopCustomersComponent from "./TopCustomersComponent";
 import TopProductsComponent from "./TopProductsComponent";
+import MerchantSetupChecklistComponent from "./MerchantSetupChecklistComponent";
 import ENV from "../../../config/env";
+import { isMerchantHost } from "../../../services/workspaceService";
 
 export default {
     name: "DashboardComponent",
@@ -62,21 +66,38 @@ export default {
         CustomerStatsComponent,
         TopCustomersComponent,
         TopProductsComponent,
+        MerchantSetupChecklistComponent,
     },
     data() {
         return {
             loading: {
                 isActive: false,
             },
-            demo: ENV.DEMO
+            demo: ENV.DEMO,
+            merchantSetup: null,
         };
     },
     computed: {
         authInfo: function () {
             return this.$store.getters.authInfo;
+        },
+        isMerchantWorkspace: function () {
+            return isMerchantHost();
+        }
+    },
+    mounted() {
+        if (this.isMerchantWorkspace) {
+            this.loadMerchantSetup();
         }
     },
     methods: {
+        loadMerchantSetup: function () {
+            this.$store.dispatch("merchantDashboard/setup").then((res) => {
+                this.merchantSetup = res.data.data;
+            }).catch(() => {
+                this.merchantSetup = null;
+            });
+        },
         visitorMessage: function () {
             let greet;
             let myDate = new Date();

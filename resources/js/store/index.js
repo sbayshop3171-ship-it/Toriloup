@@ -54,6 +54,7 @@ import { language } from "./modules/language";
 import { license } from "./modules/license";
 import { mail } from "./modules/mail";
 import { merchantBilling } from "./modules/merchantBilling";
+import { merchantDashboard } from "./modules/merchantDashboard";
 import { merchantDomain } from "./modules/merchantDomain";
 import { merchantPaymentMethod } from "./modules/merchantPaymentMethod";
 import { menuSection } from "./modules/menuSection";
@@ -120,6 +121,7 @@ export default new createStore({
         countryCode,
         mail,
         merchantBilling,
+        merchantDashboard,
         merchantDomain,
         merchantPaymentMethod,
         otp,
