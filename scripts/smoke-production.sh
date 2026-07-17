@@ -9,11 +9,46 @@ SKIP_BACKUP_AUDIT="${SKIP_BACKUP_AUDIT:-0}"
 
 cd "$APP_DIR"
 
-health_url="${OPS_HEALTHCHECK_URL:-${APP_URL:-}/up}"
-api_key_header="${VITE_API_KEY:-${APP_KEY:-}}"
-owner_host="${SAAS_OWNER_HOST:-}"
-merchant_host="${SAAS_MERCHANT_HOST:-}"
-storefront_host="${OPS_STOREFRONT_HOST:-}"
+env_file_value() {
+    local key="$1" value
+
+    value="$(grep -E "^${key}=" .env | tail -n 1 | cut -d= -f2- || true)"
+    value="${value%$'\r'}"
+
+    if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+        value="${value:1:${#value}-2}"
+    elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+        value="${value:1:${#value}-2}"
+    fi
+
+    printf '%s' "$value"
+}
+
+env_value() {
+    local key="$1" fallback="${2:-}" current from_file
+
+    current="${!key-}"
+
+    if [ -n "$current" ]; then
+        printf '%s' "$current"
+        return
+    fi
+
+    from_file="$(env_file_value "$key")"
+    printf '%s' "${from_file:-$fallback}"
+}
+
+app_url="$(env_value APP_URL '')"
+health_url="$(env_value OPS_HEALTHCHECK_URL '')"
+
+if [ -z "$health_url" ] && [ -n "$app_url" ]; then
+    health_url="${app_url%/}/up"
+fi
+
+api_key_header="$(env_value VITE_API_KEY "$(env_value APP_KEY '')")"
+owner_host="$(env_value SAAS_OWNER_HOST '')"
+merchant_host="$(env_value SAAS_MERCHANT_HOST '')"
+storefront_host="$(env_value OPS_STOREFRONT_HOST '')"
 
 request_json() {
     local url="$1"
