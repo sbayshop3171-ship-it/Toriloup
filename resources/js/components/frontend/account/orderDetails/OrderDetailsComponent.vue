@@ -1,8 +1,33 @@
 <template>
     <LoadingComponent :props="loading" />
+    <div v-if="isSuccessJourney" class="rounded-2xl border border-green-100 bg-green-50 p-5 sm:p-6 mb-6">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-green-700">{{ $t('message.thank_you_for_your_order') }}</h2>
+                <p class="mt-2 text-sm text-green-700/80">{{ $t('message.your_order_is_successfully_placed') }}</p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                <router-link
+                    :to="{ name: 'frontend.account.orderTracking', params: { id: $route.params.id } }"
+                    class="field-button w-fit font-semibold tracking-wide normal-case">
+                    {{ $t('label.track_order') }}
+                </router-link>
+                <router-link
+                    :to="{ name: 'frontend.account.orderHistory' }"
+                    class="field-button w-fit font-semibold tracking-wide normal-case text-secondary bg-[#F7F7FC]">
+                    {{ $t('label.order_history') }}
+                </router-link>
+            </div>
+        </div>
+    </div>
+
     <div class="flex items-center gap-4 mb-7">
-        <button @click.prevent="$router.back()" class="lab-line-undo text-xl font-bold text-primary"></button>
-        <h2 class="capitalize text-xl font-bold text-primary">{{ $t('label.order_details') }}</h2>
+        <button v-if="!isSuccessJourney" @click.prevent="$router.back()" class="lab-line-undo text-xl font-bold text-primary"></button>
+        <div>
+            <h2 class="capitalize text-xl font-bold text-primary">{{ pageTitle }}</h2>
+            <p v-if="isTrackingJourney" class="mt-1 text-sm text-text">{{ $t('message.order_status_follows') }}</p>
+        </div>
     </div>
 
     <div class="rounded-2xl shadow-card p-4 sm:p-6 mb-6 bg-white">
@@ -276,22 +301,6 @@
             {{ $t('button.return_request') }}</router-link>
     </div>
 
-    <div id="payment-modal"
-        :class="Object.keys(route.query).length > 0 && route.query.status === 'success' && cart.length > 0 ? 'modal-active' : ''"
-        class=" fixed inset-0 z-50 p-3 w-screen h-dvh overflow-y-auto bg-black/50 transition-all duration-300 opacity-0 invisible">
-        <div class="w-full rounded-xl mx-auto bg-white transition-all duration-300 max-w-[360px]">
-            <div class="px-4 py-5 relative">
-                <button @click.prevent="reset" type="button"
-                    class="lab-line-circle-cross text-lg text-[#E93C3C] absolute top-3 right-3"></button>
-                <h3 class="font-medium text-center mb-5">{{ $t('message.thank_you_for_your_order') }}</h3>
-                <img :src="setting.image_confirm" alt="confirm-image" class="w-[120px] mx-auto mb-5" />
-                <h4 class="font-semibold text-center mb-5">{{ $t('message.your_order_is_successfully_placed') }}</h4>
-                <button type="button" @click.prevent="reset" class="field-button font-semibold normal-case">{{
-                    $t('button.see_your_order_details') }}
-                </button>
-            </div>
-        </div>
-    </div>
 </template>
 
 <script>
@@ -318,6 +327,7 @@ export default {
             loading: {
                 isActive: false,
             },
+            orderWasFinalized: false,
             tracks: [
                 { step: 1, title: this.$t('label.order_pending') },
                 { step: 5, title: this.$t('label.order_confirmed') },
@@ -373,6 +383,19 @@ export default {
         outletAddress: function () {
             return this.$store.getters['frontendOrder/outletAddress'];
         },
+        isSuccessJourney: function () {
+            return this.$route.name === 'frontend.account.orderSuccess' || this.route.query.status === 'success';
+        },
+        isTrackingJourney: function () {
+            return this.$route.name === 'frontend.account.orderTracking';
+        },
+        pageTitle: function () {
+            if (this.isTrackingJourney) {
+                return this.$t('label.track_order');
+            }
+
+            return this.$t('label.order_details');
+        },
         cart: function () {
             return this.$store.getters['frontendCart/lists'];
         },
@@ -385,6 +408,9 @@ export default {
             this.loading.isActive = true;
             this.$store.dispatch("frontendOrder/show", this.$route.params.id).then(res => {
                 this.loading.isActive = false;
+                if (this.isSuccessJourney) {
+                    this.finalizeSuccessfulOrder();
+                }
             }).catch((error) => {
                 this.loading.isActive = false;
             });
@@ -394,11 +420,19 @@ export default {
         showTarget: function (id, cClass) {
             targetService.showTarget(id, cClass);
         },
-        reset: function () {
+        finalizeSuccessfulOrder: function () {
+            if (this.orderWasFinalized) {
+                return;
+            }
+
             if (this.cart.length > 0 && Object.keys(this.paymentMethod).length > 0 && this.paymentMethod.slug === 'credit') {
                 this.$store.dispatch("profile").then().catch();
             }
             this.$store.dispatch("frontendCart/resetCart").then().catch();
+            this.orderWasFinalized = true;
+        },
+        reset: function () {
+            this.finalizeSuccessfulOrder();
         },
         orderStatusClass: function (status) {
             return appService.orderStatusClass(status);

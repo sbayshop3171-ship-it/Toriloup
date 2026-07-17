@@ -34,7 +34,7 @@ class AddressController extends Controller
     public function show(Address $address)
     {
         try {
-            return new AddressResource($address);
+            return new AddressResource($this->addressService->show($address));
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }

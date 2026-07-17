@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use App\Libraries\AppLibrary;
 use App\Models\ProductCategory;
 use App\Models\ProductVariation;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -745,7 +746,9 @@ class ProductService
                 ->with(['reviews' => fn($query) => $query->with('user', 'media')->take($request->get('review_limit', 3))])
                 ->withReviewRating()
                 ->where(['id' => $product->id, 'status' => Status::ACTIVE])
-                ->first();
+                ->firstOrFail();
+        } catch (ModelNotFoundException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -763,7 +766,9 @@ class ProductService
                 ->withReviewRating()
                 ->where(['id' => $product->id, 'status' => Status::ACTIVE])
                 ->withTrashed()
-                ->first();
+                ->firstOrFail();
+        } catch (ModelNotFoundException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);

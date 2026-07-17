@@ -44,6 +44,10 @@
                                 <nav
                                     class="rounded-lg shadow-md absolute top-8 ltr:right-0 rtl:left-0 z-30 border border-gray-100 bg-white transition-all duration-300 origin-top scale-y-0 group-hover:scale-y-100">
                                     <router-link
+                                        :to="{ name: 'frontend.account.orderTracking', params: { id: order.id } }"
+                                        class="block w-full text-left capitalize rounded-lg text-sm py-2 pl-3 pr-5 border-b last:border-b-0 border-gray-100 transition-all duration-500 hover:bg-gray-50 hover:text-primary">
+                                        {{ $t('label.track_order') }}</router-link>
+                                    <router-link
                                         :to="{ name: 'frontend.account.orderDetails', params: { id: order.id } }"
                                         class="block w-full text-left capitalize rounded-lg text-sm py-2 pl-3 pr-5 border-b last:border-b-0 border-gray-100 transition-all duration-500 hover:bg-gray-50 hover:text-primary">
                                         {{ $t('label.view') }}</router-link>

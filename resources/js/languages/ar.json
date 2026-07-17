@@ -489,6 +489,7 @@
         "select_payment_method": "اختر طريقة الدفع",
         "order_history": "تاريخ الطلب",
         "order_id": "رقم الطلب",
+        "track_order": "تتبع الطلب",
         "download": "تحميل",
         "paid": "مدفوع",
         "unpaid": "غير مدفوع",

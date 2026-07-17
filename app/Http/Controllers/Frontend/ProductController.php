@@ -11,6 +11,7 @@ use Exception;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PaginateRequest;
 use App\Services\ProductService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -36,6 +37,8 @@ class ProductController extends Controller
     {
         try {
             return new SimpleProductDetailsResource($this->productService->showWithRelation($product, $request));
+        } catch (ModelNotFoundException $exception) {
+            abort(404);
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }
@@ -45,6 +48,8 @@ class ProductController extends Controller
     {
         try {
             return new SimpleProductDetailsResource($this->productService->showWithTrashed($product, $request));
+        } catch (ModelNotFoundException $exception) {
+            abort(404);
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }

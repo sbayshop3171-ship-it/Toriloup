@@ -490,6 +490,7 @@
         "select_payment_method": "Select Payment Method",
         "order_history": "Order History",
         "order_id": "Order ID",
+        "track_order": "Track Order",
         "download": "Download",
         "paid": "Paid",
         "unpaid": "Unpaid",

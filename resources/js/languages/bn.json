@@ -489,6 +489,7 @@
         "select_payment_method": "পেমেন্ট মেথড নির্বাচন করুন",
         "order_history": "অর্ডার হিস্ট্রি",
         "order_id": "অর্ডার আইডি",
+        "track_order": "অর্ডার ট্র্যাক করুন",
         "download": "ডাউনলোড",
         "paid": "পেইড",
         "unpaid": "অপেইড",

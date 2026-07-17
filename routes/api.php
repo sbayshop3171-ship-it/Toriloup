@@ -746,7 +746,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'adminAccess
     });
 });
 
-Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey', 'localization'])->group(function () {
+Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey', 'localization', 'resolveTenantFromHost', 'setTenantContext'])->group(function () {
     Route::prefix('setting')->name('setting.')->group(function () {
         Route::get('/', [FrontendSettingController::class, 'index']);
     });
@@ -757,7 +757,7 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
         Route::get('/calling-code/{callingCode}', [FrontendCountryCodeController::class, 'callingCode']);
     });
 
-    Route::prefix('address')->name('address.')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('address')->name('address.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::get('/', [FrontendAddressController::class, 'index']);
         Route::get('/show/{address}', [FrontendAddressController::class, 'show']);
         Route::post('/', [FrontendAddressController::class, 'store']);
@@ -788,7 +788,7 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
         Route::get('/flash-sale-products', [FrontendProductController::class, 'flashSaleProducts']);
         Route::post('/category-wise-products', [FrontendProductController::class, 'categoryWiseProducts']);
         Route::get('/offer-products', [FrontendProductController::class, 'offerProducts']);
-        Route::get('/wishlist-products', [FrontendProductController::class, 'wishlistProducts'])->middleware(['auth:sanctum']);
+        Route::get('/wishlist-products', [FrontendProductController::class, 'wishlistProducts'])->middleware(['auth:sanctum', 'surfaceToken:storefront']);
         Route::get('/related-products/{product:slug}', [FrontendProductController::class, 'relatedProducts']);
         Route::get('/initial-variation/{product}', [FrontendProductVariationController::class, 'initialVariation']);
         Route::get('/children-variation/{productVariation}', [FrontendProductVariationController::class, 'childrenVariation']);
@@ -823,7 +823,7 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
         Route::get('/', [FrontendBenefitController::class, 'index']);
     });
 
-    Route::prefix('wishlist')->middleware(['auth:sanctum'])->name('wishlist.')->group(function () {
+    Route::prefix('wishlist')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->name('wishlist.')->group(function () {
         Route::get('/', [FrontendWishlistController::class, 'index']);
         Route::post('/toggle', [FrontendWishlistController::class, 'toggle']);
     });
@@ -841,14 +841,14 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
         Route::get('/', [FrontendOrderAreaController::class, 'index']);
     });
 
-    Route::prefix('order')->name('order.')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('order')->name('order.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::get('/', [FrontendOrderController::class, 'index']);
         Route::get('/show/{frontendOrder}', [FrontendOrderController::class, 'show']);
         Route::post('/', [FrontendOrderController::class, 'store']);
         Route::post('/change-status/{frontendOrder}', [FrontendOrderController::class, 'changeStatus']);
     });
 
-    Route::prefix('device-token')->name('device-token.')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('device-token')->name('device-token.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::post('/web', [TokenStoreController::class, 'webToken']);
         Route::post('/mobile', [TokenStoreController::class, 'deviceToken']);
     });
@@ -857,24 +857,24 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
         Route::post('/', [FrontendSubscriberController::class, 'store']);
     });
 
-    Route::prefix('return-reason')->name('return-reason.')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('return-reason')->name('return-reason.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::get('/', [FrontendReturnReasonController::class, 'index']);
     });
 
-    Route::prefix('return-order')->name('return-order.')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('return-order')->name('return-order.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::get('/', [FrontendReturnAndRefundController::class, 'index']);
         Route::post('/request/{order}', [FrontendReturnAndRefundController::class, 'store']);
         Route::get('/show/{returnAndRefund}', [FrontendReturnAndRefundController::class, 'show']);
     });
 
-    Route::prefix('overview')->name('overview.')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('overview')->name('overview.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::get('/total-orders', [OverviewController::class, 'totalOrders']);
         Route::get('/total-complete-orders', [OverviewController::class, 'totalCompletedOrders']);
         Route::get('/total-return-orders', [OverviewController::class, 'totalReturnedOrders']);
         Route::get('/wallet-balance', [OverviewController::class, 'walletBalance']);
     });
 
-    Route::prefix('product-review')->name('product-review.')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('product-review')->name('product-review.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::post('/', [ProductReviewController::class, 'store']);
         Route::get('/show/{productReview}', [ProductReviewController::class, 'show']);
         Route::match(['post', 'put', 'patch'], '/{productReview}', [ProductReviewController::class, 'update']);

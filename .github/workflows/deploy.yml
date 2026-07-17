@@ -72,26 +72,7 @@ jobs:
             -e "ssh -p $SSH_PORT -i ~/.ssh/deploy_key" \
             ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
 
-      - name: Install, migrate, and optimize
+      - name: Deploy with hardened server script
         run: |
           set -euo pipefail
-          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" <<'SCRIPT'
-            set -euo pipefail
-            cd /var/www/toriloup/data/www/platform
-
-            if [ ! -f .env ]; then
-              echo "::error title=Missing .env::Production .env is required before deploy."
-              exit 1
-            fi
-
-            composer install --no-dev --optimize-autoloader --no-interaction
-            npm ci --include=dev --no-audit --no-fund
-            npm run build
-
-            php artisan migrate --force
-            php artisan storage:link || true
-            php artisan optimize:clear
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-          SCRIPT
+          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; cd '$DEPLOY_PATH'; chmod +x scripts/*.sh; APP_DIR='$DEPLOY_PATH' SKIP_GIT_SYNC=1 DEPLOY_COMMIT_SHA='${GITHUB_SHA}' bash scripts/deploy-live.sh"

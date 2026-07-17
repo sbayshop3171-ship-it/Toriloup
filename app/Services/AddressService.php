@@ -62,7 +62,23 @@ class AddressService
     public function update(AddressRequest $request, Address $address)
     {
         try {
+            $this->ensureOwnership($address);
             return tap($address)->update($request->validated());
+        } catch (Exception $exception) {
+            Log::info($exception->getMessage());
+            throw new Exception(QueryExceptionLibrary::message($exception), 422);
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function show(Address $address): Address
+    {
+        try {
+            $this->ensureOwnership($address);
+
+            return $address;
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -75,10 +91,21 @@ class AddressService
     public function destroy(Address $address): void
     {
         try {
+            $this->ensureOwnership($address);
             $address->delete();
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function ensureOwnership(Address $address): void
+    {
+        if ((int) $address->user_id !== (int) Auth::id()) {
+            throw new Exception('The requested address does not belong to the authenticated customer.', 403);
         }
     }
 }

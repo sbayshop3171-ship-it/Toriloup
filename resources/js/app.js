@@ -71,7 +71,7 @@ axios.interceptors.response.use(
         const message = String(error?.response?.data?.message || "");
         const shouldForceLogout =
             status === 401 ||
-            (status === 403 && /admin access only/i.test(message));
+            (status === 403 && (/admin access only/i.test(message) || /token required/i.test(message)));
 
         if (shouldForceLogout) {
             store.commit("authLogout");

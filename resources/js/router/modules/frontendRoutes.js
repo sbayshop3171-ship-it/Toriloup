@@ -193,6 +193,24 @@ export default [
                 }
             },
             {
+                path: "order-success/:id",
+                component: OrderDetailsComponent,
+                name: "frontend.account.orderSuccess",
+                meta: {
+                    isFrontend: true,
+                    auth: true,
+                },
+            },
+            {
+                path: "order-tracking/:id",
+                component: OrderDetailsComponent,
+                name: "frontend.account.orderTracking",
+                meta: {
+                    isFrontend: true,
+                    auth: true,
+                },
+            },
+            {
                 path: "order-details/:id",
                 component: OrderDetailsComponent,
                 name: "frontend.account.orderDetails",

@@ -110,6 +110,6 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
         }
 
-        return redirect('/account/order-details/' . $order->id . '?status=success');
+        return redirect('/account/order-success/' . $order->id);
     }
 }
