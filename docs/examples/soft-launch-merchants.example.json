@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "primary_locale": "en",
+    "primary_currency_code": "USD",
+    "timezone": "UTC",
+    "plan_code": "starter"
+  },
+  "merchants": [
+    {
+      "owner_name": "Amina Rahman",
+      "store_name": "Amina Fashion House",
+      "store_slug": "amina-fashion",
+      "legal_name": "Amina Fashion House LLC",
+      "email": "amina@example.com",
+      "password": "ChangeMe123"
+    },
+    {
+      "owner_name": "Karim Grocers",
+      "store_name": "Karim Fresh Market",
+      "store_slug": "karim-fresh",
+      "email": "karim@example.com",
+      "password": "ChangeMe123"
+    }
+  ]
+}
