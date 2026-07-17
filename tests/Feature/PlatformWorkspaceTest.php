@@ -2,8 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Libraries\AppLibrary;
+use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\Status;
+use App\Models\Customer;
+use App\Models\Order;
 use App\Enums\Role as LegacyRole;
 use App\Models\PlatformRole;
+use App\Models\Product;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantMember;
@@ -44,6 +51,11 @@ class PlatformWorkspaceTest extends TestCase
             ->assertJsonStructure([
                 'status',
                 'summary' => [
+                    'merchants_total',
+                    'products_total',
+                    'customers_total',
+                    'revenue_total',
+                    'revenue_total_display',
                     'tenants_total',
                     'tenants_active',
                     'tenants_draft',
@@ -169,6 +181,138 @@ class PlatformWorkspaceTest extends TestCase
             ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
             ->getJson('http://merchant.company.com/api/merchant/context')
             ->assertForbidden();
+    }
+
+    public function test_platform_overview_returns_owner_dashboard_totals(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $tenantA = $this->createTenant('alpha-metrics-store');
+        $tenantB = $this->createTenant('beta-metrics-store');
+
+        Product::query()->create([
+            'tenant_id' => $tenantA->id,
+            'name' => 'Alpha Product',
+            'slug' => 'alpha-product',
+            'sku' => 'ALPHA-001',
+            'buying_price' => 10,
+            'selling_price' => 20,
+            'variation_price' => 20,
+            'status' => Status::ACTIVE,
+            'can_purchasable' => 1,
+            'show_stock_out' => 1,
+            'maximum_purchase_quantity' => 10,
+            'low_stock_quantity_warning' => 2,
+            'refundable' => 1,
+        ]);
+
+        Product::query()->create([
+            'tenant_id' => $tenantB->id,
+            'name' => 'Beta Product',
+            'slug' => 'beta-product',
+            'sku' => 'BETA-001',
+            'buying_price' => 15,
+            'selling_price' => 25,
+            'variation_price' => 25,
+            'status' => Status::ACTIVE,
+            'can_purchasable' => 1,
+            'show_stock_out' => 1,
+            'maximum_purchase_quantity' => 10,
+            'low_stock_quantity_warning' => 2,
+            'refundable' => 1,
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantA->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Shared Email A',
+            'email' => 'shared@example.com',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantB->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Shared Email B',
+            'email' => 'SHARED@example.com',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantA->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Shared Phone A',
+            'phone' => '01700000000',
+            'country_code' => '+880',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantB->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Shared Phone B',
+            'phone' => '01700000000',
+            'country_code' => '+880',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantA->id,
+            'legacy_user_id' => $owner->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Legacy Linked A',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantB->id,
+            'legacy_user_id' => $owner->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Legacy Linked B',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantB->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Anonymous Customer',
+        ]);
+
+        Order::query()->create([
+            'tenant_id' => $tenantA->id,
+            'order_serial_no' => 'ORD-ALPHA-1',
+            'user_id' => $owner->id,
+            'subtotal' => 120,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 120,
+            'order_datetime' => now(),
+            'payment_status' => PaymentStatus::PAID,
+            'status' => OrderStatus::DELIVERED,
+            'active' => 1,
+        ]);
+
+        Order::query()->create([
+            'tenant_id' => $tenantB->id,
+            'order_serial_no' => 'ORD-BETA-1',
+            'user_id' => $owner->id,
+            'subtotal' => 80,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 80,
+            'order_datetime' => now(),
+            'payment_status' => PaymentStatus::PAID,
+            'status' => OrderStatus::DELIVERED,
+            'active' => 1,
+        ]);
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://owner.company.com/api/platform/overview')
+            ->assertOk()
+            ->assertJsonPath('summary.merchants_total', 2)
+            ->assertJsonPath('summary.products_total', 2)
+            ->assertJsonPath('summary.customers_total', 4)
+            ->assertJsonPath('summary.revenue_total', 200)
+            ->assertJsonPath('summary.revenue_total_display', AppLibrary::currencyAmountFormat(200));
     }
 
     public function test_custom_domain_stays_storefront_only_and_requires_owner_verification(): void

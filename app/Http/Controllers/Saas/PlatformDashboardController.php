@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Saas;
 
 use App\Http\Controllers\Controller;
+use App\Libraries\AppLibrary;
 use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\PlatformProvider;
@@ -10,15 +11,28 @@ use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantMember;
 use App\Models\TenantSubscription;
+use App\Services\Saas\PlatformOverviewMetricsService;
 use Illuminate\Http\JsonResponse;
 
 class PlatformDashboardController extends Controller
 {
+    public function __construct(
+        private readonly PlatformOverviewMetricsService $platformOverviewMetricsService
+    ) {
+    }
+
     public function __invoke(): JsonResponse
     {
+        $revenueTotal = $this->platformOverviewMetricsService->totalRevenue();
+
         return response()->json([
             'status' => true,
             'summary' => [
+                'merchants_total' => $this->platformOverviewMetricsService->totalMerchants(),
+                'products_total' => $this->platformOverviewMetricsService->totalProducts(),
+                'customers_total' => $this->platformOverviewMetricsService->totalCustomers(),
+                'revenue_total' => $revenueTotal,
+                'revenue_total_display' => AppLibrary::currencyAmountFormat($revenueTotal),
                 'tenants_total' => Tenant::query()->count(),
                 'tenants_active' => Tenant::query()->where('status', 'active')->count(),
                 'tenants_draft' => Tenant::query()->where('status', 'draft')->count(),
