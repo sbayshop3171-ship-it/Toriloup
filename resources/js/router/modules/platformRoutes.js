@@ -1,3 +1,4 @@
+const LegacyAdminDashboardComponent = () => import("../../components/admin/dashboard/DashboardComponent");
 const PlatformDashboardComponent = () => import("../../components/platform/PlatformDashboardComponent.vue");
 const PlatformOperationsComponent = () => import("../../components/platform/PlatformOperationsComponent.vue");
 const PlatformTenantsComponent = () => import("../../components/platform/PlatformTenantsComponent.vue");
@@ -57,8 +58,19 @@ const operationRoutes = [
 export default [
     {
         path: "/owner/dashboard",
-        component: PlatformDashboardComponent,
+        component: LegacyAdminDashboardComponent,
         name: "platform.dashboard",
+        meta: {
+            isFrontend: false,
+            auth: true,
+            permissionUrl: "dashboard",
+            breadcrumb: "dashboard",
+        },
+    },
+    {
+        path: "/owner/control-tower",
+        component: PlatformDashboardComponent,
+        name: "platform.controlTower",
         meta: {
             isFrontend: false,
             auth: true,

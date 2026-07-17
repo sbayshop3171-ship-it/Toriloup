@@ -60,7 +60,8 @@ export default {
         },
         navigation: function () {
             return [
-                { name: "platform.dashboard", label: "Dashboard" },
+                { name: "platform.dashboard", label: "Main Admin" },
+                { name: "platform.controlTower", label: "Control Tower" },
                 { name: "platform.tenants", label: "Tenants" },
                 { name: "platform.domains", label: "Domains" },
                 { name: "platform.billing", label: "Plans & Billing" },

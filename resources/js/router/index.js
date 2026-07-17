@@ -43,7 +43,7 @@ const resolveRootRedirect = function () {
 
     if (workspace === "platform") {
         return isLoggedIn && authSurface === "platform"
-            ? { name: "admin.dashboard" }
+            ? { name: "platform.dashboard" }
             : { name: "auth.login" };
     }
 
@@ -64,7 +64,7 @@ const baseRoutes = [
     },
     {
         path: "/admin",
-        redirect: () => detectWorkspaceHost() === "platform" ? { name: "admin.dashboard" } : { name: "merchant.dashboard" },
+        redirect: () => detectWorkspaceHost() === "platform" ? { name: "platform.dashboard" } : { name: "merchant.dashboard" },
         name: "admin.root",
     },
     {

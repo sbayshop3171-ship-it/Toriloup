@@ -48,7 +48,7 @@ export const resolveWorkspaceDashboardRoute = function (surface = null, hostname
     const workspace = surface || detectWorkspaceHost(hostname);
 
     if (workspace === "platform") {
-        return { name: "admin.dashboard" };
+        return { name: "platform.dashboard" };
     }
 
     if (workspace === "merchant") {
@@ -62,7 +62,7 @@ export const resolveAuthenticatedHomeRoute = function (authInfo = {}, hostname =
     const surface = authInfo?.surface || null;
 
     if (surface === "platform") {
-        return { name: "admin.dashboard" };
+        return { name: "platform.dashboard" };
     }
 
     if (surface === "merchant") {
