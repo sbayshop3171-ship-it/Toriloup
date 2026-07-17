@@ -180,6 +180,15 @@ router.beforeEach((to, from, next) => {
         "auth.forgotPasswordVerify",
         "auth.resetPassword",
     ];
+    const ownerAdminSettingRedirects = {
+        "admin.settings.domains": "platform.domains",
+        "admin.settings.billing": "platform.billing",
+    };
+
+    if (isOwnerHost && Object.prototype.hasOwnProperty.call(ownerAdminSettingRedirects, to.name)) {
+        next({ name: ownerAdminSettingRedirects[to.name] });
+        return;
+    }
 
     if (to.name === "auth.merchantRegister" && !isMerchantHost) {
         next({ name: isOwnerHost ? "auth.login" : "auth.signup" });
