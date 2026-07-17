@@ -37,11 +37,9 @@ class EnsureLegacyAdminSurfaceAccess
         'subscriber',
         'administrator',
         'customer',
-        'employee',
         'transaction',
         'sales-report',
         'products-report',
-        'credit-balance-report',
     ];
 
     private const MERCHANT_GET_ONLY_PREFIXES = [

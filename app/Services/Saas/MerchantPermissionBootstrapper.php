@@ -77,15 +77,9 @@ class MerchantPermissionBootstrapper
             'customers_edit' => 'customers/edit',
             'customers_delete' => 'customers/delete',
             'customers_show' => 'customers/show',
-            'employees' => 'employees',
-            'employees_create' => 'employees/create',
-            'employees_edit' => 'employees/edit',
-            'employees_delete' => 'employees/delete',
-            'employees_show' => 'employees/show',
             'transactions' => 'transactions',
             'sales-report' => 'sales-report',
             'products-report' => 'products-report',
-            'credit-balance-report' => 'credit-balance-report',
             'settings' => 'settings',
         ];
     }

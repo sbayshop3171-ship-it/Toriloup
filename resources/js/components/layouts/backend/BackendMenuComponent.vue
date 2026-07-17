@@ -127,7 +127,6 @@ const merchantMenus = [
         children: [
             { name: "Administrators", language: "administrators", url: "administrators", icon: "lab lab-line-administrator" },
             { name: "Customers", language: "customers", url: "customers", icon: "lab lab-line-customers" },
-            { name: "Employees", language: "employees", url: "employees", icon: "lab lab-line-employee" },
         ],
     },
     {
@@ -147,7 +146,6 @@ const merchantMenus = [
         children: [
             { name: "Sales Report", language: "sales_report", url: "sales-report", icon: "lab lab-line-sales-report" },
             { name: "Products Report", language: "products_report", url: "products-report", icon: "lab lab-line-products-report" },
-            { name: "Credit Balance Report", language: "credit_balance_report", url: "credit-balance-report", icon: "lab lab-line-credit-balance-report" },
         ],
     },
     {

@@ -175,19 +175,14 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             'administrators_show',
             'customers',
             'customers_show',
-            'employees',
-            'employees_show',
         ]);
         $otherTenant = $this->createTenant('outside-users-store');
 
         $managerRole = $this->createLegacyRoleWithPermissions(LegacyRole::MANAGER, 'manager', []);
         $customerRole = $this->createLegacyRoleWithPermissions(LegacyRole::CUSTOMER, 'customer', []);
-        $employeeRole = $this->createLegacyRoleWithPermissions(LegacyRole::POS_OPERATOR, 'pos operator', []);
 
         $storeAdmin = $this->createTenantUser('Store Scoped Admin', 'store-admin@tenant.test', $managerRole, $context['tenant']);
         $outsideAdmin = $this->createTenantUser('Outside Scoped Admin', 'outside-admin@tenant.test', $managerRole, $otherTenant);
-        $storeEmployee = $this->createTenantUser('Store Scoped Employee', 'store-employee@tenant.test', $employeeRole, $context['tenant']);
-        $outsideEmployee = $this->createTenantUser('Outside Scoped Employee', 'outside-employee@tenant.test', $employeeRole, $otherTenant);
         $storeCustomer = $this->createTenantCustomer('Store Scoped Customer', 'store-customer@tenant.test', $customerRole, $context['tenant']);
         $outsideCustomer = $this->createTenantCustomer('Outside Scoped Customer', 'outside-customer@tenant.test', $customerRole, $otherTenant);
 
@@ -201,14 +196,6 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
         $this->assertTrue($adminIds->contains($storeAdmin->id));
         $this->assertFalse($adminIds->contains($outsideAdmin->id));
 
-        $employeeResponse = $this
-            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
-            ->getJson('http://merchant.company.com/api/admin/employee?role_id='.LegacyRole::POS_OPERATOR)
-            ->assertOk();
-        $employeeIds = collect($employeeResponse->json('data'))->pluck('id');
-        $this->assertTrue($employeeIds->contains($storeEmployee->id));
-        $this->assertFalse($employeeIds->contains($outsideEmployee->id));
-
         $customerResponse = $this
             ->withHeaders($this->tenantHeaders($context['tenant']->slug))
             ->getJson('http://merchant.company.com/api/admin/customer')
@@ -221,6 +208,21 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             ->withHeaders($this->tenantHeaders($context['tenant']->slug))
             ->getJson("http://merchant.company.com/api/admin/customer/show/{$outsideCustomer->id}")
             ->assertStatus(422);
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->getJson('http://merchant.company.com/api/admin/employee')
+            ->assertNotFound();
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->getJson('http://merchant.company.com/api/admin/employee?role_id='.LegacyRole::POS_OPERATOR)
+            ->assertNotFound();
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->getJson('http://merchant.company.com/api/admin/credit-balance-report')
+            ->assertNotFound();
     }
 
     private function createLegacyAdminUser(int $roleId, string $roleName, string $email): User
