@@ -109,3 +109,7 @@ Rollback behavior:
 - `rollback-live.sh` rolls back code and cached runtime state only
 - database schema rollback is still a deliberate manual step if a migration is not backward compatible
 - each deploy records timestamp, commit, and backup artifact in `storage/logs/deploy-live.state`
+
+Backup note:
+
+- MySQL backups use the application DB credentials and `mysqldump --no-tablespaces`, so the app user does not need the `PROCESS` privilege.

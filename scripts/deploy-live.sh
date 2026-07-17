@@ -47,6 +47,33 @@ env_file_value() {
     printf '%s' "$value"
 }
 
+php_env_value() {
+    local key="$1" value=""
+
+    if [ -f vendor/autoload.php ]; then
+        value="$("$PHP_BIN" -r '
+            $key = $argv[1] ?? "";
+            $appDir = $argv[2] ?? getcwd();
+
+            require $appDir . "/vendor/autoload.php";
+
+            if (class_exists("\\Dotenv\\Dotenv")) {
+                \Dotenv\Dotenv::createImmutable($appDir)->safeLoad();
+            }
+
+            $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+
+            if (is_array($value) || is_object($value)) {
+                $value = "";
+            }
+
+            echo (string) ($value ?? "");
+        ' "$key" "$APP_DIR" 2>/dev/null || true)"
+    fi
+
+    printf '%s' "$value"
+}
+
 env_value() {
     local key="$1" fallback="${2:-}" current from_file
 
@@ -54,6 +81,12 @@ env_value() {
 
     if [ -n "$current" ]; then
         printf '%s' "$current"
+        return
+    fi
+
+    from_file="$(php_env_value "$key")"
+    if [ -n "$from_file" ]; then
+        printf '%s' "$from_file"
         return
     fi
 
@@ -114,6 +147,7 @@ create_database_backup() {
                 --single-transaction \
                 --quick \
                 --skip-lock-tables \
+                --no-tablespaces \
                 "$db_database" \
                 | gzip -9 > "$artifact"; then
                 rm -f "$artifact"

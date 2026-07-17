@@ -73,6 +73,7 @@ jobs:
 
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         suite:
           - name: Unit
@@ -111,8 +112,35 @@ jobs:
           extensions: bcmath, ctype, curl, dom, exif, fileinfo, filter, gd, intl, json, mbstring, openssl, pdo, pdo_mysql, pdo_sqlite, simplexml, sodium, tokenizer, xml, xmlreader, xmlwriter, zip
           coverage: none
 
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-
+
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            echo "Composer install attempt ${attempt}/3"
+
+            if composer install --no-interaction --prefer-dist --no-progress; then
+              exit 0
+            fi
+
+            status=$?
+
+            if [ "$attempt" -eq 3 ]; then
+              exit "$status"
+            fi
+
+            sleep_seconds=$((attempt * 30))
+            echo "Composer install failed with status ${status}; retrying in ${sleep_seconds}s..."
+            sleep "$sleep_seconds"
+          done
 
       - name: Prepare Laravel environment
         run: |
