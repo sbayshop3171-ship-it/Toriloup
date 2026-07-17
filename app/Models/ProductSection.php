@@ -3,17 +3,19 @@
 namespace App\Models;
 
 use App\Enums\Status;
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ProductSection extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $table = "product_sections";
-    protected $fillable = ['name', 'slug', 'status'];
+    protected $fillable = ['tenant_id', 'name', 'slug', 'status'];
     protected $casts = [
         'id'         => 'integer',
+        'tenant_id'  => 'integer',
         'name'       => 'string',
         'slug'       => 'string',
         'status'     => 'integer',

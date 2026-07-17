@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Order;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use App\Libraries\AppLibrary;
 use App\Enums\Role as EnumRole;
@@ -168,7 +169,13 @@ class DashboardService
     public function topCustomers()
     {
         try {
-            return User::withCount('orders')->orderBy('orders_count', 'desc')->role(EnumRole::CUSTOMER)->limit(8)->get();
+            return User::query()
+                ->role(EnumRole::CUSTOMER)
+                ->whereIn('id', Order::query()->select('user_id')->whereNotNull('user_id'))
+                ->withCount('orders')
+                ->orderBy('orders_count', 'desc')
+                ->limit(8)
+                ->get();
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -198,7 +205,16 @@ class DashboardService
     public function totalCustomers()
     {
         try {
-            return User::role(EnumRole::CUSTOMER)->count();
+            $tenantCustomers = Customer::query()->count();
+
+            if ($tenantCustomers > 0) {
+                return $tenantCustomers;
+            }
+
+            return User::query()
+                ->role(EnumRole::CUSTOMER)
+                ->whereIn('id', Order::query()->select('user_id')->whereNotNull('user_id'))
+                ->count();
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);

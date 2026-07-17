@@ -3,6 +3,7 @@
 namespace App\Models;
 
 
+use App\Models\Concerns\BelongsToTenant;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Image\Enums\CropPosition;
@@ -14,16 +15,17 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Promotion extends Model implements HasMedia
 {
-    use InteractsWithMedia;
+    use BelongsToTenant, InteractsWithMedia;
 
     protected $table = "promotions";
-    protected $fillable = ['name', 'slug', 'type', 'status'];
+    protected $fillable = ['tenant_id', 'name', 'slug', 'type', 'status'];
     protected $casts = [
-        'id'     => 'integer',
-        'name'   => 'string',
-        'slug'   => 'string',
-        'type'   => 'integer',
-        'status' => 'integer'
+        'id'        => 'integer',
+        'tenant_id' => 'integer',
+        'name'      => 'string',
+        'slug'      => 'string',
+        'type'      => 'integer',
+        'status'    => 'integer'
     ];
 
 

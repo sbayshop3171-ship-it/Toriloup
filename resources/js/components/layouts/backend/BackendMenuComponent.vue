@@ -44,7 +44,123 @@
 
 <script>
 import appService from "../../../services/appService";
-import { resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
+import { isMerchantHost, isPlatformHost, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
+
+const ownerMenus = [
+    {
+        name: "Dashboard",
+        language: "dashboard",
+        url: "dashboard",
+        icon: "lab lab-line-dashboard",
+    },
+    {
+        name: "Settings",
+        language: "settings",
+        url: "settings",
+        icon: "lab lab-line-settings",
+    },
+];
+
+const merchantMenus = [
+    {
+        name: "Dashboard",
+        language: "dashboard",
+        url: "dashboard",
+        icon: "lab lab-line-dashboard",
+    },
+    {
+        name: "Product & Stock",
+        language: "product_and_stock",
+        url: "#",
+        icon: "lab lab-item",
+        children: [
+            { name: "Products", language: "products", url: "products", icon: "lab lab-line-items" },
+            { name: "Purchase", language: "purchase", url: "purchase", icon: "lab lab-line-add-purchase" },
+            { name: "Damages", language: "damages", url: "damages", icon: "lab lab-line-addons" },
+            { name: "Stock", language: "stock", url: "stock", icon: "lab lab-line-stock" },
+            { name: "Reviews", language: "reviews", url: "reviews", icon: "lab lab-line-rating-star" },
+        ],
+    },
+    {
+        name: "POS & Orders",
+        language: "pos_and_orders",
+        url: "#",
+        icon: "lab lab-pos",
+        children: [
+            { name: "POS", language: "pos", url: "pos", icon: "lab lab-line-pos" },
+            { name: "POS Orders", language: "pos_orders", url: "pos-orders", icon: "lab lab-line-push-notification" },
+            { name: "Online Orders", language: "online_orders", url: "online-orders", icon: "lab lab-line-online-orders" },
+            { name: "Return Orders", language: "return_orders", url: "return-orders", icon: "lab lab-line-order-setup" },
+            { name: "Return And Refunds", language: "return_and_refunds", url: "return-and-refunds", icon: "lab lab-line-refresh" },
+        ],
+    },
+    {
+        name: "Promo",
+        language: "promo",
+        url: "#",
+        icon: "lab lab-line-promotion",
+        children: [
+            { name: "Coupons", language: "coupons", url: "coupons", icon: "lab lab-line-coupon" },
+            { name: "Promotions", language: "promotions", url: "promotions", icon: "lab lab-line-promotion" },
+            { name: "Product Sections", language: "product_sections", url: "product-sections", icon: "lab lab-line-product-section" },
+        ],
+    },
+    {
+        name: "Communications",
+        language: "communications",
+        url: "#",
+        icon: "lab lab-line-notification",
+        children: [
+            { name: "Push Notifications", language: "push_notifications", url: "push-notifications", icon: "lab lab-line-push-notification" },
+            { name: "Subscribers", language: "subscribers", url: "subscribers", icon: "lab lab-line-subscribers" },
+        ],
+    },
+    {
+        name: "Users",
+        language: "users",
+        url: "#",
+        icon: "lab lab-line-user",
+        children: [
+            { name: "Administrators", language: "administrators", url: "administrators", icon: "lab lab-line-administrator" },
+            { name: "Customers", language: "customers", url: "customers", icon: "lab lab-line-customers" },
+            { name: "Employees", language: "employees", url: "employees", icon: "lab lab-line-employee" },
+        ],
+    },
+    {
+        name: "Accounts",
+        language: "accounts",
+        url: "#",
+        icon: "lab lab-line-account",
+        children: [
+            { name: "Transactions", language: "transactions", url: "transactions", icon: "lab lab-line-transactions" },
+        ],
+    },
+    {
+        name: "Reports",
+        language: "reports",
+        url: "#",
+        icon: "lab lab-line-report",
+        children: [
+            { name: "Sales Report", language: "sales_report", url: "sales-report", icon: "lab lab-line-sales-report" },
+            { name: "Products Report", language: "products_report", url: "products-report", icon: "lab lab-line-products-report" },
+            { name: "Credit Balance Report", language: "credit_balance_report", url: "credit-balance-report", icon: "lab lab-line-credit-balance-report" },
+        ],
+    },
+    {
+        name: "Setup",
+        language: "setup",
+        url: "#",
+        icon: "lab lab-line-settings",
+        children: [
+            { name: "Settings", language: "settings", url: "settings", icon: "lab lab-line-settings" },
+        ],
+    },
+];
+
+const cloneMenus = function (menus) {
+    return JSON.parse(JSON.stringify(menus));
+};
+
 export default {
     name: "BackendMenuComponent",
     data: function () {
@@ -62,6 +178,14 @@ export default {
             return this.$store.getters['frontendSetting/lists'];
         },
         menus: function () {
+            if (isPlatformHost()) {
+                return cloneMenus(ownerMenus);
+            }
+
+            if (isMerchantHost()) {
+                return cloneMenus(merchantMenus);
+            }
+
             return this.$store.getters.authMenu;
         },
         workspaceHomeRoute: function () {

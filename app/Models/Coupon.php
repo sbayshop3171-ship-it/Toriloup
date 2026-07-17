@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
@@ -9,11 +10,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Coupon extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia;
+    use BelongsToTenant, HasFactory, InteractsWithMedia;
 
     protected $table = "coupons";
 
     protected $fillable = [
+        'tenant_id',
         'name',
         'description',
         'code',
@@ -27,6 +29,7 @@ class Coupon extends Model implements HasMedia
     ];
     protected $casts = [
         'id'               => 'integer',
+        'tenant_id'        => 'integer',
         'name'             => 'string',
         'description'      => 'string',
         'code'             => 'string',

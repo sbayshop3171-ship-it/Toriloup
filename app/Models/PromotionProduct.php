@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PromotionProduct extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
     protected $table = "promotion_products";
-    protected $fillable = ['promotion_id', 'product_id'];
+    protected $fillable = ['tenant_id', 'promotion_id', 'product_id'];
     protected $casts = [
+        'tenant_id'    => 'integer',
         'id'           => 'integer',
         'promotion_id' => 'integer',
         'product_id'   => 'integer',

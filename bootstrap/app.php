@@ -6,6 +6,7 @@ use App\Http\Middleware\SetTenantContext;
 use App\Http\Middleware\Installed;
 use App\Http\Middleware\EnsureTenantActive;
 use App\Http\Middleware\BlockLegacyAdminAuthOnWorkspaceHosts;
+use App\Http\Middleware\EnsureLegacyAdminSurfaceAccess;
 use App\Http\Middleware\EnsurePlatformHost;
 use App\Http\Middleware\EnsureMerchantHost;
 use App\Http\Middleware\EnsureSurfaceTokenAbility;
@@ -72,6 +73,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'installed' => Installed::class,
             'adminAccess' => AdminAccess::class,
             'blockLegacyAdminAuth' => BlockLegacyAdminAuthOnWorkspaceHosts::class,
+            'legacyAdminSurfaceAccess' => EnsureLegacyAdminSurfaceAccess::class,
             'identifySurface' => IdentifyRequestSurface::class,
             'ensurePlatformHost' => EnsurePlatformHost::class,
             'ensureMerchantHost' => EnsureMerchantHost::class,

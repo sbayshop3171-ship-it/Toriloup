@@ -10,7 +10,10 @@ use App\Http\Requests\PaginateRequest;
 use App\Http\Requests\UserChangePasswordRequest;
 use App\Libraries\AppLibrary;
 use App\Libraries\QueryExceptionLibrary;
+use App\Models\PlatformRole;
+use App\Models\TenantMember;
 use App\Models\User;
+use App\Services\Tenancy\TenantContext;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +37,18 @@ class AdministratorService
             $orderColumn = $request->get('order_column') ?? 'id';
             $orderType   = $request->get('order_type') ?? 'desc';
 
-            return User::with('media')->where(function ($query) use ($requests) {
+            $query = User::with('media', 'roles');
+
+            if ($tenantId = $this->currentTenantId()) {
+                $query->whereHas('tenantMembers', fn ($query) => $query
+                    ->where('tenant_id', $tenantId)
+                    ->where('status', 'active'))
+                    ->whereHas('roles', fn ($query) => $query->where('id', EnumRole::MANAGER));
+            } else {
+                $query->role(EnumRole::ADMIN);
+            }
+
+            return $query->where(function ($query) use ($requests) {
                 foreach ($requests as $key => $request) {
                     if (in_array($key, $this->userFilter)) {
                         if ($key == 'phone') {
@@ -44,7 +58,7 @@ class AdministratorService
                         }
                     }
                 }
-            })->role(EnumRole::ADMIN)->orderBy($orderColumn, $orderType)->$method(
+            })->orderBy($orderColumn, $orderType)->$method(
                 $methodValue
             );
         } catch (Exception $exception) {
@@ -71,7 +85,23 @@ class AdministratorService
                     'country_code'      => $request->country_code,
                     'is_guest'          => Ask::NO,
                 ]);
-                $this->user->assignRole(EnumRole::ADMIN);
+                if ($tenantId = $this->currentTenantId()) {
+                    $this->user->assignRole($this->ensureManagerRole());
+                    TenantMember::query()->firstOrCreate(
+                        [
+                            'tenant_id' => $tenantId,
+                            'user_id' => $this->user->id,
+                        ],
+                        [
+                            'role_id' => $this->merchantStaffRole()->id,
+                            'status' => 'active',
+                            'invited_by_user_id' => Auth::id(),
+                            'joined_at' => now(),
+                        ]
+                    );
+                } else {
+                    $this->user->assignRole(EnumRole::ADMIN);
+                }
             });
             return $this->user;
         } catch (Exception $exception) {
@@ -87,6 +117,8 @@ class AdministratorService
     public function update(AdministratorRequest $request, User $administrator)
     {
         try {
+            $this->ensureTenantAdministrator($administrator);
+
             DB::transaction(function () use ($administrator, $request) {
                 $this->user               = $administrator;
                 $this->user->name         = $request->name;
@@ -114,6 +146,28 @@ class AdministratorService
     public function destroy(User $administrator)
     {
         try {
+            $this->ensureTenantAdministrator($administrator);
+
+            if ($this->currentTenantId() !== null) {
+                if (Auth::user()->id == $administrator->id) {
+                    throw new Exception(trans('The permission is denied.'), 422);
+                }
+
+                DB::transaction(function () use ($administrator) {
+                    TenantMember::query()
+                        ->where('tenant_id', $this->currentTenantId())
+                        ->where('user_id', $administrator->id)
+                        ->delete();
+
+                    if ($administrator->tenantMembers()->doesntExist()) {
+                        $administrator->addresses()->delete();
+                        $administrator->delete();
+                    }
+                });
+
+                return;
+            }
+
             if (Auth::user()->id != $administrator->id && $administrator->id != 1) {
                 if ($administrator->hasRole(EnumRole::ADMIN)) {
                     DB::transaction(function () use ($administrator) {
@@ -140,6 +194,12 @@ class AdministratorService
     public function show(User $administrator): User
     {
         try {
+            $this->ensureTenantAdministrator($administrator);
+
+            if ($this->currentTenantId() !== null) {
+                return $administrator;
+            }
+
             if ($administrator->hasRole(EnumRole::ADMIN)) {
                 return $administrator;
             } else {
@@ -157,6 +217,14 @@ class AdministratorService
     public function changePassword(UserChangePasswordRequest $request, User $administrator): User
     {
         try {
+            $this->ensureTenantAdministrator($administrator);
+
+            if ($this->currentTenantId() !== null) {
+                $administrator->password = Hash::make($request->password);
+                $administrator->save();
+                return $administrator;
+            }
+
             if ($administrator->hasRole(EnumRole::ADMIN)) {
                 $administrator->password = Hash::make($request->password);
                 $administrator->save();
@@ -176,6 +244,14 @@ class AdministratorService
     public function changeImage(ChangeImageRequest $request, User $administrator): User
     {
         try {
+            $this->ensureTenantAdministrator($administrator);
+
+            if ($this->currentTenantId() !== null) {
+                $administrator->clearMediaCollection('profile');
+                $administrator->addMediaFromRequest('image')->toMediaCollection('profile');
+                return $administrator;
+            }
+
             if ($administrator->hasRole(EnumRole::ADMIN)) {
                 $administrator->clearMediaCollection('profile');
                 $administrator->addMediaFromRequest('image')->toMediaCollection('profile');
@@ -187,5 +263,61 @@ class AdministratorService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function currentTenantId(): ?int
+    {
+        return app(TenantContext::class)->currentId();
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function ensureTenantAdministrator(User $administrator): void
+    {
+        $tenantId = $this->currentTenantId();
+
+        if ($tenantId === null) {
+            return;
+        }
+
+        $belongsToTenant = TenantMember::query()
+            ->where('tenant_id', $tenantId)
+            ->where('user_id', $administrator->id)
+            ->where('status', 'active')
+            ->exists();
+
+        if (!$belongsToTenant || $administrator->hasRole(EnumRole::ADMIN) || $administrator->hasRole(EnumRole::CUSTOMER)) {
+            throw new Exception(trans('The permission is denied.'), 404);
+        }
+    }
+
+    private function ensureManagerRole(): \Spatie\Permission\Models\Role
+    {
+        $role = \Spatie\Permission\Models\Role::query()->find(EnumRole::MANAGER);
+
+        if ($role !== null) {
+            return $role;
+        }
+
+        $role = new \Spatie\Permission\Models\Role();
+        $role->id = EnumRole::MANAGER;
+        $role->name = 'Manager';
+        $role->guard_name = 'sanctum';
+        $role->save();
+
+        return $role;
+    }
+
+    private function merchantStaffRole(): PlatformRole
+    {
+        return PlatformRole::query()->firstOrCreate(
+            ['code' => 'merchant_staff'],
+            [
+                'name' => 'Merchant Staff',
+                'scope' => 'merchant',
+                'is_system' => true,
+            ]
+        );
     }
 }

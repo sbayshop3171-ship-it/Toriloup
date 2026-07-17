@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
+    use BelongsToTenant;
+
     protected $table = "transactions";
-    protected $fillable = ['order_id', 'transaction_no', 'amount', 'payment_method', 'type', 'sign'];
+    protected $fillable = ['tenant_id', 'order_id', 'transaction_no', 'amount', 'payment_method', 'type', 'sign'];
     protected $casts = [
         'id'             => 'integer',
+        'tenant_id'      => 'integer',
         'order_id'       => 'integer',
         'transaction_no' => 'string',
         'amount'         => 'decimal:6',

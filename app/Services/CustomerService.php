@@ -5,7 +5,9 @@ namespace App\Services;
 use Exception;
 use App\Enums\Ask;
 use App\Models\User;
+use App\Models\Customer;
 use App\Enums\Role as EnumRole;
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +17,7 @@ use App\Http\Requests\PaginateRequest;
 use App\Http\Requests\ChangeImageRequest;
 use App\Http\Requests\UserChangePasswordRequest;
 use App\Libraries\QueryExceptionLibrary;
+use Illuminate\Support\Str;
 
 
 class CustomerService
@@ -38,7 +41,16 @@ class CustomerService
             $orderColumn = $request->get('order_column') ?? 'id';
             $orderType   = $request->get('order_type') ?? 'desc';
 
-            return User::with('media', 'addresses')->role(EnumRole::CUSTOMER)->where(function ($query) use ($requests) {
+            $query = User::with('media', 'addresses')->role(EnumRole::CUSTOMER);
+
+            if ($tenantId = $this->currentTenantId()) {
+                $query->whereIn('id', Customer::withoutGlobalScopes()
+                    ->where('tenant_id', $tenantId)
+                    ->whereNotNull('legacy_user_id')
+                    ->select('legacy_user_id'));
+            }
+
+            return $query->where(function ($query) use ($requests) {
                 foreach ($requests as $key => $request) {
                     if (in_array($key, $this->userFilter)) {
                         if ($key == 'phone') {
@@ -78,6 +90,26 @@ class CustomerService
                     'is_guest'          => Ask::NO,
                 ]);
                 $this->user->assignRole($customerRole);
+
+                if ($tenantId = $this->currentTenantId()) {
+                    Customer::withoutGlobalScopes()->updateOrCreate(
+                        [
+                            'tenant_id' => $tenantId,
+                            'legacy_user_id' => $this->user->id,
+                        ],
+                        [
+                            'uuid' => (string) Str::uuid(),
+                            'name' => $this->user->name,
+                            'email' => $this->user->email,
+                            'phone' => $this->user->phone,
+                            'country_code' => $this->user->country_code,
+                            'password' => $request->password,
+                            'status' => $this->user->status,
+                            'is_guest' => false,
+                            'email_verified_at' => now(),
+                        ]
+                    );
+                }
             });
             return $this->user;
         } catch (Exception $exception) {
@@ -94,6 +126,8 @@ class CustomerService
     {
         try {
             if (!in_array(EnumRole::CUSTOMER, $this->blockRoles)) {
+                $this->ensureTenantCustomer($customer);
+
                 DB::transaction(function () use ($customer, $request) {
                     $this->user               = $customer;
                     $this->user->name         = $request->name;
@@ -105,6 +139,25 @@ class CustomerService
                         $this->user->password = Hash::make($request->password);
                     }
                     $this->user->save();
+
+                    if ($tenantId = $this->currentTenantId()) {
+                        $customerPayload = [
+                            'name' => $this->user->name,
+                            'email' => $this->user->email,
+                            'phone' => $this->user->phone,
+                            'country_code' => $this->user->country_code,
+                            'status' => $this->user->status,
+                        ];
+
+                        if ($request->password) {
+                            $customerPayload['password'] = Hash::make($request->password);
+                        }
+
+                        Customer::withoutGlobalScopes()
+                            ->where('tenant_id', $tenantId)
+                            ->where('legacy_user_id', $customer->id)
+                            ->update($customerPayload);
+                    }
                 });
                 return $this->user;
             } else {
@@ -124,6 +177,8 @@ class CustomerService
     {
         try {
             if (!in_array(EnumRole::CUSTOMER, $this->blockRoles)) {
+                $this->ensureTenantCustomer($customer);
+
                 return $customer;
             } else {
                 throw new Exception(trans('all.message.permission_denied'), 422);
@@ -141,10 +196,24 @@ class CustomerService
     {
         try {
             if (!in_array(EnumRole::CUSTOMER, $this->blockRoles) && $customer->id != 2) {
+                $this->ensureTenantCustomer($customer);
+
                 if ($customer->hasRole(EnumRole::CUSTOMER)) {
                     DB::transaction(function () use ($customer) {
-                        $customer->addresses()->delete();
-                        $customer->delete();
+                        if ($tenantId = $this->currentTenantId()) {
+                            Customer::withoutGlobalScopes()
+                                ->where('tenant_id', $tenantId)
+                                ->where('legacy_user_id', $customer->id)
+                                ->delete();
+
+                            if (Customer::withoutGlobalScopes()->where('legacy_user_id', $customer->id)->doesntExist()) {
+                                $customer->addresses()->delete();
+                                $customer->delete();
+                            }
+                        } else {
+                            $customer->addresses()->delete();
+                            $customer->delete();
+                        }
                     });
                 } else {
                     throw new Exception(trans('all.message.permission_denied'), 422);
@@ -172,8 +241,18 @@ class CustomerService
     {
         try {
             if (!in_array(EnumRole::CUSTOMER, $this->blockRoles)) {
+                $this->ensureTenantCustomer($customer);
+
                 $customer->password = Hash::make($request->password);
                 $customer->save();
+
+                if ($tenantId = $this->currentTenantId()) {
+                    Customer::withoutGlobalScopes()
+                        ->where('tenant_id', $tenantId)
+                        ->where('legacy_user_id', $customer->id)
+                        ->update(['password' => Hash::make($request->password)]);
+                }
+
                 return $customer;
             } else {
                 throw new Exception(trans('all.message.permission_denied'), 422);
@@ -191,6 +270,8 @@ class CustomerService
     {
         try {
             if (!in_array(EnumRole::CUSTOMER, $this->blockRoles)) {
+                $this->ensureTenantCustomer($customer);
+
                 if ($request->image) {
                     $customer->clearMediaCollection('profile');
                     $customer->addMediaFromRequest('image')->toMediaCollection('profile');
@@ -216,9 +297,35 @@ class CustomerService
         $role = new Role();
         $role->id = EnumRole::CUSTOMER;
         $role->name = 'customer';
-        $role->guard_name = 'web';
+        $role->guard_name = 'sanctum';
         $role->save();
 
         return $role;
+    }
+
+    private function currentTenantId(): ?int
+    {
+        return app(TenantContext::class)->currentId();
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function ensureTenantCustomer(User $customer): void
+    {
+        $tenantId = $this->currentTenantId();
+
+        if ($tenantId === null) {
+            return;
+        }
+
+        $belongsToTenant = Customer::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('legacy_user_id', $customer->id)
+            ->exists();
+
+        if (!$belongsToTenant) {
+            throw new Exception(trans('all.message.permission_denied'), 404);
+        }
     }
 }

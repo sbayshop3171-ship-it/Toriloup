@@ -5,7 +5,10 @@ namespace App\Services;
 use Exception;
 use App\Enums\Ask;
 use App\Models\User;
+use App\Models\PlatformRole;
+use App\Models\TenantMember;
 use App\Enums\Role as EnumRole;
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
@@ -37,7 +40,15 @@ class EmployeeService
             $orderColumn = $request->get('order_column') ?? 'id';
             $orderType   = $request->get('order_type') ?? 'desc';
 
-            return User::with('media', 'addresses', 'roles')->where(
+            $query = User::with('media', 'addresses', 'roles');
+
+            if ($tenantId = $this->currentTenantId()) {
+                $query->whereHas('tenantMembers', fn ($query) => $query
+                    ->where('tenant_id', $tenantId)
+                    ->where('status', 'active'));
+            }
+
+            return $query->where(
                 function ($query) use ($requests) {
                     $query->whereHas('roles', function ($query) {
                         $query->where('id', '!=', EnumRole::ADMIN);
@@ -85,6 +96,21 @@ class EmployeeService
                     ]);
 
                     $this->user->assignRole($request->role_id);
+
+                    if ($tenantId = $this->currentTenantId()) {
+                        TenantMember::query()->firstOrCreate(
+                            [
+                                'tenant_id' => $tenantId,
+                                'user_id' => $this->user->id,
+                            ],
+                            [
+                                'role_id' => $this->merchantStaffRole()->id,
+                                'status' => 'active',
+                                'invited_by_user_id' => auth()->id(),
+                                'joined_at' => now(),
+                            ]
+                        );
+                    }
                 });
                 return $this->user;
             } else {
@@ -107,6 +133,8 @@ class EmployeeService
                 optional($employee->roles[0])->id,
                 $this->blockRoles
             )) {
+                $this->ensureTenantEmployee($employee);
+
                 DB::transaction(function () use ($employee, $request) {
                     $this->user               = $employee;
                     $this->user->name         = $request->name;
@@ -138,6 +166,8 @@ class EmployeeService
     {
         try {
             if (!in_array(optional($employee->roles[0])->id, $this->blockRoles)) {
+                $this->ensureTenantEmployee($employee);
+
                 return $employee;
             } else {
                 throw new Exception(trans('all.message.permission_denied'), 422);
@@ -156,10 +186,24 @@ class EmployeeService
     {
         try {
             if (!in_array(optional($employee->roles[0])->id, $this->blockRoles)) {
+                $this->ensureTenantEmployee($employee);
+
                 if ($employee->hasRole(optional($employee->roles[0])->id)) {
                     DB::transaction(function () use ($employee) {
-                        $employee->addresses()->delete();
-                        $employee->delete();
+                        if ($tenantId = $this->currentTenantId()) {
+                            TenantMember::query()
+                                ->where('tenant_id', $tenantId)
+                                ->where('user_id', $employee->id)
+                                ->delete();
+
+                            if ($employee->tenantMembers()->doesntExist()) {
+                                $employee->addresses()->delete();
+                                $employee->delete();
+                            }
+                        } else {
+                            $employee->addresses()->delete();
+                            $employee->delete();
+                        }
                     });
                 } else {
                     throw new Exception(trans('all.message.permission_denied'), 422);
@@ -187,6 +231,8 @@ class EmployeeService
     {
         try {
             if (!in_array(optional($employee->roles[0])->id, $this->blockRoles)) {
+                $this->ensureTenantEmployee($employee);
+
                 $employee->password = Hash::make($request->password);
                 $employee->save();
                 return $employee;
@@ -206,6 +252,8 @@ class EmployeeService
     {
         try {
             if (!in_array(optional($employee->roles[0])->id, $this->blockRoles)) {
+                $this->ensureTenantEmployee($employee);
+
                 if ($request->image) {
                     $employee->clearMediaCollection('profile');
                     $employee->addMediaFromRequest('image')->toMediaCollection('profile');
@@ -218,5 +266,44 @@ class EmployeeService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function currentTenantId(): ?int
+    {
+        return app(TenantContext::class)->currentId();
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function ensureTenantEmployee(User $employee): void
+    {
+        $tenantId = $this->currentTenantId();
+
+        if ($tenantId === null) {
+            return;
+        }
+
+        $belongsToTenant = TenantMember::query()
+            ->where('tenant_id', $tenantId)
+            ->where('user_id', $employee->id)
+            ->where('status', 'active')
+            ->exists();
+
+        if (!$belongsToTenant) {
+            throw new Exception(trans('all.message.permission_denied'), 404);
+        }
+    }
+
+    private function merchantStaffRole(): PlatformRole
+    {
+        return PlatformRole::query()->firstOrCreate(
+            ['code' => 'merchant_staff'],
+            [
+                'name' => 'Merchant Staff',
+                'scope' => 'merchant',
+                'is_system' => true,
+            ]
+        );
     }
 }
