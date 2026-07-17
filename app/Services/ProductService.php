@@ -104,12 +104,6 @@ class ProductService
     {
         try {
             DB::transaction(function () use ($request) {
-                if ($request->barcode_id === BarcodeType::EAN_13) {
-                    $barcode_value = str_pad($request->sku, 12, '0', STR_PAD_LEFT);
-                }
-                if ($request->barcode_id === BarcodeType::UPC_A) {
-                    $barcode_value = str_pad($request->sku, 11, '0', STR_PAD_LEFT);
-                }
                 $this->product = Product::create($request->validated() + ['slug' => Str::slug($request->name), 'variation_price' => $request->selling_price]);
                 if ($request->tags) {
                     $tagItems = json_decode($request->tags, true);
@@ -130,15 +124,7 @@ class ProductService
                     }
                 }
 
-                $generator = new BarcodeGeneratorJPG();
-                if ($this->product->barcode_id == BarcodeType::EAN_13) {
-                    $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_EAN_13);
-                }
-                if ($this->product->barcode_id == BarcodeType::UPC_A) {
-                    $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_UPC_A);
-                }
-                $tempFilePath = $this->writeBarcodeImage($barcode);
-                $this->product->addMedia($tempFilePath)->toMediaCollection('product-barcode');
+                $this->attachBarcodeImage($this->product, (int) $this->product->barcode_id, (string) $this->product->sku);
             });
             return $this->product;
         } catch (Exception $exception) {
@@ -156,24 +142,10 @@ class ProductService
         try {
             DB::transaction(function () use ($request, $product) {
                 if ($request->barcode_id != $product->barcode_id || $request->sku != $product->sku) {
-                    if ($request->barcode_id === BarcodeType::EAN_13) {
-                        $barcode_value = str_pad($request->sku, 12, '0', STR_PAD_LEFT);
-                    }
-                    if ($request->barcode_id === BarcodeType::UPC_A) {
-                        $barcode_value = str_pad($request->sku, 11, '0', STR_PAD_LEFT);
-                    }
                     $product->update($request->validated() + ['slug' => Str::slug($request->name)]);
 
-                    $generator = new BarcodeGeneratorJPG();
-                    if ($product->barcode_id === BarcodeType::EAN_13) {
-                        $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_EAN_13);
-                    }
-                    if ($product->barcode_id === BarcodeType::UPC_A) {
-                        $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_UPC_A);
-                    }
-                    $tempFilePath = $this->writeBarcodeImage($barcode);
                     $product->clearMediaCollection('product-barcode');
-                    $product->addMedia($tempFilePath)->toMediaCollection('product-barcode');
+                    $this->attachBarcodeImage($product, (int) $product->barcode_id, (string) $product->sku);
                 } else {
                     $product->update($request->validated() + ['slug' => Str::slug($request->name)]);
                 }
@@ -232,6 +204,28 @@ class ProductService
         file_put_contents($tempFilePath, $barcode);
 
         return $tempFilePath;
+    }
+
+    private function makeBarcode(int $barcodeId, string $sku): ?string
+    {
+        $generator = new BarcodeGeneratorJPG();
+
+        return match ($barcodeId) {
+            BarcodeType::EAN_13 => $generator->getBarcode(str_pad($sku, 12, '0', STR_PAD_LEFT), $generator::TYPE_EAN_13),
+            BarcodeType::UPC_A => $generator->getBarcode(str_pad($sku, 11, '0', STR_PAD_LEFT), $generator::TYPE_UPC_A),
+            default => null,
+        };
+    }
+
+    private function attachBarcodeImage(Product $product, int $barcodeId, string $sku): void
+    {
+        $barcode = $this->makeBarcode($barcodeId, $sku);
+
+        if ($barcode === null) {
+            return;
+        }
+
+        $product->addMedia($this->writeBarcodeImage($barcode))->toMediaCollection('product-barcode');
     }
 
     /**

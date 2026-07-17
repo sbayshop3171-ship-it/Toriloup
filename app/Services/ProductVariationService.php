@@ -39,6 +39,17 @@ class ProductVariationService
         return $tempFilePath;
     }
 
+    private function makeBarcode(int $barcodeId, string $sku): ?string
+    {
+        $generator = new BarcodeGeneratorJPG();
+
+        return match ($barcodeId) {
+            BarcodeType::EAN_13 => $generator->getBarcode(str_pad($sku, 12, '0', STR_PAD_LEFT), $generator::TYPE_EAN_13),
+            BarcodeType::UPC_A => $generator->getBarcode(str_pad($sku, 11, '0', STR_PAD_LEFT), $generator::TYPE_UPC_A),
+            default => null,
+        };
+    }
+
     private function variationChild($arrays, $filters): void
     {
         if (count($arrays)) {
@@ -295,16 +306,7 @@ class ProductVariationService
                         $collection[]          = $productVariation;
 
                         if ($key == $variationsCount) {
-                            $generator = new BarcodeGeneratorJPG();
-
-                            if ($product->barcode_id === BarcodeType::EAN_13) {
-                                $barcode_value = str_pad($variation->sku, 12, '0', STR_PAD_LEFT);
-                                $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_EAN_13);
-                            }
-                            if ($product->barcode_id === BarcodeType::UPC_A) {
-                                $barcode_value = str_pad($variation->sku, 11, '0', STR_PAD_LEFT);
-                                $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_UPC_A);
-                            }
+                            $barcode = $this->makeBarcode((int) $product->barcode_id, (string) $variation->sku);
 
                             if ($barcode) {
                                 $tempFilePath = $this->writeBarcodeImage($barcode);
@@ -387,15 +389,7 @@ class ProductVariationService
                             } else {
                                 $productVariationExistCheck->update(['sku' => $variation->sku]);
 
-                                $generator = new BarcodeGeneratorJPG();
-                                if ($product->barcode_id === BarcodeType::EAN_13) {
-                                    $barcode_value = str_pad($variation->sku, 12, '0', STR_PAD_LEFT);
-                                    $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_EAN_13);
-                                }
-                                if ($product->barcode_id === BarcodeType::UPC_A) {
-                                    $barcode_value = str_pad($variation->sku, 11, '0', STR_PAD_LEFT);
-                                    $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_UPC_A);
-                                }
+                                $barcode = $this->makeBarcode((int) $product->barcode_id, (string) $variation->sku);
 
                                 if ($barcode) {
                                     $tempFilePath = $this->writeBarcodeImage($barcode);
@@ -436,16 +430,7 @@ class ProductVariationService
                         $collection[]           = $createProductVariation;
 
                         if ($key == $variationsCount) {
-                            $generator = new BarcodeGeneratorJPG();
-
-                            if ($product->barcode_id === BarcodeType::EAN_13) {
-                                $barcode_value = str_pad($sku, 12, '0', STR_PAD_LEFT);
-                                $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_EAN_13);
-                            }
-                            if ($product->barcode_id === BarcodeType::UPC_A) {
-                                $barcode_value = str_pad($sku, 11, '0', STR_PAD_LEFT);
-                                $barcode = $generator->getBarcode($barcode_value, $generator::TYPE_UPC_A);
-                            }
+                            $barcode = $this->makeBarcode((int) $product->barcode_id, (string) $sku);
 
                             if ($barcode) {
                                 $tempFilePath = $this->writeBarcodeImage($barcode);
