@@ -19,6 +19,7 @@ class AdminSurfacePayloadService
         private readonly PermissionService $permissionService,
         private readonly SurfaceTokenService $surfaceTokenService,
         private readonly MerchantPermissionBootstrapper $merchantPermissionBootstrapper,
+        private readonly PlatformSupportSessionService $platformSupportSessionService,
     ) {
     }
 
@@ -38,10 +39,13 @@ class AdminSurfacePayloadService
         $defaultPermission = AppLibrary::defaultPermission($permissionResource->collection);
         $menu = MenuResource::collection(collect($this->menuService->menu($role)))->resolve(request());
         $defaultMenu = (object) AppLibrary::defaultMenu($this->menuService->menu($role), $defaultPermission);
+        $token = array_key_exists('token', $extra)
+            ? $extra['token']
+            : $this->surfaceTokenService->issueToken($user, $surface);
 
         $payload = [
             'message' => trans('all.message.login_success'),
-            'token' => $this->surfaceTokenService->issueToken($user, $surface),
+            'token' => $token,
             'surface' => $surface,
             'user' => (new UserResource($user))->resolve(request()),
             'menu' => $menu,
@@ -90,13 +94,19 @@ class AdminSurfacePayloadService
 
         if ($surface === 'merchant') {
             $tenantMembers = $this->activeTenantMembers($user);
+            $supportSession = $this->platformSupportSessionService->currentForToken(
+                request()->user(),
+                request()->user()?->currentAccessToken()?->id
+            );
+
             $payload['tenants'] = $tenantMembers
                 ->map(fn (TenantMember $member) => $this->serializeTenantMembership($member))
                 ->values()
                 ->all();
-            $payload['current_tenant'] = $tenantMembers->isNotEmpty()
-                ? $this->serializeTenantMembership($tenantMembers->first())
-                : null;
+            $payload['current_tenant'] = $supportSession?->tenantMember
+                ? $this->serializeTenantMembership($supportSession->tenantMember)
+                : ($tenantMembers->isNotEmpty() ? $this->serializeTenantMembership($tenantMembers->first()) : null);
+            $payload['support_session'] = $supportSession ? $this->platformSupportSessionService->serializeSession($supportSession) : null;
         }
 
         return $payload;
@@ -119,11 +129,21 @@ class AdminSurfacePayloadService
      */
     public function serializeTenantMembership(TenantMember $member): array
     {
+        $tenantPayload = $member->tenant ? $this->serializeTenant($member->tenant) : null;
+
         return [
             'membership_id' => $member->id,
             'status' => $member->status,
             'role' => $member->role?->only(['id', 'code', 'name', 'scope']),
-            'tenant' => $member->tenant ? $this->serializeTenant($member->tenant) : null,
+            'tenant_id' => $tenantPayload['id'] ?? null,
+            'uuid' => $tenantPayload['uuid'] ?? null,
+            'name' => $tenantPayload['name'] ?? null,
+            'slug' => $tenantPayload['slug'] ?? null,
+            'tenant_status' => $tenantPayload['status'] ?? null,
+            'onboarding_status' => $tenantPayload['onboarding_status'] ?? null,
+            'plan_code' => $tenantPayload['plan_code'] ?? null,
+            'primary_domain' => $tenantPayload['primary_domain'] ?? null,
+            'tenant' => $tenantPayload,
         ];
     }
 

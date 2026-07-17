@@ -207,6 +207,11 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
+    if (isOwnerHost && to.name === "admin.dashboard") {
+        next({ name: "platform.dashboard" });
+        return;
+    }
+
     if (to.name === "auth.merchantRegister" && !isMerchantHost) {
         next({ name: isOwnerHost ? "auth.login" : "auth.signup" });
         return;

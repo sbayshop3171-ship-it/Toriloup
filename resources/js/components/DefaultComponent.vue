@@ -17,6 +17,25 @@
 
     <div v-if="theme === 'backend'">
         <main class="db-main" v-if="showBackendShell">
+            <section
+                v-if="showSupportBanner"
+                class="border-b border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm text-[#92400E]">
+                <div class="mx-auto flex max-w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p class="font-semibold">Audited support session is active.</p>
+                        <p>
+                            Owner support access is using merchant store
+                            <span class="font-semibold">{{ supportSession?.tenant?.name || authInfo?.current_tenant?.name || authInfo?.current_tenant?.tenant?.name || "merchant workspace" }}</span>.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex h-10 items-center justify-center rounded-xl border border-[#F59E0B] bg-white px-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#B45309] transition hover:bg-[#FEF3C7]"
+                        @click="endSupportSession">
+                        Exit support session
+                    </button>
+                </div>
+            </section>
             <BackendNavbarComponent />
             <BackendMenuComponent />
             <router-view></router-view>
@@ -32,6 +51,7 @@
 </template>
 
 <script>
+import axios from "axios";
 import BackendNavbarComponent from "./layouts/backend/BackendNavbarComponent";
 import BackendMenuComponent from "./layouts/backend/BackendMenuComponent";
 import FrontendNavbarComponent from "./layouts/frontend/FrontendNavBarComponent";
@@ -81,7 +101,7 @@ export default {
             });
         }).catch();
 
-        if (this.shouldVerifyAuth()) {
+        if (this.shouldVerifyAuth() && this.$route?.meta?.skipInitialAuthCheck !== true) {
             this.$store.dispatch("authcheck").then(res => {
                 appService.recursiveRouter(this.$router.options.routes, this.$store.getters.authPermission);
 
@@ -95,8 +115,17 @@ export default {
         logged: function () {
             return this.$store.getters.authStatus;
         },
+        authInfo: function () {
+            return this.$store.getters.authInfo || {};
+        },
         showBackendShell: function () {
             return this.logged || this.$route?.meta?.auth === true;
+        },
+        supportSession: function () {
+            return this.authInfo?.support_session || null;
+        },
+        showSupportBanner: function () {
+            return this.authInfo?.surface === "merchant" && this.supportSession?.id;
         },
         displayMode: function () {
             return this.$store.getters['globalState/lists'].display_mode;
@@ -146,6 +175,17 @@ export default {
             }
 
             return route?.meta?.isFrontend === true ? "frontend" : "backend";
+        },
+        endSupportSession: function () {
+            if (!this.supportSession?.id) {
+                return;
+            }
+
+            axios.post(`merchant/auth/support-sessions/${this.supportSession.id}/end`)
+                .finally(() => {
+                    this.$store.commit("authLogout");
+                    this.$router.push(resolveGuestHomeRoute());
+                });
         },
         displayModeDefine: function (route = this.$route) {
             let dir = "ltr";

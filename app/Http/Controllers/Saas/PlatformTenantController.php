@@ -8,7 +8,10 @@ use App\Models\Tenant;
 use App\Models\TenantFeatureFlag;
 use App\Models\TenantMember;
 use App\Models\TenantPaymentMethod;
+use App\Models\PlatformAuditLog;
+use App\Models\PlatformSupportSession;
 use App\Services\Saas\PlatformAuditLogService;
+use App\Services\Saas\PlatformTenantInsightService;
 use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +23,7 @@ class PlatformTenantController extends Controller
         private readonly TenantProvisioningService $tenantProvisioningService,
         private readonly PlatformAuditLogService $platformAuditLogService,
         private readonly SubscriptionManagerService $subscriptionManagerService,
+        private readonly PlatformTenantInsightService $platformTenantInsightService,
     ) {
     }
 
@@ -45,20 +49,22 @@ class PlatformTenantController extends Controller
             })
             ->orderByDesc('id')
             ->get();
+        $metricsMap = $this->platformTenantInsightService->metricsMap($tenants->pluck('id')->all());
 
         return response()->json([
             'status' => true,
-            'data' => $tenants->map(fn (Tenant $tenant) => $this->serializeTenant($tenant))->values(),
+            'data' => $tenants->map(fn (Tenant $tenant) => $this->serializeTenant($tenant, false, $metricsMap[$tenant->id] ?? []))->values(),
         ]);
     }
 
     public function show(int $tenantId): JsonResponse
     {
         $tenant = $this->findTenant($tenantId);
+        $metricsMap = $this->platformTenantInsightService->metricsMap([$tenant->id]);
 
         return response()->json([
             'status' => true,
-            'data' => $this->serializeTenant($tenant, true),
+            'data' => $this->serializeTenant($tenant, true, $metricsMap[$tenant->id] ?? []),
         ]);
     }
 
@@ -104,7 +110,7 @@ class PlatformTenantController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $this->serializeTenant($tenant->fresh(), true),
+            'data' => $this->serializeTenant($tenant->fresh(), true, $this->platformTenantInsightService->metricsMap([$tenant->id])[$tenant->id] ?? []),
         ]);
     }
 
@@ -135,7 +141,7 @@ class PlatformTenantController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $this->serializeTenant($tenant->fresh(), true),
+            'data' => $this->serializeTenant($tenant->fresh(), true, $this->platformTenantInsightService->metricsMap([$tenant->id])[$tenant->id] ?? []),
         ]);
     }
 
@@ -162,7 +168,7 @@ class PlatformTenantController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $this->serializeTenant($tenant->fresh(), true),
+            'data' => $this->serializeTenant($tenant->fresh(), true, $this->platformTenantInsightService->metricsMap([$tenant->id])[$tenant->id] ?? []),
         ]);
     }
 
@@ -191,7 +197,7 @@ class PlatformTenantController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $this->serializeTenant($tenant->fresh(), true),
+            'data' => $this->serializeTenant($tenant->fresh(), true, $this->platformTenantInsightService->metricsMap([$tenant->id])[$tenant->id] ?? []),
         ]);
     }
 
@@ -209,7 +215,7 @@ class PlatformTenantController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serializeTenant(Tenant $tenant, bool $detail = false): array
+    private function serializeTenant(Tenant $tenant, bool $detail = false, array $metrics = []): array
     {
         $tenant->loadMissing([
             'domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback'),
@@ -248,6 +254,8 @@ class PlatformTenantController extends Controller
             ])->values(),
             'members_count' => $tenant->members_count ?? $tenant->members->count(),
             'active_members_count' => $tenant->active_members_count ?? $tenant->members->where('status', 'active')->count(),
+            'storefront_url' => $tenant->domains->first()?->hostname ? 'https://'.$tenant->domains->first()->hostname : null,
+            'stats' => $this->serializeTenantStats($metrics),
         ];
 
         if (!$detail) {
@@ -291,7 +299,90 @@ class PlatformTenantController extends Controller
         $currentSubscription = $this->subscriptionManagerService->currentSubscription($tenant);
         $payload['subscription'] = $currentSubscription ? $this->subscriptionManagerService->serializeSubscription($currentSubscription) : null;
         $payload['usage_summary'] = $this->subscriptionManagerService->usageSummary($tenant);
+        $payload['recent_owner_actions'] = PlatformAuditLog::query()
+            ->with(['actor', 'tenant'])
+            ->where('tenant_id', $tenant->id)
+            ->where('actor_scope', 'platform')
+            ->latest('id')
+            ->limit(5)
+            ->get()
+            ->map(fn (PlatformAuditLog $log) => $this->serializeAuditLog($log))
+            ->values();
+        $payload['recent_merchant_actions'] = PlatformAuditLog::query()
+            ->with(['actor', 'tenant'])
+            ->where('tenant_id', $tenant->id)
+            ->where('actor_scope', 'merchant')
+            ->latest('id')
+            ->limit(5)
+            ->get()
+            ->map(fn (PlatformAuditLog $log) => $this->serializeAuditLog($log))
+            ->values();
+        $payload['recent_support_sessions'] = PlatformSupportSession::query()
+            ->with(['owner', 'impersonatedUser', 'tenantMember.role'])
+            ->where('tenant_id', $tenant->id)
+            ->latest('id')
+            ->limit(5)
+            ->get()
+            ->map(fn (PlatformSupportSession $session) => [
+                'id' => $session->id,
+                'status' => $session->status,
+                'reason' => $session->reason,
+                'started_at' => $session->started_at,
+                'consumed_at' => $session->consumed_at,
+                'expires_at' => $session->expires_at,
+                'ended_at' => $session->ended_at,
+                'owner' => $session->owner?->only(['id', 'name', 'email']),
+                'impersonated_user' => $session->impersonatedUser?->only(['id', 'name', 'email']),
+                'tenant_member_role' => $session->tenantMember?->role?->only(['id', 'code', 'name', 'scope']),
+            ])
+            ->values();
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $metrics
+     * @return array<string, mixed>
+     */
+    private function serializeTenantStats(array $metrics): array
+    {
+        $activityMarkers = collect([
+            $metrics['last_order_at'] ?? null,
+            $metrics['last_member_seen_at'] ?? null,
+            $metrics['last_customer_login_at'] ?? null,
+        ])->filter()->sortDesc()->values();
+
+        return [
+            'products_count' => (int) ($metrics['products_count'] ?? 0),
+            'customers_count' => (int) ($metrics['customers_count'] ?? 0),
+            'total_orders_count' => (int) ($metrics['total_orders_count'] ?? 0),
+            'completed_orders_count' => (int) ($metrics['completed_orders_count'] ?? 0),
+            'gmv_total' => (float) ($metrics['gmv_total'] ?? 0),
+            'last_order_at' => $metrics['last_order_at'] ?? null,
+            'last_member_seen_at' => $metrics['last_member_seen_at'] ?? null,
+            'last_customer_login_at' => $metrics['last_customer_login_at'] ?? null,
+            'last_activity_at' => $activityMarkers->first(),
+            'pending_custom_domains' => (int) ($metrics['pending_custom_domains'] ?? 0),
+            'verified_domains_count' => (int) ($metrics['verified_domains_count'] ?? 0),
+            'active_support_sessions_count' => (int) ($metrics['active_support_sessions_count'] ?? 0),
+            'has_past_due_subscription' => (bool) ($metrics['has_past_due_subscription'] ?? false),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeAuditLog(PlatformAuditLog $log): array
+    {
+        return [
+            'id' => $log->id,
+            'action_code' => $log->action_code,
+            'entity_type' => $log->entity_type,
+            'entity_id' => $log->entity_id,
+            'actor_scope' => $log->actor_scope,
+            'created_at' => $log->created_at,
+            'actor' => $log->actor?->only(['id', 'name', 'email']),
+            'tenant' => $log->tenant?->only(['id', 'name', 'slug', 'status']),
+        ];
     }
 }

@@ -1,12 +1,25 @@
 const LoginComponent = () => import("../../components/frontend/auth/LoginComponent");
 const SignupComponent = () => import("../../components/frontend/auth/SignupComponent.vue");
 const MerchantRegisterComponent = () => import("../../components/frontend/auth/MerchantRegisterComponent.vue");
+const MerchantSupportSessionBootstrapComponent = () => import("../../components/platform/MerchantSupportSessionBootstrapComponent.vue");
 const ForgotPasswordComponent = () => import("../../components/frontend/auth/ForgotPasswordComponent");
 const ForgotPasswordVerifyComponent = () => import("../../components/frontend/auth/ForgotPasswordVerifyComponent");
 const ResetPasswordComponent = () => import("../../components/frontend/auth/ResetPasswordComponent");
 const SignupVerifyComponent = () => import("../../components/frontend/auth/SignupVerifyComponent");
 
 export default [
+    {
+        path: '/support/session/:handoffCode',
+        component: MerchantSupportSessionBootstrapComponent,
+        name: 'merchant.supportSessionBootstrap',
+        meta: {
+            isFrontend: false,
+            auth: false,
+            standalone: true,
+            skipInitialAuthCheck: true,
+            authContext: 'merchant'
+        }
+    },
     {
         path: '/admin/login',
         component: LoginComponent,

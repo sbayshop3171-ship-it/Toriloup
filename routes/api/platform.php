@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Saas\PlatformDashboardController;
 use App\Http\Controllers\Saas\PlatformAuditController;
+use App\Http\Controllers\Saas\PlatformCustomerController;
 use App\Http\Controllers\Saas\PlatformDomainController;
 use App\Http\Controllers\Saas\PlatformPlanController;
 use App\Http\Controllers\Saas\PlatformProviderController;
+use App\Http\Controllers\Saas\PlatformSupportSessionController;
 use App\Http\Controllers\Saas\PlatformSubscriptionController;
 use App\Http\Controllers\Saas\PlatformTenantController;
 use Illuminate\Http\Request;
@@ -55,6 +57,17 @@ Route::prefix('platform')
                     ->whereNumber('subscriptionId')
                     ->whereNumber('invoiceId')
                     ->name('invoices.mark-paid');
+            });
+
+            Route::get('/customers', [PlatformCustomerController::class, 'index'])->name('customers.index');
+            Route::get('/customers/{customerId}', [PlatformCustomerController::class, 'show'])->name('customers.show');
+
+            Route::prefix('support')->name('support.')->group(function () {
+                Route::get('/impersonations', [PlatformSupportSessionController::class, 'index'])->name('impersonations.index');
+                Route::post('/impersonations', [PlatformSupportSessionController::class, 'store'])->name('impersonations.store');
+                Route::post('/impersonations/{sessionId}/end', [PlatformSupportSessionController::class, 'end'])
+                    ->whereNumber('sessionId')
+                    ->name('impersonations.end');
             });
 
             Route::prefix('providers')->name('providers.')->group(function () {
