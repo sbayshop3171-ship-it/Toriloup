@@ -100,7 +100,6 @@ const baseRoutes = [
             auth: true,
             permissionUrl: "dashboard",
             breadcrumb: "dashboard",
-            workspace: "platform",
         },
     },
 ];
