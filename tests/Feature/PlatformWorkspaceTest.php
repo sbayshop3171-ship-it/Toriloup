@@ -46,11 +46,20 @@ class PlatformWorkspaceTest extends TestCase
                 'summary' => [
                     'tenants_total',
                     'tenants_active',
+                    'tenants_draft',
                     'tenants_suspended',
                     'tenants_live',
+                    'tenants_onboarding',
+                    'new_signups_today',
                     'custom_domains_pending',
                     'custom_domains_verified',
+                    'domain_issues',
+                    'provider_issues',
                     'merchant_memberships_active',
+                    'subscriptions_active',
+                    'orders_today',
+                    'gmv_today',
+                    'support_alerts',
                 ],
             ]);
 
@@ -118,6 +127,16 @@ class PlatformWorkspaceTest extends TestCase
             ->assertJsonFragment([
                 'provider_code' => 'stripe',
                 'name' => 'Stripe',
+            ]);
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://owner.company.com/api/platform/audit-logs')
+            ->assertOk()
+            ->assertJsonFragment([
+                'action_code' => 'platform.provider.upserted',
             ]);
     }
 

@@ -62,6 +62,13 @@ export default {
             return [
                 { name: "platform.dashboard", label: "Dashboard" },
                 { name: "platform.tenants", label: "Tenants" },
+                { name: "platform.domains", label: "Domains" },
+                { name: "platform.billing", label: "Plans & Billing" },
+                { name: "platform.providers", label: "Providers" },
+                { name: "platform.features", label: "Feature Control" },
+                { name: "platform.support", label: "Support" },
+                { name: "platform.audit", label: "Audit & Security" },
+                { name: "platform.settings", label: "Platform Settings" },
             ];
         },
     },

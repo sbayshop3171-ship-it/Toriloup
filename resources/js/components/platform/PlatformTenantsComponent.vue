@@ -36,11 +36,12 @@
                             <th class="px-4 py-3 font-semibold">Primary Domain</th>
                             <th class="px-4 py-3 font-semibold">Members</th>
                             <th class="px-4 py-3 font-semibold">Status</th>
+                            <th class="px-4 py-3 font-semibold">Owner Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="filteredTenants.length === 0">
-                            <td colspan="5" class="px-4 py-10 text-center text-[#6B7280]">
+                            <td colspan="6" class="px-4 py-10 text-center text-[#6B7280]">
                                 No tenants matched the current filters.
                             </td>
                         </tr>
@@ -74,6 +75,31 @@
                                     :class="statusClass(tenant.status)">
                                     {{ tenant.status }}
                                 </span>
+                            </td>
+                            <td class="px-4 py-4 align-top">
+                                <div class="flex flex-wrap gap-2">
+                                    <button
+                                        v-if="tenant.status === 'suspended'"
+                                        type="button"
+                                        class="rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2 text-xs font-semibold text-[#047857]"
+                                        @click="runTenantAction(tenant, 'reactivate')">
+                                        Reactivate
+                                    </button>
+                                    <button
+                                        v-if="tenant.status === 'draft'"
+                                        type="button"
+                                        class="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]"
+                                        @click="runTenantAction(tenant, 'approve')">
+                                        Approve
+                                    </button>
+                                    <button
+                                        v-if="tenant.status !== 'suspended'"
+                                        type="button"
+                                        class="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[#B91C1C]"
+                                        @click="runTenantAction(tenant, 'suspend')">
+                                        Suspend
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -138,6 +164,27 @@ export default {
             axios.get("platform/tenants")
                 .then((res) => {
                     this.tenants = Array.isArray(res?.data?.data) ? res.data.data : [];
+                })
+                .finally(() => {
+                    this.loading.isActive = false;
+                });
+        },
+        runTenantAction: function (tenant, action) {
+            this.loading.isActive = true;
+
+            axios.post(`platform/tenants/${tenant.id}/${action}`)
+                .then((res) => {
+                    const updatedTenant = res?.data?.data;
+
+                    if (!updatedTenant) {
+                        this.fetchTenants();
+                        return;
+                    }
+
+                    this.tenants = this.tenants.map((item) => item.id === updatedTenant.id ? {
+                        ...item,
+                        ...updatedTenant,
+                    } : item);
                 })
                 .finally(() => {
                     this.loading.isActive = false;

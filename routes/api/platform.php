@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Saas\PlatformDashboardController;
+use App\Http\Controllers\Saas\PlatformAuditController;
 use App\Http\Controllers\Saas\PlatformDomainController;
 use App\Http\Controllers\Saas\PlatformPlanController;
 use App\Http\Controllers\Saas\PlatformProviderController;
@@ -60,5 +61,7 @@ Route::prefix('platform')
                 Route::get('/', [PlatformProviderController::class, 'index'])->name('index');
                 Route::match(['put', 'patch', 'post'], '/{providerCode}', [PlatformProviderController::class, 'upsert'])->name('upsert');
             });
+
+            Route::get('/audit-logs', [PlatformAuditController::class, 'index'])->name('audit-logs.index');
         });
     });

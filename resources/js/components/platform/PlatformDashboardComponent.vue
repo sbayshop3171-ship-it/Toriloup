@@ -45,7 +45,7 @@
                 <p class="text-sm text-[#6B7280]">This owner host now stays focused on platform-only work.</p>
                 <ul class="mt-5 space-y-3 text-sm text-[#374151]">
                     <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
-                        Merchant daily operations remain on <span class="font-semibold">`merchant.company.com`</span>.
+                        Merchant daily operations remain on <span class="font-semibold">{{ merchantHost }}</span>.
                     </li>
                     <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
                         Legacy `api/admin/*` calls are now fenced to the merchant host only.
@@ -61,6 +61,7 @@
 
 <script>
 import axios from "axios";
+import ENV from "../../config/env";
 import LoadingComponent from "../frontend/components/LoadingComponent.vue";
 import PlatformWorkspaceShell from "./PlatformWorkspaceShell.vue";
 
@@ -80,19 +81,34 @@ export default {
                 tenants_active: 0,
                 tenants_suspended: 0,
                 tenants_live: 0,
+                tenants_onboarding: 0,
+                new_signups_today: 0,
                 custom_domains_pending: 0,
                 custom_domains_verified: 0,
+                domain_issues: 0,
+                provider_issues: 0,
                 merchant_memberships_active: 0,
+                subscriptions_active: 0,
+                orders_today: 0,
+                gmv_today: 0,
+                support_alerts: 0,
             },
         };
     },
     computed: {
+        merchantHost: function () {
+            return ENV.MERCHANT_HOST || "merchant.toriloup.com";
+        },
         cards: function () {
             return [
                 { key: "tenants_total", label: "Total Tenants", value: this.summary.tenants_total },
                 { key: "tenants_active", label: "Active Tenants", value: this.summary.tenants_active },
+                { key: "new_signups_today", label: "New Signups Today", value: this.summary.new_signups_today },
+                { key: "tenants_onboarding", label: "Merchants Onboarding", value: this.summary.tenants_onboarding },
                 { key: "custom_domains_verified", label: "Verified Domains", value: this.summary.custom_domains_verified },
-                { key: "merchant_memberships_active", label: "Active Memberships", value: this.summary.merchant_memberships_active },
+                { key: "provider_issues", label: "Provider Issues", value: this.summary.provider_issues },
+                { key: "orders_today", label: "Orders Today", value: this.summary.orders_today },
+                { key: "gmv_today", label: "GMV Today", value: Number(this.summary.gmv_today || 0).toFixed(2) },
             ];
         },
         readinessItems: function () {
@@ -102,6 +118,18 @@ export default {
                     value: this.summary.custom_domains_pending,
                     description: "Domains waiting for owner verification should be cleared before wide launch.",
                     emphasis: this.summary.custom_domains_pending > 0 ? "alert" : "info",
+                },
+                {
+                    label: "Domain issues",
+                    value: this.summary.domain_issues,
+                    description: "Failed DNS or SSL states should be handled before merchants promote stores.",
+                    emphasis: this.summary.domain_issues > 0 ? "alert" : "info",
+                },
+                {
+                    label: "Provider issues",
+                    value: this.summary.provider_issues,
+                    description: "Disabled payment, SMS, email, or push providers need owner review.",
+                    emphasis: this.summary.provider_issues > 0 ? "alert" : "info",
                 },
                 {
                     label: "Suspended tenants",

@@ -290,6 +290,7 @@ class SubscriptionManagerService
             'current_period_ends_at' => $subscription->current_period_ends_at,
             'cancel_at_period_end' => $subscription->cancel_at_period_end,
             'ended_at' => $subscription->ended_at,
+            'tenant' => $subscription->tenant?->only(['id', 'name', 'slug', 'status', 'plan_code']),
             'plan' => [
                 'id' => $subscription->plan?->id,
                 'code' => $subscription->plan?->code ?? $subscription->plan_code_snapshot,
