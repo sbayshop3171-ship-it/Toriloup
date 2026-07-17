@@ -25,24 +25,24 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
         ]);
     }
 
-    public function test_legacy_admin_workspace_routes_are_available_only_on_merchant_host(): void
+    public function test_legacy_admin_workspace_routes_are_available_only_on_owner_host(): void
     {
-        $merchant = $this->createLegacyAdminUser(LegacyRole::MANAGER, 'manager', 'merchant-legacy@test.com');
+        $owner = $this->createLegacyAdminUser(LegacyRole::ADMIN, 'admin', 'owner-legacy@test.com');
 
-        Sanctum::actingAs($merchant, ['surface:merchant']);
-
-        $this
-            ->withHeader('x-api-key', 'testing-key')
-            ->getJson('http://merchant.company.com/api/admin/timezone')
-            ->assertOk();
+        Sanctum::actingAs($owner, ['surface:platform']);
 
         $this
             ->withHeader('x-api-key', 'testing-key')
             ->getJson('http://owner.company.com/api/admin/timezone')
+            ->assertOk();
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->getJson('http://merchant.company.com/api/admin/timezone')
             ->assertNotFound();
     }
 
-    public function test_platform_owner_uses_platform_routes_instead_of_legacy_admin_workspace_routes(): void
+    public function test_platform_owner_can_use_platform_routes_and_legacy_admin_workspace_routes(): void
     {
         $owner = $this->createLegacyAdminUser(LegacyRole::ADMIN, 'admin', 'owner-legacy@test.com');
 
@@ -58,7 +58,7 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
         $this
             ->withHeader('x-api-key', 'testing-key')
             ->getJson('http://owner.company.com/api/admin/timezone')
-            ->assertNotFound();
+            ->assertOk();
     }
 
     private function createLegacyAdminUser(int $roleId, string $roleName, string $email): User

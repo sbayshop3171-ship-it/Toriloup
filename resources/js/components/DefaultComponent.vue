@@ -132,6 +132,10 @@ export default {
                 return "platform";
             }
 
+            if (route?.meta?.standalone === true) {
+                return "platform";
+            }
+
             return route?.meta?.isFrontend === true ? "frontend" : "backend";
         },
         displayModeDefine: function (route = this.$route) {

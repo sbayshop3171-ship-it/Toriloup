@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import DashboardComponent from "../components/admin/dashboard/DashboardComponent";
 import ExceptionComponent from "../components/exception/ExceptionComponent.vue";
 import NotFoundComponent from "../components/exception/NotFoundComponent.vue";
+import MerchantPausedComponent from "../components/merchant/MerchantPausedComponent.vue";
 import ENV from "../config/env";
 import roleEnum from "../enums/modules/roleEnum";
 import appService from "../services/appService";
@@ -42,7 +43,7 @@ const resolveRootRedirect = function () {
 
     if (workspace === "platform") {
         return isLoggedIn && authSurface === "platform"
-            ? { name: "platform.dashboard" }
+            ? { name: "admin.dashboard" }
             : { name: "auth.login" };
     }
 
@@ -63,7 +64,7 @@ const baseRoutes = [
     },
     {
         path: "/admin",
-        redirect: () => detectWorkspaceHost() === "platform" ? { name: "platform.dashboard" } : { name: "merchant.dashboard" },
+        redirect: () => detectWorkspaceHost() === "platform" ? { name: "admin.dashboard" } : { name: "merchant.dashboard" },
         name: "admin.root",
     },
     {
@@ -81,13 +82,12 @@ const baseRoutes = [
     },
     {
         path: "/dashboard",
-        component: DashboardComponent,
+        component: MerchantPausedComponent,
         name: "merchant.dashboard",
         meta: {
             isFrontend: false,
             auth: true,
-            permissionUrl: "dashboard",
-            breadcrumb: "dashboard",
+            standalone: true,
             workspace: "merchant",
         },
     },
@@ -100,7 +100,7 @@ const baseRoutes = [
             auth: true,
             permissionUrl: "dashboard",
             breadcrumb: "dashboard",
-            workspace: "merchant",
+            workspace: "platform",
         },
     },
 ];
@@ -140,27 +140,6 @@ const permission = store.getters.authPermission;
 appService.recursiveRouter(routes, permission);
 
 const API_URL = ENV.API_URL;
-const merchantAllowedSettingsPrefixes = [
-    "admin.settings",
-    "admin.settings.company",
-    "admin.settings.shippingSetup",
-    "admin.settings.paymentGateway",
-    "admin.settings.domains",
-    "admin.settings.billing",
-    "admin.settings.productCategory",
-    "admin.settings.productAttribute",
-    "admin.settings.productBrand",
-    "admin.settings.supplier",
-    "admin.settings.unit",
-    "admin.settings.returnReason",
-];
-
-const merchantAllowsSettingsRoute = function (routeName) {
-    const name = String(routeName || "");
-
-    return merchantAllowedSettingsPrefixes.some((prefix) => name === prefix || name.startsWith(prefix + "."));
-};
-
 const router = createRouter({
     linkActiveClass: "active",
     mode: "history",
@@ -177,8 +156,9 @@ router.beforeEach((to, from, next) => {
     const isOwnerHost = workspaceHost === "platform";
     const isMerchantHost = workspaceHost === "merchant";
     const isAdminRoute = to.path === "/admin" || to.path.startsWith("/admin/");
-    const isPlatformRoute = to.meta?.workspace === "platform" || String(to.name || "").startsWith("platform.");
-    const isMerchantWorkspaceRoute = to.meta?.workspace === "merchant" || isAdminRoute || String(to.name || "").startsWith("merchant.");
+    const isOwnerAdminRoute = isOwnerHost && isAdminRoute;
+    const isPlatformRoute = to.meta?.workspace === "platform" || String(to.name || "").startsWith("platform.") || isOwnerAdminRoute;
+    const isMerchantWorkspaceRoute = to.meta?.workspace === "merchant" || String(to.name || "").startsWith("merchant.");
     const isLoggedIn = store.getters.authStatus;
     const authSurface = store.getters.authInfo?.surface || null;
     const parsedRoleId = Number.parseInt(store.getters.authInfo?.role_id, 10);
@@ -206,18 +186,13 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
-    if (isOwnerHost && isAdminRoute) {
-        next(isLoggedIn && authSurface === "platform" ? { name: "platform.dashboard" } : { name: "auth.login" });
-        return;
-    }
-
     if (isMerchantHost && isPlatformRoute) {
         next(isLoggedIn && authSurface === "merchant" ? { name: "merchant.dashboard" } : { name: "auth.login" });
         return;
     }
 
-    if (isMerchantHost && String(to.name || "").startsWith("admin.settings.") && !merchantAllowsSettingsRoute(to.name)) {
-        next({ name: "admin.settings.company" });
+    if (isMerchantHost && isAdminRoute) {
+        next(isLoggedIn && authSurface === "merchant" ? { name: "merchant.dashboard" } : { name: "auth.login" });
         return;
     }
 

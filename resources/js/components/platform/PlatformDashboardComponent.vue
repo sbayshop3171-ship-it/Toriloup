@@ -42,16 +42,16 @@
 
             <article class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
                 <h2 class="text-lg font-semibold">Workspace Boundaries</h2>
-                <p class="text-sm text-[#6B7280]">This owner host now stays focused on platform-only work.</p>
+                <p class="text-sm text-[#6B7280]">Owner host is the temporary home for the full admin project while merchant modules are opened step-by-step.</p>
                 <ul class="mt-5 space-y-3 text-sm text-[#374151]">
                     <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
-                        Merchant daily operations remain on <span class="font-semibold">{{ merchantHost }}</span>.
+                        Full legacy admin tools now run on the owner host under <span class="font-semibold">/admin</span>.
                     </li>
                     <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
-                        Legacy `api/admin/*` calls are now fenced to the merchant host only.
+                        Legacy `api/admin/*` calls are fenced to owner/admin access only.
                     </li>
                     <li class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
-                        Owner workflows should use `api/platform/*` routes for tenants, plans, providers, domains, and subscriptions.
+                        Merchant host <span class="font-semibold">{{ merchantHost }}</span> is paused for store ops until modules are assigned.
                     </li>
                 </ul>
             </article>
