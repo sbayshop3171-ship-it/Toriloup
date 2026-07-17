@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from "vue-router";
 import DashboardComponent from "../components/admin/dashboard/DashboardComponent";
 import ExceptionComponent from "../components/exception/ExceptionComponent.vue";
 import NotFoundComponent from "../components/exception/NotFoundComponent.vue";
-import MerchantPausedComponent from "../components/merchant/MerchantPausedComponent.vue";
 import ENV from "../config/env";
 import roleEnum from "../enums/modules/roleEnum";
 import appService from "../services/appService";
@@ -82,13 +81,14 @@ const baseRoutes = [
     },
     {
         path: "/dashboard",
-        component: MerchantPausedComponent,
+        component: DashboardComponent,
         name: "merchant.dashboard",
         meta: {
             isFrontend: false,
             auth: true,
-            standalone: true,
             workspace: "merchant",
+            permissionUrl: "dashboard",
+            breadcrumb: "dashboard",
         },
     },
     {
@@ -200,17 +200,12 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
-    if (isMerchantHost && isAdminRoute) {
-        next(isLoggedIn && authSurface === "merchant" ? { name: "merchant.dashboard" } : { name: "auth.login" });
-        return;
-    }
-
     if ((isOwnerHost || isMerchantHost) && to.meta?.isFrontend === true && !guestOnlyRouteNames.includes(to.name) && to.name !== "route.notFound") {
         next(isLoggedIn ? resolveAuthenticatedHomeRoute(store.getters.authInfo, hostname) : resolveGuestHomeRoute(hostname));
         return;
     }
 
-    if (isAdminRoute && to.name !== "auth.adminLogin" && !isOwnerHost) {
+    if (isAdminRoute && to.name !== "auth.adminLogin" && !isOwnerHost && !isMerchantHost) {
         if (!isLoggedIn) {
             next({ name: "auth.login" });
             return;

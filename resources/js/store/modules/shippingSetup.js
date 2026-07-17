@@ -1,5 +1,9 @@
 import axios from 'axios'
+import { isMerchantHost } from "../../services/workspaceService";
 
+const shippingSetupEndpoint = function () {
+    return isMerchantHost() ? 'merchant/settings/shipping' : 'admin/setting/shipping-setup';
+};
 
 export const shippingSetup = {
     namespaced: true,
@@ -14,7 +18,7 @@ export const shippingSetup = {
     actions: {
         lists: function (context) {
             return new Promise((resolve, reject) => {
-                axios.get("merchant/settings/shipping").then((res) => {
+                axios.get(shippingSetupEndpoint()).then((res) => {
                     context.commit("lists", res.data.data);
                     resolve(res);
                 }).catch((err) => {
@@ -24,8 +28,8 @@ export const shippingSetup = {
         },
         save: function (context, payload) {
             return new Promise((resolve, reject) => {
-                axios.put(`/merchant/settings/shipping`, payload).then((res) => {
-                    context.commit("lists", res.data.data);
+                axios.put(`/${shippingSetupEndpoint()}`, payload).then((res) => {
+                    context.commit("lists", res.data.data ?? payload);
                     resolve(res);
                 }).catch((err) => {
                     reject(err);
