@@ -43,10 +43,11 @@ class ProductionOperationsCommandsTest extends TestCase
     public function test_ops_backup_audit_command_detects_recent_and_stale_backups(): void
     {
         $backupPath = storage_path('app/backups/testing');
+        File::deleteDirectory($backupPath);
         File::ensureDirectoryExists($backupPath);
 
         $recentBackup = $backupPath.'/recent-backup.sql.gz';
-        File::put($recentBackup, 'recent');
+        File::put($recentBackup, str_repeat('recent-backup', 16));
         touch($recentBackup, time());
 
         $this
@@ -72,5 +73,21 @@ class ProductionOperationsCommandsTest extends TestCase
             ->expectsOutputToContain('[PASS] workspace_hosts_are_distinct')
             ->expectsOutputToContain('[PASS] surface_routes_present')
             ->assertExitCode(0);
+    }
+
+    public function test_ops_backup_audit_rejects_tiny_backup_artifacts(): void
+    {
+        $backupPath = storage_path('app/backups/tiny');
+        File::deleteDirectory($backupPath);
+        File::ensureDirectoryExists($backupPath);
+
+        $tinyBackup = $backupPath.'/empty-dump.sql.gz';
+        File::put($tinyBackup, 'too-small');
+        touch($tinyBackup, time());
+
+        $this
+            ->artisan('ops:backup-audit', ['--path' => $backupPath, '--max-age-hours' => 2])
+            ->expectsOutputToContain('[FAIL] recent_backup')
+            ->assertExitCode(1);
     }
 }

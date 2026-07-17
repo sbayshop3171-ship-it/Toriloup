@@ -149,9 +149,10 @@ Artisan::command('ops:deploy-health {--json}', function () {
     return opsRenderChecks($this, $checks, (bool) $this->option('json'));
 })->purpose('Validate production-critical dependencies before or after deploys.');
 
-Artisan::command('ops:backup-audit {--path=} {--max-age-hours=36} {--allow-missing} {--json}', function () {
+Artisan::command('ops:backup-audit {--path=} {--max-age-hours=36} {--min-bytes=64} {--allow-missing} {--json}', function () {
     $path = (string) ($this->option('path') ?: env('OPS_BACKUP_PATH', storage_path('app/backups')));
     $maxAgeHours = max((int) $this->option('max-age-hours'), 1);
+    $minBytes = max((int) $this->option('min-bytes'), 1);
     $allowMissing = (bool) $this->option('allow-missing');
 
     $checks = [
@@ -168,7 +169,7 @@ Artisan::command('ops:backup-audit {--path=} {--max-age-hours=36} {--allow-missi
                 'detail' => $path,
             ];
         }),
-        opsCheck('recent_backup', function () use ($allowMissing, $maxAgeHours, $path): array {
+        opsCheck('recent_backup', function () use ($allowMissing, $maxAgeHours, $minBytes, $path): array {
             if (!File::isDirectory($path)) {
                 return [
                     'ok' => $allowMissing,
@@ -191,10 +192,18 @@ Artisan::command('ops:backup-audit {--path=} {--max-age-hours=36} {--allow-missi
             $latest = $files->first();
             $ageSeconds = max(time() - $latest->getMTime(), 0);
             $ageHours = round($ageSeconds / 3600, 2);
+            $sizeBytes = $latest->getSize();
+
+            if ($sizeBytes < $minBytes) {
+                return [
+                    'ok' => false,
+                    'detail' => "{$latest->getFilename()} size={$sizeBytes}B below {$minBytes}B",
+                ];
+            }
 
             return [
                 'ok' => $ageHours <= $maxAgeHours,
-                'detail' => "{$latest->getFilename()} age={$ageHours}h",
+                'detail' => "{$latest->getFilename()} age={$ageHours}h size={$sizeBytes}B",
             ];
         }),
     ];

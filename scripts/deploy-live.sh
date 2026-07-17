@@ -32,48 +32,100 @@ cleanup() {
     fi
 }
 
+env_file_value() {
+    local key="$1" value
+
+    value="$(grep -E "^${key}=" .env | tail -n 1 | cut -d= -f2- || true)"
+    value="${value%$'\r'}"
+
+    if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+        value="${value:1:${#value}-2}"
+    elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+        value="${value:1:${#value}-2}"
+    fi
+
+    printf '%s' "$value"
+}
+
+env_value() {
+    local key="$1" fallback="${2:-}" current from_file
+
+    current="${!key-}"
+
+    if [ -n "$current" ]; then
+        printf '%s' "$current"
+        return
+    fi
+
+    from_file="$(env_file_value "$key")"
+    printf '%s' "${from_file:-$fallback}"
+}
+
 create_database_backup() {
     local backup_root db_connection timestamp artifact database_path dump_bin
+    local db_host db_port db_database db_username db_password
 
-    backup_root="${OPS_BACKUP_PATH:-$APP_DIR/storage/app/backups}"
+    backup_root="$(env_value OPS_BACKUP_PATH "$APP_DIR/storage/app/backups")"
     mkdir -p "$backup_root"
     timestamp="$(date +%Y%m%d-%H%M%S)"
-    db_connection="${DB_CONNECTION:-$(grep -E '^DB_CONNECTION=' .env | tail -n 1 | cut -d= -f2-)}"
+    db_connection="$(env_value DB_CONNECTION mysql)"
     db_connection="${db_connection:-mysql}"
 
     case "$db_connection" in
         sqlite)
-            database_path="${DB_DATABASE:-$(grep -E '^DB_DATABASE=' .env | tail -n 1 | cut -d= -f2-)}"
+            database_path="$(env_value DB_DATABASE "$APP_DIR/database/database.sqlite")"
             database_path="${database_path:-$APP_DIR/database/database.sqlite}"
+            if [[ "$database_path" != /* ]]; then
+                database_path="$APP_DIR/$database_path"
+            fi
             artifact="$backup_root/${timestamp}-database.sqlite"
             cp "$database_path" "$artifact"
             ;;
         pgsql)
             dump_bin="${PG_DUMP_BIN:-pg_dump}"
+            db_host="$(env_value DB_HOST 127.0.0.1)"
+            db_port="$(env_value DB_PORT 5432)"
+            db_database="$(env_value DB_DATABASE laravel)"
+            db_username="$(env_value DB_USERNAME postgres)"
+            db_password="$(env_value DB_PASSWORD '')"
             artifact="$backup_root/${timestamp}-database.sql.gz"
-            PGPASSWORD="${DB_PASSWORD:-$(grep -E '^DB_PASSWORD=' .env | tail -n 1 | cut -d= -f2-)}" \
-                "$dump_bin" \
-                --host="${DB_HOST:-127.0.0.1}" \
-                --port="${DB_PORT:-5432}" \
-                --username="${DB_USERNAME:-postgres}" \
-                --dbname="${DB_DATABASE:-laravel}" \
-                | gzip -9 > "$artifact"
+            if ! PGPASSWORD="$db_password" "$dump_bin" \
+                --host="$db_host" \
+                --port="$db_port" \
+                --username="$db_username" \
+                --dbname="$db_database" \
+                | gzip -9 > "$artifact"; then
+                rm -f "$artifact"
+                return 1
+            fi
             ;;
         *)
             dump_bin="${MYSQLDUMP_BIN:-mysqldump}"
+            db_host="$(env_value DB_HOST 127.0.0.1)"
+            db_port="$(env_value DB_PORT 3306)"
+            db_database="$(env_value DB_DATABASE laravel)"
+            db_username="$(env_value DB_USERNAME root)"
+            db_password="$(env_value DB_PASSWORD '')"
             artifact="$backup_root/${timestamp}-database.sql.gz"
-            "$dump_bin" \
-                --host="${DB_HOST:-127.0.0.1}" \
-                --port="${DB_PORT:-3306}" \
-                --user="${DB_USERNAME:-root}" \
-                "--password=${DB_PASSWORD:-}" \
+            if ! MYSQL_PWD="$db_password" "$dump_bin" \
+                --host="$db_host" \
+                --port="$db_port" \
+                --user="$db_username" \
                 --single-transaction \
                 --quick \
                 --skip-lock-tables \
-                "${DB_DATABASE:-laravel}" \
-                | gzip -9 > "$artifact"
+                "$db_database" \
+                | gzip -9 > "$artifact"; then
+                rm -f "$artifact"
+                return 1
+            fi
             ;;
     esac
+
+    if [ ! -s "$artifact" ]; then
+        rm -f "$artifact"
+        return 1
+    fi
 
     printf '%s' "$artifact"
 }
@@ -116,7 +168,10 @@ mkdir -p storage/app/public storage/logs bootstrap/cache storage/framework/cache
 chmod -R ug+rw storage bootstrap/cache
 
 if [ "$BACKUP_BEFORE_DEPLOY" = "1" ]; then
-    backup_artifact="$(create_database_backup)"
+    if ! backup_artifact="$(create_database_backup)"; then
+        echo "Database backup failed; deploy aborted before maintenance mode." >&2
+        exit 1
+    fi
 fi
 
 "$PHP_BIN" artisan optimize:clear

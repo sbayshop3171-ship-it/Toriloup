@@ -13,6 +13,9 @@ This runbook is the Week 7 operational baseline for Toriloup.
 - `OPS_BACKUP_MAX_AGE_HOURS`
 - `OPS_HEALTHCHECK_URL`
 - `OPS_STOREFRONT_HOST`
+- `QUEUE_CONNECTION=database` or `QUEUE_CONNECTION=redis`
+
+Do not use `QUEUE_CONNECTION=sync` in production. The deploy health gate treats sync queues as unsafe because uploads, notifications, mail, media conversions, and retries should not block web traffic.
 
 ## Deploy flow
 
@@ -43,6 +46,8 @@ bash scripts/smoke-production.sh
 
 ## Queue worker baseline
 
+Preferred process manager: Supervisor or systemd.
+
 Supervisor example:
 
 ```ini
@@ -57,6 +62,14 @@ user=www-data
 stdout_logfile=/var/www/toriloup/data/www/platform/storage/logs/queue-worker.log
 stderr_logfile=/var/www/toriloup/data/www/platform/storage/logs/queue-worker-error.log
 ```
+
+Shared hosting fallback when Supervisor is not available:
+
+```cron
+* * * * * cd /var/www/toriloup/data/www/platform && php artisan queue:work --stop-when-empty --tries=3 --timeout=120 >> storage/logs/queue-worker.log 2>&1
+```
+
+This fallback is not as strong as Supervisor, but it keeps database-backed jobs moving until a managed worker is installed.
 
 ## Scheduler baseline
 
