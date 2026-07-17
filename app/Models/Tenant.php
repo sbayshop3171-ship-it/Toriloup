@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Customer;
+use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -74,6 +77,21 @@ class Tenant extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(TenantSubscription::class);
+    }
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 
     public function scopeActive($query)

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Saas;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Saas\PlatformTenantUpdateRequest;
 use App\Models\Tenant;
+use App\Models\TenantDomain;
 use App\Models\TenantFeatureFlag;
 use App\Models\TenantMember;
 use App\Models\TenantPaymentMethod;
@@ -13,6 +15,7 @@ use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class PlatformTenantController extends Controller
 {
@@ -30,7 +33,14 @@ class PlatformTenantController extends Controller
             ->withCount([
                 'members as members_count',
                 'members as active_members_count' => fn ($query) => $query->where('status', 'active'),
+                'products as products_count',
+                'customers as customers_count',
+                'orders as orders_count',
+                'orders as completed_orders_count' => fn ($query) => $query->where('status', OrderStatus::DELIVERED),
             ])
+            ->withSum([
+                'orders as completed_sales_total' => fn ($query) => $query->where('status', OrderStatus::DELIVERED),
+            ], 'total')
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->when($request->filled('plan_code'), fn ($query) => $query->where('plan_code', $request->string('plan_code')))
             ->when($request->filled('q'), function ($query) use ($request): void {
@@ -59,6 +69,37 @@ class PlatformTenantController extends Controller
         return response()->json([
             'status' => true,
             'data' => $this->serializeTenant($tenant, true),
+        ]);
+    }
+
+    public function destroy(Request $request, int $tenantId): JsonResponse
+    {
+        $tenant = $this->findTenant($tenantId);
+        $snapshot = $this->serializeTenant($tenant, true);
+        $domainHosts = $tenant->domains->pluck('hostname')->filter()->values()->all();
+
+        TenantDomain::query()->where('tenant_id', $tenant->id)->delete();
+        $tenant->delete();
+
+        $this->forgetTenantRoutingCache($tenant->slug, $domainHosts);
+
+        $this->platformAuditLogService->log(
+            'platform.tenant.deleted',
+            'tenant',
+            $tenantId,
+            $snapshot,
+            ['deleted_at' => now()->toDateTimeString()],
+            $request,
+            $request->user(),
+            $tenant
+        );
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'id' => $tenantId,
+                'deleted' => true,
+            ],
         ]);
     }
 
@@ -203,6 +244,17 @@ class PlatformTenantController extends Controller
                 'members.user',
                 'members.role',
             ])
+            ->withCount([
+                'members as members_count',
+                'members as active_members_count' => fn ($query) => $query->where('status', 'active'),
+                'products as products_count',
+                'customers as customers_count',
+                'orders as orders_count',
+                'orders as completed_orders_count' => fn ($query) => $query->where('status', OrderStatus::DELIVERED),
+            ])
+            ->withSum([
+                'orders as completed_sales_total' => fn ($query) => $query->where('status', OrderStatus::DELIVERED),
+            ], 'total')
             ->findOrFail($tenantId);
     }
 
@@ -227,6 +279,7 @@ class PlatformTenantController extends Controller
             'status' => $tenant->status,
             'plan_code' => $tenant->plan_code,
             'onboarding_status' => $tenant->onboarding_status,
+            'created_at' => $tenant->created_at,
             'primary_locale' => $tenant->primary_locale,
             'primary_currency_code' => $tenant->primary_currency_code,
             'timezone' => $tenant->timezone,
@@ -236,6 +289,8 @@ class PlatformTenantController extends Controller
             'approved_at' => $tenant->approved_at,
             'launched_at' => $tenant->launched_at,
             'suspended_at' => $tenant->suspended_at,
+            'storefront_hostname' => $this->fallbackStorefrontHostname($tenant),
+            'storefront_url' => 'https://'.$this->fallbackStorefrontHostname($tenant),
             'primary_domain' => $tenant->domains->first()?->hostname,
             'domains' => $tenant->domains->map(fn ($domain) => [
                 'id' => $domain->id,
@@ -248,6 +303,11 @@ class PlatformTenantController extends Controller
             ])->values(),
             'members_count' => $tenant->members_count ?? $tenant->members->count(),
             'active_members_count' => $tenant->active_members_count ?? $tenant->members->where('status', 'active')->count(),
+            'products_count' => (int) ($tenant->products_count ?? 0),
+            'customers_count' => (int) ($tenant->customers_count ?? 0),
+            'orders_count' => (int) ($tenant->orders_count ?? 0),
+            'completed_orders_count' => (int) ($tenant->completed_orders_count ?? 0),
+            'completed_sales_total' => (float) ($tenant->completed_sales_total ?? 0),
         ];
 
         if (!$detail) {
@@ -293,5 +353,26 @@ class PlatformTenantController extends Controller
         $payload['usage_summary'] = $this->subscriptionManagerService->usageSummary($tenant);
 
         return $payload;
+    }
+
+    private function fallbackStorefrontHostname(Tenant $tenant): string
+    {
+        return $tenant->slug.'.'.trim((string) config('saas.fallback_subdomain_suffix', 'toriloup.com'), '.');
+    }
+
+    /**
+     * @param  array<int, string>  $hosts
+     */
+    private function forgetTenantRoutingCache(string $slug, array $hosts): void
+    {
+        if (!config('tenancy.cache.enabled', true)) {
+            return;
+        }
+
+        foreach ($hosts as $host) {
+            Cache::forget('tenant-domain:'.$host);
+        }
+
+        Cache::forget('tenant-domain:slug:'.$slug);
     }
 }

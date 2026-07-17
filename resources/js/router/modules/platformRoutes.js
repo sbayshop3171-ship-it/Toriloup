@@ -1,4 +1,6 @@
 const LegacyAdminDashboardComponent = () => import("../../components/admin/dashboard/DashboardComponent");
+const OwnerCustomerDirectoryComponent = () => import("../../components/admin/platform/OwnerCustomerDirectoryComponent.vue");
+const OwnerMerchantManagementComponent = () => import("../../components/admin/platform/OwnerMerchantManagementComponent.vue");
 const PlatformDashboardComponent = () => import("../../components/platform/PlatformDashboardComponent.vue");
 const PlatformOperationsComponent = () => import("../../components/platform/PlatformOperationsComponent.vue");
 const PlatformTenantsComponent = () => import("../../components/platform/PlatformTenantsComponent.vue");
@@ -65,6 +67,26 @@ export default [
             auth: true,
             permissionUrl: "dashboard",
             breadcrumb: "dashboard",
+        },
+    },
+    {
+        path: "/admin/merchants",
+        component: OwnerMerchantManagementComponent,
+        name: "platform.merchants",
+        meta: {
+            isFrontend: false,
+            auth: true,
+            breadcrumb: "merchants",
+        },
+    },
+    {
+        path: "/admin/merchant-customers",
+        component: OwnerCustomerDirectoryComponent,
+        name: "platform.customerDirectory",
+        meta: {
+            isFrontend: false,
+            auth: true,
+            breadcrumb: "customers",
         },
     },
     {

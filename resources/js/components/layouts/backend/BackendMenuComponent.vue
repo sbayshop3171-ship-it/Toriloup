@@ -58,6 +58,18 @@ const ownerMenus = [
         icon: "lab lab-line-dashboard",
     },
     {
+        name: "Merchants",
+        language: "merchants",
+        url: "merchants",
+        icon: "lab lab-line-administrator",
+    },
+    {
+        name: "Customers",
+        language: "customers",
+        url: "merchant-customers",
+        icon: "lab lab-line-customers",
+    },
+    {
         name: "Settings",
         language: "settings",
         url: "settings",

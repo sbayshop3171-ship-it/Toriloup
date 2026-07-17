@@ -315,6 +315,241 @@ class PlatformWorkspaceTest extends TestCase
             ->assertJsonPath('summary.revenue_total_display', AppLibrary::currencyAmountFormat(200));
     }
 
+    public function test_owner_can_view_merchant_directory_details_and_delete_merchant(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $merchantContext = $this->createMerchantContext('owner-directory-store');
+        $tenant = $merchantContext['tenant'];
+
+        Product::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Directory Product 1',
+            'slug' => 'directory-product-1',
+            'sku' => 'DIR-001',
+            'buying_price' => 20,
+            'selling_price' => 35,
+            'variation_price' => 35,
+            'status' => Status::ACTIVE,
+            'can_purchasable' => 1,
+            'show_stock_out' => 1,
+            'maximum_purchase_quantity' => 10,
+            'low_stock_quantity_warning' => 2,
+            'refundable' => 1,
+        ]);
+
+        Product::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Directory Product 2',
+            'slug' => 'directory-product-2',
+            'sku' => 'DIR-002',
+            'buying_price' => 25,
+            'selling_price' => 40,
+            'variation_price' => 40,
+            'status' => Status::ACTIVE,
+            'can_purchasable' => 1,
+            'show_stock_out' => 1,
+            'maximum_purchase_quantity' => 10,
+            'low_stock_quantity_warning' => 2,
+            'refundable' => 1,
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenant->id,
+            'legacy_user_id' => $owner->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Directory Linked Customer',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenant->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Directory Guest Customer',
+            'email' => 'directory-guest@example.com',
+        ]);
+
+        Order::query()->create([
+            'tenant_id' => $tenant->id,
+            'order_serial_no' => 'ORD-DIRECTORY-1',
+            'user_id' => $owner->id,
+            'subtotal' => 150,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 150,
+            'order_datetime' => now(),
+            'payment_status' => PaymentStatus::PAID,
+            'status' => OrderStatus::DELIVERED,
+            'active' => 1,
+        ]);
+
+        $listResponse = $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://owner.company.com/api/platform/tenants');
+
+        $listResponse->assertOk();
+
+        $listedTenant = collect($listResponse->json('data'))->firstWhere('id', $tenant->id);
+
+        $this->assertNotNull($listedTenant);
+        $this->assertSame('owner-directory-store.company.com', $listedTenant['storefront_hostname']);
+        $this->assertSame(2, $listedTenant['products_count']);
+        $this->assertSame(2, $listedTenant['customers_count']);
+        $this->assertSame(1, $listedTenant['completed_orders_count']);
+        $this->assertEquals(150.0, $listedTenant['completed_sales_total']);
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson("http://owner.company.com/api/platform/tenants/{$tenant->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $tenant->id)
+            ->assertJsonPath('data.storefront_hostname', 'owner-directory-store.company.com')
+            ->assertJsonPath('data.members_count', 1)
+            ->assertJsonPath('data.active_members_count', 1)
+            ->assertJsonPath('data.products_count', 2)
+            ->assertJsonPath('data.customers_count', 2)
+            ->assertJsonPath('data.completed_orders_count', 1)
+            ->assertJsonPath('data.completed_sales_total', 150);
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->deleteJson("http://owner.company.com/api/platform/tenants/{$tenant->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $tenant->id)
+            ->assertJsonPath('data.deleted', true);
+
+        $this->assertSoftDeleted('tenants', ['id' => $tenant->id]);
+        $this->assertDatabaseMissing('tenant_domains', ['tenant_id' => $tenant->id]);
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson("http://owner.company.com/api/platform/tenants/{$tenant->id}")
+            ->assertNotFound();
+    }
+
+    public function test_owner_can_view_master_customer_directory_across_merchants(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $tenantA = $this->createTenant('customer-alpha');
+        $tenantB = $this->createTenant('customer-beta');
+
+        Customer::query()->create([
+            'tenant_id' => $tenantA->id,
+            'legacy_user_id' => $owner->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Legacy Alpha',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantB->id,
+            'legacy_user_id' => $owner->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Legacy Beta',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantA->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Shared Alpha',
+            'email' => 'shared-directory@example.com',
+        ]);
+
+        Customer::query()->create([
+            'tenant_id' => $tenantB->id,
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Shared Beta',
+            'email' => 'SHARED-DIRECTORY@example.com',
+        ]);
+
+        Order::query()->create([
+            'tenant_id' => $tenantA->id,
+            'order_serial_no' => 'ORD-CUSTOMER-ALPHA',
+            'user_id' => $owner->id,
+            'subtotal' => 120,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 120,
+            'order_datetime' => now(),
+            'payment_status' => PaymentStatus::PAID,
+            'status' => OrderStatus::DELIVERED,
+            'active' => 1,
+        ]);
+
+        Order::query()->create([
+            'tenant_id' => $tenantB->id,
+            'order_serial_no' => 'ORD-CUSTOMER-BETA',
+            'user_id' => $owner->id,
+            'subtotal' => 80,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 80,
+            'order_datetime' => now()->subMinute(),
+            'payment_status' => PaymentStatus::PAID,
+            'status' => OrderStatus::DELIVERED,
+            'active' => 1,
+        ]);
+
+        $directoryResponse = $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://owner.company.com/api/platform/customers');
+
+        $directoryResponse->assertOk();
+
+        $customers = collect($directoryResponse->json('data'));
+
+        $this->assertCount(2, $customers);
+
+        $legacyGroup = $customers->firstWhere('legacy_user_id', $owner->id);
+        $sharedEmailGroup = $customers->firstWhere('email', 'shared-directory@example.com');
+
+        $this->assertNotNull($legacyGroup);
+        $this->assertNotNull($sharedEmailGroup);
+
+        $this->assertSame(2, $legacyGroup['linked_merchants_count']);
+        $this->assertSame(2, $legacyGroup['total_orders']);
+        $this->assertEquals(200.0, $legacyGroup['total_spend']);
+
+        $this->assertSame(2, $sharedEmailGroup['linked_merchants_count']);
+        $this->assertSame(2, $sharedEmailGroup['shadow_profiles_count']);
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson("http://owner.company.com/api/platform/customers/{$legacyGroup['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.legacy_user_id', $owner->id)
+            ->assertJsonPath('data.linked_merchants_count', 2)
+            ->assertJsonPath('data.total_orders', 2)
+            ->assertJsonPath('data.total_spend', 200)
+            ->assertJsonCount(2, 'data.linked_merchants')
+            ->assertJsonFragment([
+                'tenant_slug' => 'customer-alpha',
+                'storefront_hostname' => 'customer-alpha.company.com',
+                'orders_count' => 1,
+                'spend_total' => 120.0,
+            ])
+            ->assertJsonFragment([
+                'tenant_slug' => 'customer-beta',
+                'storefront_hostname' => 'customer-beta.company.com',
+                'orders_count' => 1,
+                'spend_total' => 80.0,
+            ]);
+    }
+
     public function test_custom_domain_stays_storefront_only_and_requires_owner_verification(): void
     {
         $owner = $this->createPlatformOwner();
