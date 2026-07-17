@@ -114,6 +114,33 @@ class SaasFoundationTest extends TestCase
             ->assertJsonPath('domain.hostname', 'rasel-fashion.company.com');
     }
 
+    public function test_merchant_register_blocks_reserved_platform_store_names(): void
+    {
+        foreach (['admin', 'owner', 'merchant'] as $reservedStoreName) {
+            $response = $this
+                ->withHeader('x-api-key', 'testing-key')
+                ->withHeader('x-localization', 'en')
+                ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                    'owner_name' => 'Reserved Name Merchant',
+                    'store_name' => $reservedStoreName,
+                    'email' => "{$reservedStoreName}-reserved@example.com",
+                    'password' => 'password',
+                ]);
+
+            $response
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['store_name']);
+
+            $this->assertDatabaseMissing('tenants', [
+                'slug' => $reservedStoreName,
+            ]);
+
+            $this->assertDatabaseMissing('tenant_domains', [
+                'hostname' => "{$reservedStoreName}.company.com",
+            ]);
+        }
+    }
+
     public function test_storefront_bootstrap_returns_tenant_context_for_store_host(): void
     {
         $tenant = Tenant::query()->create([

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Saas;
 use App\Enums\Ask;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class MerchantRegisterRequest extends FormRequest
@@ -34,6 +35,19 @@ class MerchantRegisterRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
+            $storeSlug = Str::slug((string) request('store_name'));
+            $reservedStoreSlugs = array_map(
+                static fn (string $slug): string => Str::slug($slug),
+                config('saas.reserved_store_slugs', [])
+            );
+
+            if ($storeSlug !== '' && in_array($storeSlug, $reservedStoreSlugs, true)) {
+                $validator->errors()->add(
+                    'store_name',
+                    'This store name is reserved for the platform. Please choose a different store name.'
+                );
+            }
+
             if (!blank(request('phone')) && !blank(request('country_code'))) {
                 $existingUser = User::query()
                     ->where('country_code', request('country_code'))

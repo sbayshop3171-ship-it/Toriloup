@@ -14,6 +14,7 @@ use App\Models\TenantPaymentMethod;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role as SpatieRole;
 
@@ -199,6 +200,16 @@ class TenantProvisioningService
         $baseSlug = Str::limit($baseSlug, 110, '');
         $slug = $baseSlug;
         $counter = 2;
+        $reservedStoreSlugs = array_map(
+            static fn (string $slug): string => Str::slug($slug),
+            config('saas.reserved_store_slugs', [])
+        );
+
+        if (in_array($slug, $reservedStoreSlugs, true)) {
+            throw ValidationException::withMessages([
+                'store_name' => 'This store name is reserved for the platform. Please choose a different store name.',
+            ]);
+        }
 
         while (Tenant::query()->where('slug', $slug)->exists()) {
             $suffix = '-'.$counter;
