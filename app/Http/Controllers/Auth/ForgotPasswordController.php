@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use Exception;
 use Carbon\Carbon;
 use App\Models\User;
+use App\Enums\Ask;
 use App\Enums\Activity;
 use Illuminate\Http\Request;
 use App\Libraries\AppLibrary;
@@ -103,7 +104,7 @@ class ForgotPasswordController extends Controller
             return new JsonResponse(['errors' => $validator->errors()], 422);
         }
 
-        $check = DB::table('password_resets')->where([
+        $check = DB::table('password_reset_tokens')->where([
             ['email', $request->post('email')],
             ['token', $request->post('code')],
         ]);
@@ -181,61 +182,187 @@ class ForgotPasswordController extends Controller
 
     public function resetPassword(Request $request): JsonResponse
     {
+        $validationError = $this->validateResetRequest($request);
+
+        if ($validationError !== null) {
+            return $validationError;
+        }
+
+        $user = $this->resolveResetUser($request);
+
+        if ($user === null) {
+            return $this->missingUserResponse($request);
+        }
+
+        $verificationError = $this->ensureResetVerificationIsSatisfied($request);
+
+        if ($verificationError !== null) {
+            return $verificationError;
+        }
+
+        $this->persistResetPassword($user, $request);
+        $this->clearResetArtifacts($request);
+
+        Auth::guard('web')->loginUsingId($user->id);
+        $this->token = $user->createToken('auth_token')->plainTextToken;
+        $permission = PermissionResource::collection($this->permissionService->permission($user->roles[0]));
+        $defaultPermission = AppLibrary::defaultPermission($permission);
+
+        return new JsonResponse([
+            'status' => true,
+            'message' => trans("all.message.reset_successfully"),
+            'token' => $this->token,
+            'user' => new UserResource($user),
+            'menu' => MenuResource::collection(collect($this->menuService->menu($user->roles[0]))),
+            'permission' => $permission,
+            'defaultPermission' => $defaultPermission,
+        ], 201);
+    }
+
+    protected function validateResetRequest(Request $request): ?JsonResponse
+    {
         $validator = Validator::make($request->all(), [
-            'email'                 => request('phone') ? 'nullable|string|email|max:255' : 'required|string|email|max:255',
-            'phone'                 => request('email') ? 'nullable|string|max:20' : 'required|string|max:20',
-            'country_code'          => request('email') ? 'nullable|string|max:10' : 'required|string|max:10',
-            'password'              => 'required|string|min:6|confirmed',
+            'email' => request('phone') ? 'nullable|string|email|max:255' : 'required|string|email|max:255',
+            'phone' => request('email') ? 'nullable|string|max:20' : 'required|string|max:20',
+            'country_code' => request('email') ? 'nullable|string|max:10' : 'required|string|max:10',
+            'password' => 'required|string|min:6|confirmed',
             'password_confirmation' => 'required|string|min:6',
         ]);
-
 
         if ($validator->fails()) {
             return new JsonResponse(['errors' => $validator->errors()], 422);
         }
 
-        $userCheckByEmail = User::where('email', $request->post('email'))->first();
-        $userCheckByPhone = User::where(['phone' => $request->post('phone'), 'country_code' => $request->post('country_code')])->first();
+        return null;
+    }
 
-        if ($userCheckByEmail && $request->post('email')) {
-            $userCheckByEmail->update([
-                'password' => Hash::make($request->post('password'))
-            ]);
+    protected function resolveResetUser(Request $request): ?User
+    {
+        if ($request->filled('email')) {
+            return User::where('email', $request->post('email'))->first();
+        }
 
-            Auth::guard('web')->loginUsingId($userCheckByEmail->id);
-            $this->token = $userCheckByEmail->createToken('auth_token')->plainTextToken;
-            $permission        = PermissionResource::collection($this->permissionService->permission($userCheckByEmail->roles[0]));
-            $defaultPermission = AppLibrary::defaultPermission($permission);
+        if ($request->filled('phone') && $request->filled('country_code')) {
+            return User::where([
+                'phone' => $request->post('phone'),
+                'country_code' => $request->post('country_code'),
+            ])->first();
+        }
+
+        return null;
+    }
+
+    protected function missingUserResponse(Request $request): JsonResponse
+    {
+        if ($request->filled('email')) {
             return new JsonResponse([
-                'status'            => true,
-                'message'           => trans("all.message.reset_successfully"),
-                'token'             => $this->token,
-                'user'              => new UserResource($userCheckByEmail),
-                'menu'              => MenuResource::collection(collect($this->menuService->menu($userCheckByEmail->roles[0]))),
-                'permission'        => $permission,
-                'defaultPermission' => $defaultPermission,
-            ], 201);
-        } else if ($userCheckByPhone && $request->post('phone') && $request->post('country_code')) {
-            $userCheckByPhone->update([
-                'password' => Hash::make($request->post('password'))
-            ]);
-            Auth::guard('web')->loginUsingId($userCheckByPhone->id);
-            $this->token = $userCheckByPhone->createToken('auth_token')->plainTextToken;
-            $permission        = PermissionResource::collection($this->permissionService->permission($userCheckByPhone->roles[0]));
-            $defaultPermission = AppLibrary::defaultPermission($permission);
-            return new JsonResponse([
-                'status'            => true,
-                'message'           => trans("all.message.reset_successfully"),
-                'token'             => $this->token,
-                'user'              => new UserResource($userCheckByPhone),
-                'menu'              => MenuResource::collection(collect($this->menuService->menu($userCheckByPhone->roles[0]))),
-                'permission'        => $permission,
-                'defaultPermission' => $defaultPermission,
-            ], 201);
-        } else {
-            return new JsonResponse([
-                'errors' => ['message' => [trans('all.message.user_does_not_exist')]]
+                'errors' => ['email' => [trans('all.message.email_does_not_exist')]],
             ], 422);
         }
+
+        if ($request->filled('phone')) {
+            return new JsonResponse([
+                'errors' => ['phone' => [trans('all.message.phone_does_not_exist')]],
+            ], 422);
+        }
+
+        return new JsonResponse([
+            'errors' => ['message' => [trans('all.message.user_does_not_exist')]],
+        ], 422);
+    }
+
+    protected function ensureResetVerificationIsSatisfied(Request $request): ?JsonResponse
+    {
+        if ($this->shouldBypassVerificationCheck()) {
+            return null;
+        }
+
+        if ($request->filled('email') && (int) Settings::group('site')->get('site_email_verification') === Activity::ENABLE) {
+            $verifiedReset = DB::table('password_reset_tokens')
+                ->where('email', $request->post('email'))
+                ->where('is_verified', Ask::YES)
+                ->first();
+
+            if ($verifiedReset === null) {
+                return new JsonResponse([
+                    'errors' => ['validation' => 'Password reset verification is required before changing the password.'],
+                ], 422);
+            }
+
+            $difference = (int) Carbon::now()->diffInSeconds($verifiedReset->created_at, true);
+            $expireWindow = max((int) Settings::group('otp')->get('otp_expire_time'), 1) * 60;
+
+            if ($difference > $expireWindow) {
+                DB::table('password_reset_tokens')
+                    ->where('email', $request->post('email'))
+                    ->delete();
+
+                return new JsonResponse([
+                    'errors' => ['validation' => trans('all.message.code_is_expired')],
+                ], 422);
+            }
+        }
+
+        if (
+            $request->filled('phone') &&
+            $request->filled('country_code') &&
+            (int) Settings::group('site')->get('site_phone_verification') === Activity::ENABLE
+        ) {
+            $verifiedOtp = DB::table('otps')
+                ->where('phone', $request->post('phone'))
+                ->where('code', $request->post('country_code'))
+                ->where('is_verified', Ask::YES)
+                ->first();
+
+            if ($verifiedOtp === null) {
+                return new JsonResponse([
+                    'errors' => ['validation' => 'Password reset verification is required before changing the password.'],
+                ], 422);
+            }
+
+            $difference = (int) Carbon::now()->diffInSeconds($verifiedOtp->created_at, true);
+            $expireWindow = max((int) Settings::group('otp')->get('otp_expire_time'), 1) * 60;
+
+            if ($difference > $expireWindow) {
+                DB::table('otps')
+                    ->where('phone', $request->post('phone'))
+                    ->where('code', $request->post('country_code'))
+                    ->delete();
+
+                return new JsonResponse([
+                    'errors' => ['validation' => trans('all.message.code_is_expired')],
+                ], 422);
+            }
+        }
+
+        return null;
+    }
+
+    protected function persistResetPassword(User $user, Request $request): void
+    {
+        $user->update([
+            'password' => Hash::make($request->post('password')),
+        ]);
+    }
+
+    protected function clearResetArtifacts(Request $request): void
+    {
+        if ($request->filled('email')) {
+            DB::table('password_reset_tokens')
+                ->where('email', $request->post('email'))
+                ->delete();
+        }
+
+        if ($request->filled('phone') && $request->filled('country_code')) {
+            DB::table('otps')
+                ->where('phone', $request->post('phone'))
+                ->where('code', $request->post('country_code'))
+                ->delete();
+        }
+    }
+
+    protected function shouldBypassVerificationCheck(): bool
+    {
+        return env('DEMO') == "True" || env('DEMO') == "TRUE" || env('DEMO') == "true" || env('DEMO') == 1;
     }
 }

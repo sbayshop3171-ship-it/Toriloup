@@ -49,6 +49,7 @@
 import LoadingComponent from "../components/LoadingComponent";
 import alertService from "../../../services/alertService";
 import ENV from "../../../config/env";
+import { detectWorkspaceHost } from "../../../services/workspaceService";
 
 export default {
     name: "ForgotPasswordVerifyComponent",
@@ -71,21 +72,27 @@ export default {
             message: null,
         };
     },
+    computed: {
+        authContext: function () {
+            return detectWorkspaceHost();
+        },
+    },
     mounted() {
         this.phoneOrEmailChecking();
     },
     methods: {
         phoneOrEmailChecking: function () {
             this.loading.isActive = true;
-            const otpPhone = this.$store.getters['phone'];
-            const otpEmail = this.$store.getters['email'];
-            if (Object.keys(otpPhone).length > 0 && otpPhone.otp.phone !== "") {
+            const otpPhone = this.$store.getters['phone'] || {};
+            const otpEmail = this.$store.getters['email'] || {};
+
+            if (otpPhone?.otp?.phone) {
                 this.props.form.phone = otpPhone.otp.phone;
                 this.props.form.country_code = otpPhone.otp.country_code;
                 this.props.form.email = "";
                 this.loading.isActive = false;
-            } else if (Object.keys(otpEmail).length > 0 && otpPhone.otp.email !== "") {
-                this.props.form.email = otpPhone.otp.email;
+            } else if (otpEmail?.otp?.email) {
+                this.props.form.email = otpEmail.otp.email;
                 this.props.form.phone = "";
                 this.props.form.country_code = "";
                 this.loading.isActive = false;
@@ -98,7 +105,10 @@ export default {
         resendCodeToPhone: function () {
             try {
                 this.loading.isActive = true;
-                this.$store.dispatch("otpPhone", this.props.form).then((res) => {
+                this.$store.dispatch("otpPhone", {
+                    ...this.props.form,
+                    context: this.authContext,
+                }).then((res) => {
                     this.loading.isActive = false;
                     this.errors = "";
                     alertService.success(res.data.message, 'bottom-center');
@@ -114,7 +124,10 @@ export default {
         resendCodeToEmail: function () {
             try {
                 this.loading.isActive = true;
-                this.$store.dispatch("otpEmail", this.props.form).then((res) => {
+                this.$store.dispatch("otpEmail", {
+                    ...this.props.form,
+                    context: this.authContext,
+                }).then((res) => {
                     this.loading.isActive = false;
                     this.errors = "";
                     alertService.success(res.data.message, 'bottom-center');
@@ -131,7 +144,10 @@ export default {
             try {
                 this.loading.isActive = true;
                 if (this.props.form.country_code !== "" && this.props.form.phone !== "") {
-                    this.$store.dispatch("forgotPasswordVerifyPhone", this.props.form).then((res) => {
+                    this.$store.dispatch("forgotPasswordVerifyPhone", {
+                        ...this.props.form,
+                        context: this.authContext,
+                    }).then((res) => {
                         this.loading.isActive = false;
                         alertService.success(res.data.message, 'bottom-center');
                         this.props.form = {
@@ -149,7 +165,10 @@ export default {
                         this.errors = err.response.data.message;
                     });
                 } else {
-                    this.$store.dispatch("forgotPasswordVerifyEmail", this.props.form).then((res) => {
+                    this.$store.dispatch("forgotPasswordVerifyEmail", {
+                        ...this.props.form,
+                        context: this.authContext,
+                    }).then((res) => {
                         this.loading.isActive = false;
                         alertService.success(res.data.message, 'bottom-center');
                         this.props.form = {

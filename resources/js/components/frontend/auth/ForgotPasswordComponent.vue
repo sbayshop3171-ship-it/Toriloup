@@ -76,6 +76,7 @@ import LoadingComponent from "../components/LoadingComponent";
 import alertService from "../../../services/alertService";
 import appService from "../../../services/appService";
 import ENV from "../../../config/env";
+import { detectWorkspaceHost } from "../../../services/workspaceService";
 
 export default {
     name: "ForgotPasswordComponent",
@@ -112,6 +113,9 @@ export default {
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
         },
+        authContext: function () {
+            return detectWorkspaceHost();
+        },
     },
     mounted() {
         this.loading.isActive = true;
@@ -136,7 +140,12 @@ export default {
         save: function () {
             try {
                 this.loading.isActive = true;
-                this.$store.dispatch('forgotPassword', this.form).then((res) => {
+                const payload = {
+                    ...this.form,
+                    context: this.authContext,
+                };
+
+                this.$store.dispatch('forgotPassword', payload).then((res) => {
                     this.loading.isActive = false;
                     if (this.setting.site_phone_verification === askEnum.YES && this.form.phone !== "" && (this.demo !== 'true' || this.demo !== 'TRUE' || this.demo !== 'True' || this.demo !== '1' || this.demo !== 1)) {
                         alertService.success(res.data.message, 'bottom-center');

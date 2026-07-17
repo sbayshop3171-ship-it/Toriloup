@@ -193,7 +193,7 @@ export default {
                             this.$store.dispatch("logout").catch(() => {
                                 this.$store.commit("authLogout");
                             });
-                            this.$router.push({ name: "auth.adminLogin" });
+                            this.$router.push({ name: "auth.login" });
                             alertService.error(message || "Session expired. Please login again.");
                             return;
                         }

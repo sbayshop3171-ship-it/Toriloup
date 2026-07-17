@@ -10,6 +10,7 @@ import VueSimpleAlert from "vue3-simple-alert";
 import VueNextSelect from 'vue-next-select';
 import 'vue-next-select/dist/index.css';
 import ENV from './config/env.js';
+import { detectWorkspaceHost, resolveGuestHomeRoute } from "./services/workspaceService";
 import "../../public/themes/default/fonts/urbanist/urbanist.css";
 import "../../public/themes/default/fonts/iconly/iconly.css";
 import "../../public/themes/default/fonts/public/public.css";
@@ -67,11 +68,16 @@ axios.interceptors.response.use(
         if (shouldForceLogout) {
             store.commit("authLogout");
 
+            const workspace = detectWorkspaceHost();
+            const guestHomeRoute = resolveGuestHomeRoute(window.location.hostname);
             const requestUrl = String(error?.config?.url || "");
-            const isAdminRequest =
+            const isLegacyAdminRequest =
                 requestUrl.includes("/admin/") ||
                 window.location.pathname.startsWith("/admin");
-            const targetRoute = isAdminRequest ? "auth.adminLogin" : "auth.login";
+            const targetRoute =
+                (workspace === "platform" || workspace === "merchant" || !isLegacyAdminRequest)
+                    ? guestHomeRoute.name
+                    : "auth.adminLogin";
 
             if (router.currentRoute.value?.name !== targetRoute) {
                 router.push({ name: targetRoute }).catch(() => {});

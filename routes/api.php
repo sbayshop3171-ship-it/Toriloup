@@ -142,7 +142,7 @@ Route::match(['get', 'post'], '/login', function () {
 
 Route::match(['get', 'post'], '/refresh-token', [RefreshTokenController::class, 'refreshToken'])->middleware(['installed']);
 
-Route::prefix('auth')->middleware(['installed', 'apiKey', 'localization'])->name('auth.')->namespace('Auth')->group(function () {
+Route::prefix('auth')->middleware(['installed', 'apiKey', 'localization', 'blockLegacyAdminAuth'])->name('auth.')->namespace('Auth')->group(function () {
     Route::post('/login', [LoginController::class, 'login']);
 
     Route::prefix('forgot-password')->name('forgot-password.')->group(function () {

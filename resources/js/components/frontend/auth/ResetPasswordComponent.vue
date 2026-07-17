@@ -39,6 +39,7 @@ import LoadingComponent from "../components/LoadingComponent";
 import alertService from "../../../services/alertService";
 import appService from "../../../services/appService";
 import ENV from "../../../config/env";
+import { detectWorkspaceHost, resolveAuthenticatedHomeRoute } from "../../../services/workspaceService";
 
 export default {
     name: "ResetPasswordComponent",
@@ -70,6 +71,9 @@ export default {
         carts: function () {
             return this.$store.getters['frontendCart/lists'];
         },
+        authContext: function () {
+            return detectWorkspaceHost();
+        },
     },
     mounted() {
         this.phoneOrEmailChecking();
@@ -80,15 +84,16 @@ export default {
         },
         phoneOrEmailChecking: function () {
             this.loading.isActive = true;
-            const otpPhone = this.$store.getters['phone'];
-            const otpEmail = this.$store.getters['email'];
-            if (Object.keys(otpPhone).length > 0 && otpPhone.otp.phone !== "") {
+            const otpPhone = this.$store.getters['phone'] || {};
+            const otpEmail = this.$store.getters['email'] || {};
+
+            if (otpPhone?.otp?.phone) {
                 this.form.phone = otpPhone.otp.phone;
                 this.form.country_code = otpPhone.otp.country_code;
                 this.form.email = "";
                 this.loading.isActive = false;
-            } else if (Object.keys(otpEmail).length > 0 && otpPhone.otp.email !== "") {
-                this.form.email = otpPhone.otp.email;
+            } else if (otpEmail?.otp?.email) {
+                this.form.email = otpEmail.otp.email;
                 this.form.phone = "";
                 this.form.country_code = "";
                 this.loading.isActive = false;
@@ -101,16 +106,19 @@ export default {
         save: function () {
             try {
                 this.loading.isActive = true;
-                this.$store.dispatch('resetPassword', this.form).then((res) => {
+                this.$store.dispatch('resetPassword', {
+                    ...this.form,
+                    context: this.authContext,
+                }).then((res) => {
                     this.loading.isActive = false;
                     alertService.success(res.data.message);
                     this.$store.dispatch("reset");
-                    if (this.carts.length > 0) {
+
+                    if (this.authContext === "storefront" && this.carts.length > 0) {
                         router.push({ name: "frontend.checkout" });
                     } else {
-                        router.push({ name: "frontend.home" });
+                        router.push(resolveAuthenticatedHomeRoute(this.$store.getters.authInfo));
                     }
-                    router.push({ name: "frontend.home" });
                 }).catch((err) => {
                     this.loading.isActive = false;
                     this.errors = err.response.data.errors;

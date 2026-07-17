@@ -77,10 +77,9 @@
                         $t('label.remember_me')
                         }}</label>
                 </div>
-                <router-link v-if="!isAdminLoginRoute" :to="{ name: 'auth.forgotPassword' }" class="field-label text-primary">
+                <router-link :to="{ name: 'auth.forgotPassword' }" class="field-label text-primary">
                     {{ $t('label.forgot_password') }}
                 </router-link>
-                <span v-else class="field-label text-[#6B7280]">Reset is handled by the platform team.</span>
             </div>
             <button type="submit"
                 class="font-bold text-center w-full h-12 leading-12 rounded-full bg-primary text-white capitalize mb-6">

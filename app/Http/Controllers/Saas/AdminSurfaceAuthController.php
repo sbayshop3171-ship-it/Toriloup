@@ -6,15 +6,8 @@ use App\Enums\Role;
 use App\Enums\Status;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Saas\MerchantRegisterRequest;
-use App\Http\Resources\MenuResource;
-use App\Http\Resources\PermissionResource;
-use App\Http\Resources\UserResource;
-use App\Libraries\AppLibrary;
-use App\Models\TenantMember;
 use App\Models\User;
-use App\Services\MenuService;
-use App\Services\PermissionService;
-use App\Services\Saas\SurfaceTokenService;
+use App\Services\Saas\AdminSurfacePayloadService;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,10 +17,8 @@ use Illuminate\Support\Facades\Validator;
 class AdminSurfaceAuthController extends Controller
 {
     public function __construct(
-        private readonly MenuService $menuService,
-        private readonly PermissionService $permissionService,
         private readonly TenantProvisioningService $tenantProvisioningService,
-        private readonly SurfaceTokenService $surfaceTokenService,
+        private readonly AdminSurfacePayloadService $adminSurfacePayloadService,
     ) {
     }
 
@@ -41,13 +32,20 @@ class AdminSurfaceAuthController extends Controller
             ], 403);
         }
 
-        return response()->json($this->buildAdminPayload($user, 'platform'), 201);
+        return response()->json($this->adminSurfacePayloadService->payloadFor($user, 'platform'), 201);
     }
 
     public function merchantLogin(Request $request): JsonResponse
     {
         $user = $this->authenticateAdminUser($request);
-        $tenantMembers = $this->activeTenantMembers($user);
+
+        if ((int) $user->myRole === Role::ADMIN) {
+            return response()->json([
+                'errors' => ['validation' => 'Owner accounts must sign in through owner.company.com only.'],
+            ], 403);
+        }
+
+        $tenantMembers = $this->adminSurfacePayloadService->activeTenantMembers($user);
 
         if ($tenantMembers->isEmpty()) {
             return response()->json([
@@ -55,18 +53,15 @@ class AdminSurfaceAuthController extends Controller
             ], 403);
         }
 
-        return response()->json($this->buildAdminPayload($user, 'merchant', [
-            'tenants' => $tenantMembers->map(fn (TenantMember $member) => $this->serializeTenantMembership($member))->values()->all(),
-            'current_tenant' => $this->serializeTenantMembership($tenantMembers->first()),
-        ]), 201);
+        return response()->json($this->adminSurfacePayloadService->payloadFor($user, 'merchant'), 201);
     }
 
     public function merchantRegister(MerchantRegisterRequest $request): JsonResponse
     {
         $result = $this->tenantProvisioningService->registerMerchant($request->validated());
 
-        return response()->json($this->buildAdminPayload($result['user'], 'merchant', [
-            'tenant' => $this->serializeTenant($result['tenant']),
+        return response()->json($this->adminSurfacePayloadService->payloadFor($result['user'], 'merchant', [
+            'tenant' => $this->adminSurfacePayloadService->serializeTenant($result['tenant']),
             'domain' => $result['domain']->only(['hostname', 'domain_type', 'is_primary', 'is_fallback', 'verification_status']),
             'auto_live_checks' => $result['checks'],
         ]), 201);
@@ -81,18 +76,7 @@ class AdminSurfaceAuthController extends Controller
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $payload = [
-            'surface' => $surface,
-            'user' => (new UserResource($user))->resolve($request),
-        ];
-
-        if ($surface === 'merchant') {
-            $tenantMembers = $this->activeTenantMembers($user);
-            $payload['tenants'] = $tenantMembers->map(fn (TenantMember $member) => $this->serializeTenantMembership($member))->values()->all();
-            $payload['current_tenant'] = $tenantMembers->isNotEmpty() ? $this->serializeTenantMembership($tenantMembers->first()) : null;
-        }
-
-        return response()->json($payload);
+        return response()->json($this->adminSurfacePayloadService->mePayload($user, $surface));
     }
 
     public function logout(Request $request): JsonResponse
@@ -141,70 +125,5 @@ class AdminSurfaceAuthController extends Controller
         }
 
         return $user;
-    }
-
-    /**
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function buildAdminPayload(User $user, string $surface, array $extra = []): array
-    {
-        $token = $this->surfaceTokenService->issueToken($user, $surface);
-        $role = $user->roles[0];
-        $permissionResource = PermissionResource::collection($this->permissionService->permission($role));
-        $permission = $permissionResource->resolve(request());
-        $defaultPermission = AppLibrary::defaultPermission($permissionResource->collection);
-        $menu = MenuResource::collection(collect($this->menuService->menu($role)))->resolve(request());
-        $defaultMenu = (object) AppLibrary::defaultMenu($this->menuService->menu($role), $defaultPermission);
-
-        return array_merge([
-            'message' => trans('all.message.login_success'),
-            'token' => $token,
-            'surface' => $surface,
-            'user' => (new UserResource($user))->resolve(request()),
-            'menu' => $menu,
-            'permission' => $permission,
-            'defaultPermission' => $defaultPermission,
-            'defaultMenu' => $defaultMenu,
-        ], $extra);
-    }
-
-    private function activeTenantMembers(User $user)
-    {
-        return TenantMember::query()
-            ->with(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback'), 'role'])
-            ->where('user_id', $user->id)
-            ->where('status', 'active')
-            ->get();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeTenantMembership(TenantMember $member): array
-    {
-        return [
-            'membership_id' => $member->id,
-            'status' => $member->status,
-            'role' => $member->role?->only(['id', 'code', 'name', 'scope']),
-            'tenant' => $member->tenant ? $this->serializeTenant($member->tenant) : null,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeTenant($tenant): array
-    {
-        return [
-            'id' => $tenant->id,
-            'uuid' => $tenant->uuid,
-            'name' => $tenant->name,
-            'slug' => $tenant->slug,
-            'status' => $tenant->status,
-            'onboarding_status' => $tenant->onboarding_status,
-            'plan_code' => $tenant->plan_code,
-            'primary_domain' => $tenant->domains->first()?->hostname,
-        ];
     }
 }

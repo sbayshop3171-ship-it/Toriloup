@@ -1,4 +1,5 @@
 import axios from "axios";
+import { detectWorkspaceHost } from "../../services/workspaceService";
 
 const authEndpoint = function (context, action) {
     if (context === "platform") {
@@ -92,6 +93,45 @@ export const auth = {
         },
         authcheck: function (context, payload) {
             return new Promise((resolve, reject) => {
+                const rememberedSurface = context.state.authInfo?.surface || null;
+                const workspace = detectWorkspaceHost();
+
+                if (
+                    rememberedSurface === "platform" ||
+                    rememberedSurface === "merchant" ||
+                    rememberedSurface === "storefront"
+                ) {
+                    axios
+                        .get(authEndpoint(rememberedSurface, "me"), payload)
+                        .then((res) => {
+                            resolve({
+                                data: {
+                                    status: true,
+                                    surface: res.data?.surface || rememberedSurface,
+                                },
+                            });
+                        })
+                        .catch((err) => {
+                            const status = err?.response?.status;
+
+                            if (status === 401 || status === 403 || status === 404) {
+                                context.commit("authLogout");
+                                resolve({ data: { status: false } });
+                                return;
+                            }
+
+                            reject(err);
+                        });
+
+                    return;
+                }
+
+                if (workspace === "platform" || workspace === "merchant") {
+                    context.commit("authLogout");
+                    resolve({ data: { status: false } });
+                    return;
+                }
+
                 axios
                     .post("auth/authcheck", payload)
                     .then((res) => {
@@ -107,7 +147,7 @@ export const auth = {
         },
         logout: function (context) {
             return new Promise((resolve, reject) => {
-                const surface = context.state.authInfo?.surface || context.state.authInfo?.auth_surface || null;
+                const surface = context.state.authInfo?.surface || context.state.authInfo?.auth_surface || detectWorkspaceHost();
                 axios
                     .post(authEndpoint(surface, "logout"))
                     .then((res) => {
@@ -135,7 +175,7 @@ export const auth = {
         forgotPassword: function (context, payload) {
             return new Promise((resolve, reject) => {
                 axios
-                    .post("auth/forgot-password", payload)
+                    .post(authEndpoint(payload?.context, "forgot-password"), payload)
                     .then((res) => {
                         context.commit("email", payload);
                         context.commit("phone", payload);
@@ -148,9 +188,8 @@ export const auth = {
         },
         forgotPasswordVerifyPhone: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/forgot-password/verify-phone";
                 axios
-                    .post(url, payload)
+                    .post(authEndpoint(payload?.context, "forgot-password/verify-phone"), payload)
                     .then((res) => {
                         resolve(res);
                     })
@@ -161,9 +200,8 @@ export const auth = {
         },
         forgotPasswordVerifyEmail: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/forgot-password/verify-email";
                 axios
-                    .post(url, payload)
+                    .post(authEndpoint(payload?.context, "forgot-password/verify-email"), payload)
                     .then((res) => {
                         resolve(res);
                     })
@@ -174,9 +212,8 @@ export const auth = {
         },
         otpPhone: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/forgot-password/otp-phone";
                 axios
-                    .post(url, payload)
+                    .post(authEndpoint(payload?.context, "forgot-password/otp-phone"), payload)
                     .then((res) => {
                         context.commit("phone", payload);
                         resolve(res);
@@ -188,9 +225,8 @@ export const auth = {
         },
         otpEmail: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/forgot-password/otp-email";
                 axios
-                    .post(url, payload)
+                    .post(authEndpoint(payload?.context, "forgot-password/otp-email"), payload)
                     .then((res) => {
                         context.commit("email", payload);
                         resolve(res);
@@ -203,7 +239,7 @@ export const auth = {
         resetPassword: function (context, payload) {
             return new Promise((resolve, reject) => {
                 axios
-                    .post("auth/forgot-password/reset-password", payload)
+                    .post(authEndpoint(payload?.context, "forgot-password/reset-password"), payload)
                     .then((res) => {
                         context.commit("authLogin", res.data);
                         resolve(res);
