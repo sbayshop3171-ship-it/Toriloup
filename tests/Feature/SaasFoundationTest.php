@@ -36,7 +36,6 @@ class SaasFoundationTest extends TestCase
             ->postJson('http://merchant.company.com/api/merchant/auth/register', [
                 'owner_name' => 'Merchant Owner',
                 'store_name' => 'Demo Store',
-                'store_slug' => 'demo-store',
                 'email' => 'merchant@example.com',
                 'password' => 'password',
             ]);
@@ -61,6 +60,39 @@ class SaasFoundationTest extends TestCase
         $this->assertDatabaseHas('tenant_members', [
             'status' => 'active',
         ]);
+    }
+
+    public function test_merchant_register_generates_unique_store_slug_from_store_name(): void
+    {
+        $firstResponse = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                'owner_name' => 'First Merchant Owner',
+                'store_name' => 'Demo Store',
+                'email' => 'first-merchant@example.com',
+                'password' => 'password',
+            ]);
+
+        $secondResponse = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                'owner_name' => 'Second Merchant Owner',
+                'store_name' => 'Demo Store',
+                'email' => 'second-merchant@example.com',
+                'password' => 'password',
+            ]);
+
+        $firstResponse
+            ->assertCreated()
+            ->assertJsonPath('tenant.slug', 'demo-store')
+            ->assertJsonPath('domain.hostname', 'demo-store.company.com');
+
+        $secondResponse
+            ->assertCreated()
+            ->assertJsonPath('tenant.slug', 'demo-store-2')
+            ->assertJsonPath('domain.hostname', 'demo-store-2.company.com');
     }
 
     public function test_storefront_bootstrap_returns_tenant_context_for_store_host(): void

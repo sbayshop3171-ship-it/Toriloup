@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Str;
 
 if (!function_exists('opsCheck')) {
     /**
@@ -337,7 +338,11 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
 
         $errors = [];
 
-        foreach (['owner_name', 'store_name', 'store_slug', 'password'] as $requiredField) {
+        if (!filled($payload['store_slug'] ?? null) && filled($payload['store_name'] ?? null)) {
+            $payload['store_slug'] = Str::slug((string) $payload['store_name']) ?: 'store';
+        }
+
+        foreach (['owner_name', 'store_name', 'password'] as $requiredField) {
             if (!filled($payload[$requiredField] ?? null)) {
                 $errors[] = "{$requiredField} is required";
             }

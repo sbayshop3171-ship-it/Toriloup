@@ -35,10 +35,11 @@ class TenantProvisioningService
         return DB::transaction(function () use ($payload) {
             $merchantRole = $this->ensureManagerRole();
             $tenantRole = $this->platformRoleRegistryService->merchantOwnerRole();
+            $storeSlug = $this->resolveStoreSlug($payload);
 
             $user = User::query()->create([
                 'name' => $payload['owner_name'],
-                'username' => $this->buildUsername($payload['owner_name'], $payload['store_slug']),
+                'username' => $this->buildUsername($payload['owner_name'], $storeSlug),
                 'email' => $payload['email'] ?? null,
                 'phone' => $payload['phone'] ?? null,
                 'country_code' => $payload['country_code'] ?? null,
@@ -53,8 +54,8 @@ class TenantProvisioningService
                 'uuid' => (string) Str::uuid(),
                 'name' => $payload['store_name'],
                 'legal_name' => $payload['legal_name'] ?? null,
-                'slug' => $payload['store_slug'],
-                'store_code' => $this->buildStoreCode($payload['store_slug']),
+                'slug' => $storeSlug,
+                'store_code' => $this->buildStoreCode($storeSlug),
                 'status' => 'draft',
                 'plan_code' => $payload['plan_code'] ?? 'starter',
                 'onboarding_status' => 'pending',
@@ -193,6 +194,34 @@ class TenantProvisioningService
     private function buildUsername(string $ownerName, string $storeSlug): string
     {
         return Str::slug($ownerName).'-'.$storeSlug.'-'.Str::lower(Str::random(6));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveStoreSlug(array $payload): string
+    {
+        $source = filled($payload['store_slug'] ?? null)
+            ? (string) $payload['store_slug']
+            : (string) $payload['store_name'];
+
+        $baseSlug = Str::slug($source);
+
+        if ($baseSlug === '') {
+            $baseSlug = 'store';
+        }
+
+        $baseSlug = Str::limit($baseSlug, 110, '');
+        $slug = $baseSlug;
+        $counter = 2;
+
+        while (Tenant::query()->where('slug', $slug)->exists()) {
+            $suffix = '-'.$counter;
+            $slug = Str::limit($baseSlug, 120 - strlen($suffix), '').$suffix;
+            $counter++;
+        }
+
+        return $slug;
     }
 
     private function buildStoreCode(string $storeSlug): string

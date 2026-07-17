@@ -64,6 +64,7 @@
         window.APP_OWNER_HOST = @js(config('saas.owner_host'));
         window.APP_MERCHANT_HOST = @js(config('saas.merchant_host'));
         window.APP_MARKETING_HOST = @js(config('saas.marketing_host'));
+        window.APP_STOREFRONT_SUFFIX = @js(config('saas.fallback_subdomain_suffix'));
 
         const APP_URL = window.APP_URL;
         const APP_DEMO = window.APP_DEMO;

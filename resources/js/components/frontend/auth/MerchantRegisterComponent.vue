@@ -31,16 +31,9 @@
                     :class="errors.store_name ? 'invalid' : ''"
                     class="w-full h-12 px-4 rounded-lg text-base text-left border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
                 <small class="db-field-alert" v-if="errors.store_name">{{ errors.store_name[0] }}</small>
-            </div>
-
-            <div class="mb-5">
-                <label for="storeSlug" class="text-sm font-medium capitalize mb-1 field-title required">Store slug</label>
-                <input v-model="form.store_slug" id="storeSlug" type="text" dir="ltr"
-                    :class="errors.store_slug ? 'invalid' : ''"
-                    class="w-full h-12 px-4 rounded-lg text-base text-left border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
                 <small class="db-field-alert" v-if="errors.store_slug">{{ errors.store_slug[0] }}</small>
-                <small class="block mt-1 text-xs text-text text-left" dir="ltr" v-if="form.store_slug">
-                    Default storefront: {{ form.store_slug }}.{{ storefrontSuffix }}
+                <small class="block mt-1 text-xs text-text text-left" dir="ltr" v-if="generatedStoreSlug">
+                    Default storefront: {{ generatedStoreSlug }}.{{ storefrontSuffix }}
                 </small>
             </div>
 
@@ -92,7 +85,6 @@ export default {
             form: {
                 owner_name: "",
                 store_name: "",
-                store_slug: "",
                 email: "",
                 password: "",
                 primary_locale: "en",
@@ -101,27 +93,25 @@ export default {
                 plan_code: "starter",
             },
             errors: {},
-            storefrontSuffix: ENV.MARKETING_HOST || "toriloup.com",
+            storefrontSuffix: ENV.STOREFRONT_SUFFIX || ENV.MARKETING_HOST || "toriloup.com",
             APP_URL: ENV.API_URL,
         };
     },
-    watch: {
-        "form.store_name": function (value) {
-            if (this.form.store_slug) {
-                return;
-            }
-
-            this.form.store_slug = this.slugify(value);
+    computed: {
+        generatedStoreSlug: function () {
+            return this.slugify(this.form.store_name);
         },
     },
     methods: {
         slugify(value) {
-            return String(value || "")
+            const slug = String(value || "")
                 .toLowerCase()
                 .trim()
                 .replace(/[^a-z0-9]+/g, "-")
                 .replace(/^-+|-+$/g, "")
                 .slice(0, 120);
+
+            return slug || (String(value || "").trim() ? "store" : "");
         },
         register() {
             this.loading.isActive = true;

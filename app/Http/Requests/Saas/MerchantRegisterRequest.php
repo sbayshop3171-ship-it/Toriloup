@@ -19,7 +19,7 @@ class MerchantRegisterRequest extends FormRequest
         return [
             'owner_name' => ['required', 'string', 'max:255'],
             'store_name' => ['required', 'string', 'max:160'],
-            'store_slug' => ['required', 'string', 'max:120', 'alpha_dash', Rule::unique('tenants', 'slug')],
+            'store_slug' => ['nullable', 'string', 'max:120', 'alpha_dash'],
             'legal_name' => ['nullable', 'string', 'max:190'],
             'email' => request('phone') ? ['nullable', 'string', 'email', 'max:255', Rule::unique('users', 'email')->where('is_guest', Ask::NO)] : ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->where('is_guest', Ask::NO)],
             'phone' => request('email') ? ['nullable', 'string', 'max:20'] : ['required', 'string', 'max:20'],
