@@ -201,11 +201,7 @@ class TenantProvisioningService
      */
     private function resolveStoreSlug(array $payload): string
     {
-        $source = filled($payload['store_slug'] ?? null)
-            ? (string) $payload['store_slug']
-            : (string) $payload['store_name'];
-
-        $baseSlug = Str::slug($source);
+        $baseSlug = Str::slug((string) $payload['store_name']);
 
         if ($baseSlug === '') {
             $baseSlug = 'store';

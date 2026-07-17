@@ -44,7 +44,6 @@ class BillingWorkspaceTest extends TestCase
             ->postJson('http://merchant.company.com/api/merchant/auth/register', [
                 'owner_name' => 'Billing Merchant',
                 'store_name' => 'Billing Store',
-                'store_slug' => 'billing-store',
                 'email' => 'billing-merchant@example.com',
                 'password' => 'password',
             ]);

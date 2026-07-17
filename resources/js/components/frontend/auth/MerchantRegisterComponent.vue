@@ -31,7 +31,6 @@
                     :class="errors.store_name ? 'invalid' : ''"
                     class="w-full h-12 px-4 rounded-lg text-base text-left border border-[#D9DBE9] hover:border-primary/30 focus-within:border-primary/30 transition-all duration-500" />
                 <small class="db-field-alert" v-if="errors.store_name">{{ errors.store_name[0] }}</small>
-                <small class="db-field-alert" v-if="errors.store_slug">{{ errors.store_slug[0] }}</small>
                 <small class="block mt-1 text-xs text-text text-left" dir="ltr" v-if="generatedStoreSlug">
                     Default storefront: {{ generatedStoreSlug }}.{{ storefrontSuffix }}
                 </small>

@@ -56,7 +56,6 @@ class SoftLaunchReadinessTest extends TestCase
             ->postJson('http://owner.company.com/api/merchant/auth/register', [
                 'owner_name' => 'Wrong Host Merchant',
                 'store_name' => 'Wrong Host Store',
-                'store_slug' => 'wrong-host-store',
                 'email' => 'wrong-host@example.com',
                 'password' => 'password',
             ])
@@ -149,7 +148,6 @@ class SoftLaunchReadinessTest extends TestCase
             ->postJson('http://merchant.company.com/api/merchant/auth/register', [
                 'owner_name' => 'Soft Launch Merchant',
                 'store_name' => 'Soft Launch Store',
-                'store_slug' => 'soft-launch-store',
                 'email' => 'soft-launch-merchant@example.com',
                 'password' => 'password',
             ]);
@@ -239,14 +237,12 @@ class SoftLaunchReadinessTest extends TestCase
                 [
                     'owner_name' => 'Dry Run Merchant',
                     'store_name' => 'Dry Run Store',
-                    'store_slug' => 'dry-run-store',
                     'email' => 'dry-run-store@example.com',
                     'password' => 'password',
                 ],
                 [
                     'owner_name' => 'Live Merchant',
                     'store_name' => 'Live Store',
-                    'store_slug' => 'live-store',
                     'email' => 'live-store@example.com',
                     'password' => 'password',
                 ],

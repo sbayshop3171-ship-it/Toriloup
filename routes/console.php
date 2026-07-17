@@ -338,9 +338,10 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
 
         $errors = [];
 
-        if (!filled($payload['store_slug'] ?? null) && filled($payload['store_name'] ?? null)) {
-            $payload['store_slug'] = Str::slug((string) $payload['store_name']) ?: 'store';
-        }
+        $derivedStoreSlug = filled($payload['store_name'] ?? null)
+            ? (Str::slug((string) $payload['store_name']) ?: 'store')
+            : '-';
+        unset($payload['store_slug']);
 
         foreach (['owner_name', 'store_name', 'password'] as $requiredField) {
             if (!filled($payload[$requiredField] ?? null)) {
@@ -355,7 +356,7 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
         if ($errors !== []) {
             $rows[] = [
                 'entry' => $entryNumber,
-                'slug' => (string) ($payload['store_slug'] ?? '-'),
+                'slug' => $derivedStoreSlug,
                 'status' => 'failed',
                 'detail' => implode('; ', $errors),
                 'storefront' => '-',
@@ -364,7 +365,7 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
             continue;
         }
 
-        $existingTenant = Tenant::query()->where('slug', (string) $payload['store_slug'])->first();
+        $existingTenant = Tenant::query()->where('slug', $derivedStoreSlug)->first();
         $existingUser = null;
 
         if (filled($payload['email'] ?? null)) {
@@ -391,7 +392,7 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
 
             $rows[] = [
                 'entry' => $entryNumber,
-                'slug' => (string) ($payload['store_slug'] ?? '-'),
+                'slug' => $derivedStoreSlug,
                 'status' => 'existing',
                 'detail' => $tenant !== null ? "tenant #{$tenant->id}" : 'matching merchant user already exists',
                 'storefront' => $tenant !== null ? sprintf('https://%s.%s', $tenant->slug, config('saas.fallback_subdomain_suffix')) : '-',
@@ -403,10 +404,10 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
         if ((bool) $this->option('dry-run')) {
             $rows[] = [
                 'entry' => $entryNumber,
-                'slug' => (string) $payload['store_slug'],
+                'slug' => $derivedStoreSlug,
                 'status' => 'would_create',
                 'detail' => sprintf('plan=%s owner=%s', (string) ($payload['plan_code'] ?? 'starter'), (string) $payload['owner_name']),
-                'storefront' => sprintf('https://%s.%s', $payload['store_slug'], config('saas.fallback_subdomain_suffix')),
+                'storefront' => sprintf('https://%s.%s', $derivedStoreSlug, config('saas.fallback_subdomain_suffix')),
             ];
             $stats['would_create']++;
             continue;
@@ -436,7 +437,7 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
         } catch (Throwable $throwable) {
             $rows[] = [
                 'entry' => $entryNumber,
-                'slug' => (string) $payload['store_slug'],
+                'slug' => $derivedStoreSlug,
                 'status' => 'failed',
                 'detail' => $throwable->getMessage(),
                 'storefront' => '-',

@@ -95,6 +95,25 @@ class SaasFoundationTest extends TestCase
             ->assertJsonPath('domain.hostname', 'demo-store-2.company.com');
     }
 
+    public function test_merchant_register_ignores_supplied_slug_and_uses_store_name_for_storefront(): void
+    {
+        $response = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                'owner_name' => 'Slug Bypass Merchant',
+                'store_name' => 'Rasel Fashion',
+                'store_slug' => 'wrong-manual-slug',
+                'email' => 'slug-bypass@example.com',
+                'password' => 'password',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('tenant.slug', 'rasel-fashion')
+            ->assertJsonPath('domain.hostname', 'rasel-fashion.company.com');
+    }
+
     public function test_storefront_bootstrap_returns_tenant_context_for_store_host(): void
     {
         $tenant = Tenant::query()->create([
