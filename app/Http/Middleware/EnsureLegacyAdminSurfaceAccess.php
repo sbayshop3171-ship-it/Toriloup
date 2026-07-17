@@ -42,9 +42,7 @@ class EnsureLegacyAdminSurfaceAccess
         'products-report',
     ];
 
-    private const MERCHANT_GET_ONLY_PREFIXES = [
-        'setting/role',
-    ];
+    private const MERCHANT_GET_ONLY_PREFIXES = [];
 
     public function __construct(private readonly TenantContext $tenantContext)
     {

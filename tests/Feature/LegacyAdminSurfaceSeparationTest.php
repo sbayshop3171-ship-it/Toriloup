@@ -166,6 +166,23 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             ->withHeaders($this->tenantHeaders($context['tenant']->slug))
             ->getJson('http://merchant.company.com/api/admin/setting/site')
             ->assertNotFound();
+
+        foreach ([
+            'setting/sms-gateway',
+            'setting/payment-gateway',
+            'setting/language',
+            'setting/role',
+            'setting/permission/1',
+            'setting/benefit',
+            'setting/page',
+            'setting/tax',
+            'setting/outlet',
+        ] as $ownerOnlyEndpoint) {
+            $this
+                ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+                ->getJson("http://merchant.company.com/api/admin/{$ownerOnlyEndpoint}")
+                ->assertNotFound();
+        }
     }
 
     public function test_merchant_legacy_user_modules_are_tenant_scoped(): void
