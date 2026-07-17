@@ -16,12 +16,12 @@
     </div>
 
     <div v-if="theme === 'backend'">
-        <main class="db-main" v-if="logged">
+        <main class="db-main" v-if="showBackendShell">
             <BackendNavbarComponent />
             <BackendMenuComponent />
             <router-view></router-view>
         </main>
-        <div v-if="!logged">
+        <div v-else>
             <router-view></router-view>
         </div>
     </div>
@@ -91,6 +91,9 @@ export default {
     computed: {
         logged: function () {
             return this.$store.getters.authStatus;
+        },
+        showBackendShell: function () {
+            return this.logged || this.$route?.meta?.auth === true;
         },
         displayMode: function () {
             return this.$store.getters['globalState/lists'].display_mode;
