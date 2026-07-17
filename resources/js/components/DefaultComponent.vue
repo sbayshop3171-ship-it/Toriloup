@@ -46,6 +46,7 @@ import DisplayModeEnum from "../enums/modules/displayModeEnum";
 import env from "../config/env";
 import LoadingComponent from "../components/frontend/components/LoadingComponent.vue";
 import { isAdminSurfaceHost, resolveGuestHomeRoute } from "../services/workspaceService";
+import appService from "../services/appService";
 
 export default {
     name: "DefaultComponent",
@@ -80,8 +81,10 @@ export default {
             });
         }).catch();
 
-        if (env.DEMO === "true" || env.DEMO === true || env.DEMO === "1" || env.DEMO === 1) {
+        if (this.shouldVerifyAuth()) {
             this.$store.dispatch("authcheck").then(res => {
+                appService.recursiveRouter(this.$router.options.routes, this.$store.getters.authPermission);
+
                 if (res.data.status === false) {
                     this.$router.push(resolveGuestHomeRoute());
                 };
@@ -102,6 +105,9 @@ export default {
     methods: {
         isAdminSurfaceHost: function () {
             return isAdminSurfaceHost();
+        },
+        shouldVerifyAuth: function () {
+            return this.isAdminSurfaceHost() || env.DEMO === "true" || env.DEMO === true || env.DEMO === "1" || env.DEMO === 1;
         },
         isAuthRoute: function (route = this.$route) {
             const authRoutes = [

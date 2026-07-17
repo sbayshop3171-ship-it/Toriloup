@@ -18,6 +18,7 @@ class AdminSurfacePayloadService
         private readonly MenuService $menuService,
         private readonly PermissionService $permissionService,
         private readonly SurfaceTokenService $surfaceTokenService,
+        private readonly MerchantPermissionBootstrapper $merchantPermissionBootstrapper,
     ) {
     }
 
@@ -27,6 +28,11 @@ class AdminSurfacePayloadService
      */
     public function payloadFor(User $user, string $surface, array $extra = []): array
     {
+        if ($surface === 'merchant') {
+            $this->merchantPermissionBootstrapper->ensureManagerRoleHasStorePermissions();
+            $user->load('roles');
+        }
+
         $role = $user->roles[0];
         $permissionResource = PermissionResource::collection($this->permissionService->permission($role));
         $defaultPermission = AppLibrary::defaultPermission($permissionResource->collection);
@@ -63,10 +69,24 @@ class AdminSurfacePayloadService
      */
     public function mePayload(User $user, string $surface): array
     {
+        if ($surface === 'merchant') {
+            $this->merchantPermissionBootstrapper->ensureManagerRoleHasStorePermissions();
+            $user->load('roles');
+        }
+
+        $role = $user->roles[0] ?? null;
         $payload = [
             'surface' => $surface,
             'user' => (new UserResource($user))->resolve(request()),
         ];
+
+        if ($role !== null) {
+            $permissionResource = PermissionResource::collection($this->permissionService->permission($role));
+            $payload['menu'] = MenuResource::collection(collect($this->menuService->menu($role)))->resolve(request());
+            $payload['permission'] = $permissionResource->resolve(request());
+            $payload['defaultPermission'] = AppLibrary::defaultPermission($permissionResource->collection);
+            $payload['defaultMenu'] = (object) AppLibrary::defaultMenu($this->menuService->menu($role), $payload['defaultPermission']);
+        }
 
         if ($surface === 'merchant') {
             $tenantMembers = $this->activeTenantMembers($user);

@@ -149,6 +149,24 @@ const router = createRouter({
     },
 });
 
+const routeHasAccess = function (route) {
+    const permissionUrl = route.meta?.permissionUrl;
+
+    if (!permissionUrl) {
+        return true;
+    }
+
+    const permissions = store.getters.authPermission;
+
+    if (!Array.isArray(permissions) || permissions.length === 0) {
+        return route.meta.access !== false;
+    }
+
+    const permission = permissions.find((item) => item?.url === permissionUrl);
+
+    return !permission || permission.access !== false;
+};
+
 router.beforeEach((to, from, next) => {
     const hostname = window.location.hostname;
     const workspaceHost = detectWorkspaceHost(hostname);
@@ -233,6 +251,34 @@ router.beforeEach((to, from, next) => {
         }
 
         if (to.meta.isFrontend === false && to.meta.access === false) {
+            const canRefreshWorkspacePermissions = (isOwnerHost || isMerchantHost) && to.meta?.permissionUrl;
+
+            if (canRefreshWorkspacePermissions) {
+                store.dispatch("authcheck").then((res) => {
+                    if (res.data.status === false) {
+                        next(resolveGuestHomeRoute(hostname));
+                        return;
+                    }
+
+                    appService.recursiveRouter(routes, store.getters.authPermission);
+
+                    if (routeHasAccess(to)) {
+                        next();
+                        return;
+                    }
+
+                    next({
+                        name: "route.exception",
+                    });
+                }).catch(() => {
+                    next({
+                        name: "route.exception",
+                    });
+                });
+
+                return;
+            }
+
             next({
                 name: "route.exception",
             });

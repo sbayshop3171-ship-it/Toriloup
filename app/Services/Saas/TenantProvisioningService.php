@@ -23,6 +23,7 @@ class TenantProvisioningService
         private readonly PlatformRoleRegistryService $platformRoleRegistryService,
         private readonly TenantSettingsService $tenantSettingsService,
         private readonly SubscriptionManagerService $subscriptionManagerService,
+        private readonly MerchantPermissionBootstrapper $merchantPermissionBootstrapper,
     ) {
     }
 
@@ -176,19 +177,7 @@ class TenantProvisioningService
 
     private function ensureManagerRole(): SpatieRole
     {
-        $role = SpatieRole::query()->find(Role::MANAGER);
-
-        if ($role !== null) {
-            return $role;
-        }
-
-        $role = new SpatieRole();
-        $role->id = Role::MANAGER;
-        $role->name = 'manager';
-        $role->guard_name = 'web';
-        $role->save();
-
-        return $role;
+        return $this->merchantPermissionBootstrapper->ensureManagerRoleHasStorePermissions();
     }
 
     private function buildUsername(string $ownerName, string $storeSlug): string

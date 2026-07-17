@@ -227,6 +227,24 @@ class SaasFoundationTest extends TestCase
             ->assertJsonPath('surface', 'merchant')
             ->assertJsonPath('current_tenant.tenant.slug', 'merchant-login-store')
             ->assertJsonCount(1, 'tenants');
+
+        $permissions = collect($response->json('permission'))->keyBy('name');
+        $this->assertTrue((bool) $permissions->get('products')['access']);
+        $this->assertTrue((bool) $permissions->get('purchase')['access']);
+        $this->assertTrue((bool) $permissions->get('settings')['access']);
+
+        $this
+            ->withToken((string) $response->json('token'))
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://merchant.company.com/api/merchant/auth/me')
+            ->assertOk()
+            ->assertJsonPath('surface', 'merchant')
+            ->assertJsonPath('current_tenant.tenant.slug', 'merchant-login-store')
+            ->assertJsonFragment([
+                'name' => 'products',
+                'access' => true,
+            ]);
     }
 
     public function test_storefront_customer_login_returns_tenant_context(): void

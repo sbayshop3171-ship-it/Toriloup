@@ -104,6 +104,7 @@ export const auth = {
                     axios
                         .get(authEndpoint(rememberedSurface, "me"), payload)
                         .then((res) => {
+                            context.commit("authRefresh", res.data);
                             resolve({
                                 data: {
                                     status: true,
@@ -328,6 +329,31 @@ export const auth = {
             state.authPermission = {};
             state.authDefaultPermission = {};
             state.authDefaultMenu = {};
+        },
+        authRefresh: function (state, payload) {
+            state.authInfo = {
+                ...state.authInfo,
+                ...(payload.user || {}),
+                surface: payload.surface || state.authInfo?.surface || null,
+                tenants: payload.tenants || state.authInfo?.tenants || [],
+                current_tenant: payload.current_tenant || state.authInfo?.current_tenant || null,
+            };
+
+            if (payload.menu) {
+                state.authMenu = payload.menu;
+            }
+
+            if (payload.permission) {
+                state.authPermission = payload.permission;
+            }
+
+            if (payload.defaultPermission) {
+                state.authDefaultPermission = payload.defaultPermission;
+            }
+
+            if (payload.defaultMenu) {
+                state.authDefaultMenu = payload.defaultMenu;
+            }
         },
         forgotPassword: function (state, payload) {
             state.resetInfo = {
