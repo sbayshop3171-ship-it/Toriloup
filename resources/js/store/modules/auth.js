@@ -315,7 +315,6 @@ export const auth = {
                 surface: payload.surface || payload.user?.surface || null,
                 tenants: payload.tenants || [],
                 current_tenant: payload.current_tenant || payload.tenant || null,
-                support_session: payload.support_session || null,
             };
             state.authMenu = payload.menu;
             state.authPermission = payload.permission;
@@ -338,9 +337,6 @@ export const auth = {
                 surface: payload.surface || state.authInfo?.surface || null,
                 tenants: payload.tenants || state.authInfo?.tenants || [],
                 current_tenant: payload.current_tenant || state.authInfo?.current_tenant || null,
-                support_session: Object.prototype.hasOwnProperty.call(payload || {}, "support_session")
-                    ? payload.support_session
-                    : (state.authInfo?.support_session || null),
             };
 
             if (payload.menu) {

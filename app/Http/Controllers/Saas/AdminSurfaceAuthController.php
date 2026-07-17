@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Saas\MerchantRegisterRequest;
 use App\Models\User;
 use App\Services\Saas\AdminSurfacePayloadService;
-use App\Services\Saas\PlatformSupportSessionService;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +19,6 @@ class AdminSurfaceAuthController extends Controller
     public function __construct(
         private readonly TenantProvisioningService $tenantProvisioningService,
         private readonly AdminSurfacePayloadService $adminSurfacePayloadService,
-        private readonly PlatformSupportSessionService $platformSupportSessionService,
     ) {
     }
 
@@ -83,17 +81,8 @@ class AdminSurfaceAuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $token = $user?->currentAccessToken();
-
-        if ($token !== null) {
-            $supportSession = $this->platformSupportSessionService->currentForToken($user, $token->id);
-
-            if ($supportSession !== null) {
-                $this->platformSupportSessionService->endByMerchant($supportSession->id, $user, $request);
-            }
-
-            $token->delete();
+        if ($request->user()?->currentAccessToken() !== null) {
+            $request->user()->currentAccessToken()->delete();
         }
 
         return response()->json([

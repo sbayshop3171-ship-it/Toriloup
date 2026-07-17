@@ -47,9 +47,7 @@ axios.interceptors.request.use(
             const token = vuex.auth.authToken;
             config.headers['Authorization'] = token ? `Bearer ${token}` : '';
             const authSurface = vuex.auth?.authInfo?.surface || null;
-            const currentTenantSlug = vuex.auth?.authInfo?.current_tenant?.slug
-                || vuex.auth?.authInfo?.current_tenant?.tenant?.slug
-                || null;
+            const currentTenantSlug = vuex.auth?.authInfo?.current_tenant?.slug || null;
 
             if (authSurface === "merchant" && currentTenantSlug) {
                 config.headers['X-Tenant-Slug'] = currentTenantSlug;

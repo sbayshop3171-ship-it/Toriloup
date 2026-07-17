@@ -161,89 +161,6 @@
             </div>
         </section>
 
-        <section v-else-if="page.key === 'support'" class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-            <article class="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 class="text-lg font-semibold">Support Sessions</h2>
-                        <p class="text-sm text-[#6B7280]">Every owner-as-merchant session is time-bounded, visible, and auditable.</p>
-                    </div>
-                    <div class="flex flex-col gap-3 sm:flex-row">
-                        <input
-                            v-model.trim="filters.q"
-                            type="text"
-                            placeholder="Search merchant, owner, reason"
-                            class="h-11 rounded-2xl border border-[#D1D5DB] px-4 text-sm outline-none transition focus:border-primary"
-                            @keyup.enter="fetchSupportSessions" />
-                        <select
-                            v-model="filters.supportStatus"
-                            class="h-11 rounded-2xl border border-[#D1D5DB] px-4 text-sm outline-none transition focus:border-primary"
-                            @change="fetchSupportSessions">
-                            <option value="">All statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="active">Active</option>
-                            <option value="ended">Ended</option>
-                            <option value="expired">Expired</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="mt-5 space-y-3">
-                    <article
-                        v-for="session in supportSessions"
-                        :key="session.id"
-                        class="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFD] p-4">
-                        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                            <div>
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <p class="font-semibold text-[#111827]">{{ session.tenant?.name || "Unknown merchant" }}</p>
-                                    <span
-                                        class="inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize"
-                                        :class="statusClass(session.status)">
-                                        {{ session.status }}
-                                    </span>
-                                </div>
-                                <p class="mt-1 text-sm text-[#6B7280]">{{ session.tenant?.slug || "no-slug" }} • {{ session.reason || "No reason recorded" }}</p>
-                                <p class="mt-2 text-xs text-[#6B7280]">Owner: {{ session.owner?.name || "system" }} • Merchant user: {{ session.impersonated_user?.email || session.impersonated_user?.name || "n/a" }}</p>
-                            </div>
-                            <div class="flex flex-col gap-2 md:items-end">
-                                <p class="text-xs text-[#6B7280]">Started {{ shortDateTime(session.started_at) }}</p>
-                                <button
-                                    v-if="['pending', 'active'].includes(session.status)"
-                                    type="button"
-                                    class="rounded-2xl border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[#B91C1C]"
-                                    @click="endSupportSession(session)">
-                                    End session
-                                </button>
-                            </div>
-                        </div>
-                    </article>
-                    <div v-if="supportSessions.length === 0" class="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-8 text-center text-sm text-[#6B7280]">
-                        No support sessions match the current filters.
-                    </div>
-                </div>
-            </article>
-
-            <article class="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <h2 class="text-lg font-semibold">Support Rules</h2>
-                <p class="text-sm text-[#6B7280]">Safe defaults for owner-assisted debugging without weakening tenant isolation.</p>
-                <div class="mt-5 space-y-3">
-                    <div class="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-                        <p class="font-semibold text-[#111827]">Owner never gets a raw merged merchant panel</p>
-                        <p class="mt-2 text-sm text-[#6B7280]">Cross-tenant visibility stays global here. Deep daily-operation access happens only through an audited support entry.</p>
-                    </div>
-                    <div class="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-                        <p class="font-semibold text-[#111827]">Support sessions are time-bounded</p>
-                        <p class="mt-2 text-sm text-[#6B7280]">If a merchant support token is not used or is left open too long, it expires and the audit trail captures that state.</p>
-                    </div>
-                    <div class="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-                        <p class="font-semibold text-[#111827]">Merchant data isolation remains unchanged</p>
-                        <p class="mt-2 text-sm text-[#6B7280]">Merchant A cannot see Merchant B. Only the owner surface gets cross-tenant analytics and owner-only drill-down tools.</p>
-                    </div>
-                </div>
-            </article>
-        </section>
-
         <section v-else class="grid gap-6 lg:grid-cols-3">
             <article v-for="item in page.items" :key="item.title" class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{{ item.kicker }}</p>
@@ -308,11 +225,9 @@ export default {
             subscriptions: [],
             providers: [],
             auditLogs: [],
-            supportSessions: [],
             filters: {
                 q: "",
                 providerType: "",
-                supportStatus: "",
             },
         };
     },
@@ -373,8 +288,6 @@ export default {
                 request = axios.get("platform/providers").then((res) => {
                     this.providers = Array.isArray(res?.data?.data) ? res.data.data : [];
                 });
-            } else if (section === "support") {
-                request = this.fetchSupportSessions(false);
             } else if (section === "audit") {
                 request = this.fetchAuditLogs(false);
             } else {
@@ -403,36 +316,6 @@ export default {
                 }
             });
         },
-        fetchSupportSessions: function (toggleLoading = true) {
-            if (toggleLoading) {
-                this.loading.isActive = true;
-            }
-
-            return axios.get("platform/support/impersonations", {
-                params: {
-                    q: this.filters.q || undefined,
-                    status: this.filters.supportStatus || undefined,
-                    limit: 75,
-                },
-            }).then((res) => {
-                this.supportSessions = Array.isArray(res?.data?.data) ? res.data.data : [];
-            }).finally(() => {
-                if (toggleLoading) {
-                    this.loading.isActive = false;
-                }
-            });
-        },
-        endSupportSession: function (session) {
-            this.loading.isActive = true;
-
-            axios.post(`platform/support/impersonations/${session.id}/end`)
-                .then(() => {
-                    this.fetchSupportSessions(false);
-                })
-                .finally(() => {
-                    this.loading.isActive = false;
-                });
-        },
         statusClass: function (status) {
             if (["active", "verified", "paid"].includes(status)) {
                 return "bg-[#ECFDF3] text-[#047857]";
@@ -453,13 +336,6 @@ export default {
             }
 
             return new Date(value).toLocaleDateString();
-        },
-        shortDateTime: function (value) {
-            if (!value) {
-                return "Not set";
-            }
-
-            return new Date(value).toLocaleString();
         },
         configKeys: function (config) {
             const keys = Object.keys(config || {});
