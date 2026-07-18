@@ -7,6 +7,7 @@ use App\Enums\Status;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Image\Enums\CropPosition;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -102,19 +103,22 @@ class Product extends Model implements HasMedia
 
     public function getImageAttribute(): string
     {
-        if (!empty($this->getFirstMediaUrl('product'))) {
-            return asset($this->getFirstMediaUrl('product'));
+        $product = $this->getMedia('product')->first();
+
+        if ($product instanceof Media) {
+            return $this->productMediaUrl($product) ?? asset('images/default/product/thumb.png');
         }
+
         return asset('images/default/product/thumb.png');
     }
 
     public function getImagesAttribute(): array
     {
         $response = [];
-        if (!empty($this->getFirstMediaUrl('product'))) {
-            $images = $this->getMedia('product');
-            foreach ($images as $image) {
-                $response[] = $image['original_url'];
+        $images = $this->getMedia('product');
+        foreach ($images as $image) {
+            if ($image instanceof Media && $this->mediaFileExists($image)) {
+                $response[] = $image->getUrl();
             }
         }
         return $response;
@@ -122,38 +126,44 @@ class Product extends Model implements HasMedia
 
     public function getThumbAttribute(): string
     {
-        if (!empty($this->getFirstMediaUrl('product'))) {
-            $product = $this->getMedia('product')->first();
-            return $product->getUrl('thumb');
+        $product = $this->getMedia('product')->first();
+
+        if ($product instanceof Media) {
+            return $this->productMediaUrl($product, 'thumb') ?? asset('images/default/product/thumb.png');
         }
+
         return asset('images/default/product/thumb.png');
     }
 
     public function getCoverAttribute(): string
     {
-        if (!empty($this->getFirstMediaUrl('product'))) {
-            $product = $this->getMedia('product')->first();
-            return $product->getUrl('cover');
+        $product = $this->getMedia('product')->first();
+
+        if ($product instanceof Media) {
+            return $this->productMediaUrl($product, 'cover') ?? asset('images/default/product/cover.png');
         }
+
         return asset('images/default/product/cover.png');
     }
 
     public function getPreviewAttribute(): string
     {
-        if (!empty($this->getFirstMediaUrl('product'))) {
-            $product = $this->getMedia('product')->first();
-            return $product->getUrl('preview');
+        $product = $this->getMedia('product')->first();
+
+        if ($product instanceof Media) {
+            return $this->productMediaUrl($product, 'preview') ?? asset('images/default/product/preview.png');
         }
+
         return asset('images/default/product/preview.png');
     }
 
     public function getPreviewsAttribute(): array
     {
         $response = [];
-        if (!empty($this->getFirstMediaUrl('product'))) {
-            $images = $this->getMedia('product');
-            foreach ($images as $image) {
-                $response[] = $image->getUrl('preview');
+        $images = $this->getMedia('product');
+        foreach ($images as $image) {
+            if ($image instanceof Media) {
+                $response[] = $this->productMediaUrl($image, 'preview') ?? asset('images/default/product/preview.png');
             }
         }
         return $response;
@@ -161,10 +171,37 @@ class Product extends Model implements HasMedia
 
     public function getBarcodeImageAttribute(): string
     {
-        if (!empty($this->getFirstMediaUrl('product-barcode'))) {
-            return asset($this->getFirstMediaUrl('product-barcode'));
+        $barcode = $this->getMedia('product-barcode')->first();
+
+        if ($barcode instanceof Media && $this->mediaFileExists($barcode)) {
+            return $barcode->getUrl();
         }
+
         return '';
+    }
+
+    private function productMediaUrl(Media $media, string $conversion = ''): ?string
+    {
+        if ($conversion !== '' && $media->hasGeneratedConversion($conversion) && $this->mediaFileExists($media, $conversion)) {
+            return $media->getUrl($conversion);
+        }
+
+        if ($this->mediaFileExists($media)) {
+            return $media->getUrl();
+        }
+
+        return null;
+    }
+
+    private function mediaFileExists(Media $media, string $conversion = ''): bool
+    {
+        try {
+            $disk = $conversion === '' ? $media->disk : ($media->conversions_disk ?: $media->disk);
+
+            return Storage::disk($disk)->exists($media->getPathRelativeToRoot($conversion));
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function registerMediaConversions(Media $media = null): void
