@@ -3,7 +3,6 @@
 use Illuminate\Http\Request;
 use App\Http\Middleware\AdminAccess;
 use App\Http\Middleware\SetTenantContext;
-use App\Http\Middleware\SeedTenantDemoContent;
 use App\Http\Middleware\Installed;
 use App\Http\Middleware\EnsureTenantActive;
 use App\Http\Middleware\BlockLegacyAdminAuthOnWorkspaceHosts;
@@ -86,7 +85,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'ensureTenantActive' => EnsureTenantActive::class,
             'tenantFeature' => EnsureTenantFeatureAccess::class,
             'setTenantContext' => SetTenantContext::class,
-            'seedTenantDemoContent' => SeedTenantDemoContent::class,
 
         ]);
     })

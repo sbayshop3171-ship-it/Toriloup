@@ -16,7 +16,7 @@ Route::prefix('storefront')
             ]);
         })->name('up');
 
-        Route::middleware(['resolveTenantFromHost', 'ensureTenantResolved', 'ensureTenantActive', 'setTenantContext', 'seedTenantDemoContent'])
+        Route::middleware(['resolveTenantFromHost', 'ensureTenantResolved', 'ensureTenantActive', 'setTenantContext'])
             ->group(function () {
                 Route::get('/bootstrap', StorefrontBootstrapController::class)->name('bootstrap');
 

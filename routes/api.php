@@ -746,7 +746,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'legacyAdmin
     });
 });
 
-Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey', 'localization', 'resolveTenantFromHost', 'setTenantContext', 'seedTenantDemoContent'])->group(function () {
+Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey', 'localization', 'resolveTenantFromHost', 'setTenantContext'])->group(function () {
     Route::prefix('setting')->name('setting.')->group(function () {
         Route::get('/', [FrontendSettingController::class, 'index']);
     });
