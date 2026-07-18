@@ -199,7 +199,6 @@ router.beforeEach((to, from, next) => {
     ];
     const ownerAdminSettingRedirects = {
         "admin.settings.domains": "platform.domains",
-        "admin.settings.billing": "platform.billing",
     };
 
     if (isOwnerHost && Object.prototype.hasOwnProperty.call(ownerAdminSettingRedirects, to.name)) {

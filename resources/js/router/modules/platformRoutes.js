@@ -14,13 +14,6 @@ const operationRoutes = [
         subtitle: "Requested domains, verification, SSL status, DNS instructions, and fallback visibility.",
     },
     {
-        path: "/owner/billing",
-        name: "platform.billing",
-        section: "billing",
-        title: "Plans & Billing",
-        subtitle: "Plan catalog, subscriptions, invoice oversight, renewal state, and owner override workflow.",
-    },
-    {
         path: "/owner/providers",
         name: "platform.providers",
         section: "providers",
@@ -103,6 +96,16 @@ export default [
         path: "/owner/tenants",
         component: PlatformTenantsComponent,
         name: "platform.tenants",
+        meta: {
+            isFrontend: false,
+            auth: true,
+            workspace: "platform",
+        },
+    },
+    {
+        path: "/owner/billing",
+        name: "platform.billing",
+        redirect: { name: "admin.settings.billing" },
         meta: {
             isFrontend: false,
             auth: true,

@@ -12,10 +12,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   APP_ENV: testing
   VITE_API_KEY: testing-key
@@ -34,29 +30,10 @@ env:
   SAAS_STOREFRONT_SUFFIX: company.com
 
 jobs:
-  build:
-    name: Build Frontend
+  quality:
+    name: Quality
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-
-      - name: Install JS dependencies
-        run: npm ci
-
-      - name: Build frontend assets
-        run: npm run build
-
-  tests:
-    name: Tests (${{ matrix.suite.name }})
-    runs-on: ubuntu-latest
     services:
       mysql:
         image: mysql:8.0
@@ -71,38 +48,6 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
-    strategy:
-      fail-fast: false
-      max-parallel: 3
-      matrix:
-        suite:
-          - name: Unit
-            path: tests/Unit
-          - name: Basic Feature
-            path: tests/Feature/ExampleTest.php
-          - name: Admin Surface Password Reset
-            path: tests/Feature/AdminSurfacePasswordResetTest.php
-          - name: Legacy Admin Surface Separation
-            path: tests/Feature/LegacyAdminSurfaceSeparationTest.php
-          - name: SaaS Foundation
-            path: tests/Feature/SaasFoundationTest.php
-          - name: Platform Workspace
-            path: tests/Feature/PlatformWorkspaceTest.php
-          - name: Billing Workspace
-            path: tests/Feature/BillingWorkspaceTest.php
-          - name: Merchant Launch Configuration
-            path: tests/Feature/MerchantLaunchConfigurationTest.php
-          - name: Merchant Wallet Settlement
-            path: tests/Feature/MerchantWalletSettlementTest.php
-          - name: Merchant Isolation
-            path: tests/Feature/MerchantTenantIsolationTest.php
-          - name: Production Operations Commands
-            path: tests/Feature/ProductionOperationsCommandsTest.php
-          - name: Soft Launch Readiness
-            path: tests/Feature/SoftLaunchReadinessTest.php
-          - name: Storefront Customer Flow
-            path: tests/Feature/StorefrontCustomerFlowTest.php
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,6 +58,12 @@ jobs:
           php-version: '8.3'
           extensions: bcmath, ctype, curl, dom, exif, fileinfo, filter, gd, intl, json, mbstring, openssl, pdo, pdo_mysql, pdo_sqlite, simplexml, sodium, tokenizer, xml, xmlreader, xmlwriter, zip
           coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
 
       - name: Cache Composer downloads
         uses: actions/cache@v4
@@ -144,15 +95,21 @@ jobs:
             sleep "$sleep_seconds"
           done
 
+      - name: Install JS dependencies
+        run: npm ci
+
       - name: Prepare Laravel environment
         run: |
           cp .env.example .env
           php artisan key:generate --force
 
+      - name: Build frontend assets
+        run: npm run build
+
       - name: Run test suite
         run: |
           set +e
-          php artisan test "${{ matrix.suite.path }}" --env=testing --stop-on-failure 2>&1 | tee test-output.log
+          php artisan test --env=testing 2>&1 | tee test-output.log
           status=${PIPESTATUS[0]}
 
           if [ "$status" -ne 0 ]; then
@@ -161,7 +118,7 @@ jobs:
             echo "::endgroup::"
 
             {
-              echo "### Failed suite: ${{ matrix.suite.name }}"
+              echo "### Failed test suite"
               echo
               echo '```text'
               tail -200 test-output.log
@@ -172,7 +129,7 @@ jobs:
               safe_line="${line//'%'/'%25'}"
               safe_line="${safe_line//$'\r'/'%0D'}"
               safe_line="${safe_line//$'\n'/'%0A'}"
-              echo "::error title=${{ matrix.suite.name }}::$safe_line"
+              echo "::error title=CI::$safe_line"
             done
           fi
 

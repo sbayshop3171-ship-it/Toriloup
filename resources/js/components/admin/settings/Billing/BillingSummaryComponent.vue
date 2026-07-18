@@ -1,7 +1,9 @@
 <template>
-    <LoadingComponent :props="loading" />
+    <OwnerBillingPlanManagerComponent v-if="isOwnerBillingSurface" />
+    <template v-else>
+        <LoadingComponent :props="loading" />
 
-    <div class="space-y-6">
+        <div class="space-y-6">
         <div v-if="flashMessage" class="db-card">
             <div class="db-card-body">
                 <div class="rounded-lg border px-4 py-3 text-sm" :class="flashMessage.type === 'success' ? 'border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]' : 'border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]'">
@@ -198,15 +200,18 @@
                 </div>
             </div>
         </div>
-    </div>
+        </div>
+    </template>
 </template>
 
 <script>
 import LoadingComponent from "../../components/LoadingComponent";
+import OwnerBillingPlanManagerComponent from "./OwnerBillingPlanManagerComponent.vue";
+import { isMerchantHost } from "../../../../services/workspaceService";
 
 export default {
     name: "BillingSummaryComponent",
-    components: { LoadingComponent },
+    components: { LoadingComponent, OwnerBillingPlanManagerComponent },
     data() {
         return {
             loading: {
@@ -222,6 +227,9 @@ export default {
         };
     },
     computed: {
+        isOwnerBillingSurface() {
+            return !isMerchantHost();
+        },
         summary() {
             return this.$store.getters["merchantBilling/summary"];
         },
@@ -275,6 +283,10 @@ export default {
         },
     },
     mounted() {
+        if (this.isOwnerBillingSurface) {
+            return;
+        }
+
         this.fetchData();
     },
     methods: {
