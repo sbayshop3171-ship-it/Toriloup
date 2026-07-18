@@ -80,6 +80,12 @@ const ownerMenus = [
         icon: "lab lab-line-customers",
     },
     {
+        name: "Wallets",
+        language: "wallets",
+        url: "wallets",
+        icon: "lab lab-line-account",
+    },
+    {
         name: "Settings",
         language: "settings",
         url: "settings",
@@ -157,6 +163,7 @@ const merchantMenus = [
         url: "#",
         icon: "lab lab-line-account",
         children: [
+            { name: "Wallet", language: "wallet", url: "wallet", icon: "lab lab-line-account" },
             { name: "Transactions", language: "transactions", url: "transactions", icon: "lab lab-line-transactions" },
         ],
     },

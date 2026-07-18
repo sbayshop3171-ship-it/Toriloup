@@ -18,6 +18,7 @@ use App\Events\SendOrderGotSms;
 use App\Events\SendOrderGotMail;
 use App\Events\SendOrderGotPush;
 use App\Libraries\QueryExceptionLibrary;
+use App\Services\Saas\MerchantWalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -36,6 +37,7 @@ class PaymentService
                 $transaction = Transaction::where(['order_id' => $order->id])->first();
                 if (!$transaction) {
                     $transaction = Transaction::create([
+                        'tenant_id'      => $order->tenant_id,
                         'order_id'       => $order->id,
                         'transaction_no' => $transactionNo,
                         'amount'         => $order->total,
@@ -57,6 +59,8 @@ class PaymentService
                 SendOrderGotMail::dispatch(['order_id' => $order->id]);
                 SendOrderGotSms::dispatch(['order_id' => $order->id]);
                 SendOrderGotPush::dispatch(['order_id' => $order->id]);
+
+                app(MerchantWalletService::class)->creditOrderPayment($order, $transaction, $gatewaySlug);
             });
             return $this->transaction;
         } catch (Exception $exception) {
@@ -71,6 +75,7 @@ class PaymentService
         $transaction = Transaction::where(['order_id' => $order->id])->first();
         if ($transaction) {
             $transaction = Transaction::create([
+                'tenant_id'      => $order->tenant_id,
                 'order_id'       => $order->id,
                 'transaction_no' => $transactionNo,
                 'amount'         => $order->total,

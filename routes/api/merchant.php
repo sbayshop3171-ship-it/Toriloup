@@ -19,6 +19,7 @@ use App\Http\Controllers\Saas\MerchantPosController;
 use App\Http\Controllers\Saas\MerchantPurchaseController;
 use App\Http\Controllers\Saas\MerchantReturnOrderController;
 use App\Http\Controllers\Saas\MerchantReturnAndRefundController;
+use App\Http\Controllers\Saas\MerchantWalletController;
 
 Route::prefix('merchant')
     ->name('merchant.')
@@ -167,6 +168,16 @@ Route::prefix('merchant')
                     Route::get('/invoices', [MerchantBillingController::class, 'invoices']);
                     Route::get('/plans', [MerchantBillingController::class, 'plans']);
                     Route::post('/checkout', [MerchantBillingController::class, 'checkout']);
+                });
+
+                Route::prefix('wallet')->group(function () {
+                    Route::get('/summary', [MerchantWalletController::class, 'summary']);
+                    Route::get('/transactions', [MerchantWalletController::class, 'transactions']);
+                    Route::get('/transactions/export', [MerchantWalletController::class, 'exportTransactions']);
+                    Route::get('/statement', [MerchantWalletController::class, 'statement']);
+                    Route::get('/payout-methods', [MerchantWalletController::class, 'payoutMethods']);
+                    Route::get('/withdrawals', [MerchantWalletController::class, 'withdrawals']);
+                    Route::post('/withdrawals', [MerchantWalletController::class, 'requestWithdrawal']);
                 });
 
                 Route::get('/stock', [MerchantStockController::class, 'index'])->middleware('tenantFeature:advanced_stock');

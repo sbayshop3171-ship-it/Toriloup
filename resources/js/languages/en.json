@@ -49,6 +49,8 @@
         "merchants": "Merchants",
         "customers": "Customers",
         "employees": "Employees",
+        "wallet": "Wallet",
+        "wallets": "Wallets",
         "transactions": "Transactions",
         "sales_report": "Sales Report",
         "products_report": "Products Report",

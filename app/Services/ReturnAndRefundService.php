@@ -17,6 +17,8 @@ use Dipokhalder\Settings\Facades\Settings;
 use App\Http\Requests\OrderStatusRequest;
 use App\Http\Requests\ReturnAndRefundRequest;
 use App\Libraries\QueryExceptionLibrary;
+use App\Enums\PaymentStatus;
+use App\Services\Saas\MerchantWalletService;
 
 class ReturnAndRefundService
 {
@@ -184,6 +186,18 @@ class ReturnAndRefundService
 
             $returnAndRefund->status = $request->status;
             $returnAndRefund->save();
+
+            if ((int) $request->status === ReturnOrderStatus::ACCEPT && (int) $order->payment_status === PaymentStatus::PAID) {
+                $refundAmount = (float) $returnAndRefund?->returnProducts->sum('return_price');
+
+                app(MerchantWalletService::class)->reverseOrderPayment(
+                    $order,
+                    $refundAmount > 0 ? $refundAmount : (float) $order->total,
+                    'return_refund',
+                    $returnAndRefund->id
+                );
+            }
+
             return $returnAndRefund;
         } catch (Exception $exception) {
             Log::info($exception->getMessage());

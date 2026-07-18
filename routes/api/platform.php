@@ -9,6 +9,7 @@ use App\Http\Controllers\Saas\PlatformPlanController;
 use App\Http\Controllers\Saas\PlatformProviderController;
 use App\Http\Controllers\Saas\PlatformSubscriptionController;
 use App\Http\Controllers\Saas\PlatformTenantController;
+use App\Http\Controllers\Saas\PlatformWalletController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -76,6 +77,19 @@ Route::prefix('platform')
             Route::prefix('providers')->name('providers.')->group(function () {
                 Route::get('/', [PlatformProviderController::class, 'index'])->name('index');
                 Route::match(['put', 'patch', 'post'], '/{providerCode}', [PlatformProviderController::class, 'upsert'])->name('upsert');
+            });
+
+            Route::prefix('wallet')->name('wallet.')->group(function () {
+                Route::get('/overview', [PlatformWalletController::class, 'overview'])->name('overview');
+                Route::get('/wallets', [PlatformWalletController::class, 'wallets'])->name('wallets');
+                Route::get('/transactions', [PlatformWalletController::class, 'transactions'])->name('transactions');
+                Route::get('/withdrawals', [PlatformWalletController::class, 'withdrawals'])->name('withdrawals');
+                Route::post('/withdrawals/{withdrawalId}/approve', [PlatformWalletController::class, 'approveWithdrawal'])->whereNumber('withdrawalId')->name('withdrawals.approve');
+                Route::post('/withdrawals/{withdrawalId}/reject', [PlatformWalletController::class, 'rejectWithdrawal'])->whereNumber('withdrawalId')->name('withdrawals.reject');
+                Route::get('/payout-methods', [PlatformWalletController::class, 'payoutMethods'])->name('payout-methods');
+                Route::match(['put', 'patch', 'post'], '/payout-methods', [PlatformWalletController::class, 'upsertPayoutMethod'])->name('payout-methods.upsert');
+                Route::get('/reports/statement', [PlatformWalletController::class, 'statement'])->name('reports.statement');
+                Route::get('/reports/export', [PlatformWalletController::class, 'export'])->name('reports.export');
             });
 
             Route::get('/audit-logs', [PlatformAuditController::class, 'index'])->name('audit-logs.index');

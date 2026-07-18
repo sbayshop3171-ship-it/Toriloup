@@ -66,6 +66,7 @@ export default {
                 { name: "platform.domains", label: "Domains" },
                 { name: "platform.billing", label: "Plans & Billing" },
                 { name: "platform.providers", label: "Providers" },
+                { name: "platform.wallets", label: "Wallets" },
                 { name: "platform.features", label: "Feature Control" },
                 { name: "platform.support", label: "Support" },
                 { name: "platform.audit", label: "Audit & Security" },
