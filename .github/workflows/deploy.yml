@@ -23,11 +23,16 @@ jobs:
       REMOTE_RELEASE_PATH: /var/www/toriloup/data/www/platform/storage/app/deploy/incoming/${{ github.sha }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Normalize deploy defaults
+        run: |
+          set -euo pipefail
+          echo "SSH_PORT=${SSH_PORT:-22}" >> "$GITHUB_ENV"
 
       - name: Validate deploy secrets
         env:
@@ -36,7 +41,7 @@ jobs:
           set -euo pipefail
           missing=0
 
-          for name in SSH_HOST SSH_USER SSH_PORT SSH_PRIVATE_KEY; do
+          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
             if [ -z "${!name:-}" ]; then
               echo "::error title=Missing secret::$name is empty or not set."
               missing=1
