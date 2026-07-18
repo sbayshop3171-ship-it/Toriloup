@@ -21,6 +21,7 @@ jobs:
 
     env:
       DEPLOY_PATH: /var/www/toriloup/data/www/platform
+      REMOTE_RELEASE_PATH: /var/www/toriloup/data/www/platform/storage/app/deploy/incoming/${{ github.sha }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
       SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
@@ -57,22 +58,33 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Upload source
+      - name: Clear stale maintenance lock
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; if [ -d '$DEPLOY_PATH' ]; then cd '$DEPLOY_PATH'; php artisan up >/dev/null 2>&1 || true; rm -f '$DEPLOY_PATH/storage/framework/down'; fi"
+
+      - name: Prepare remote staged release
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; rm -rf '$REMOTE_RELEASE_PATH'; mkdir -p '$REMOTE_RELEASE_PATH'"
+
+      - name: Upload source to staged release
         run: |
           set -euo pipefail
           rsync -az --delete \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='.DS_Store' \
             --exclude='.env' \
             --exclude='public/hot' \
             --exclude='node_modules' \
             --exclude='vendor' \
-            --exclude='storage/logs/*' \
+            --exclude='storage' \
             --exclude='bootstrap/cache/*' \
             -e "ssh -p $SSH_PORT -i ~/.ssh/deploy_key" \
-            ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
+            ./ "$SSH_USER@$SSH_HOST:$REMOTE_RELEASE_PATH/"
 
       - name: Deploy with hardened server script
         run: |
           set -euo pipefail
-          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; cd '$DEPLOY_PATH'; chmod +x scripts/*.sh; APP_DIR='$DEPLOY_PATH' SKIP_GIT_SYNC=1 DEPLOY_COMMIT_SHA='${GITHUB_SHA}' bash scripts/deploy-live.sh"
+          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; find '$REMOTE_RELEASE_PATH/scripts' -type f -name '*.sh' -exec chmod +x {} \\; ; APP_DIR='$DEPLOY_PATH' SOURCE_DIR='$REMOTE_RELEASE_PATH' SKIP_GIT_SYNC=1 MAINTENANCE_MODE=0 DEPLOY_COMMIT_SHA='${GITHUB_SHA}' bash '$REMOTE_RELEASE_PATH/scripts/deploy-live.sh'"

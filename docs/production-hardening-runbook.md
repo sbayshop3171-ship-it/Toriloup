@@ -19,19 +19,22 @@ Do not use `QUEUE_CONNECTION=sync` in production. The deploy health gate treats 
 
 ## Deploy flow
 
-1. Upload the current application build to the server.
-2. Run `bash scripts/deploy-live.sh`.
+1. Upload the current application source to a staged release directory, not directly into the live app directory.
+2. Run `APP_DIR=/var/www/toriloup/data/www/platform SOURCE_DIR=<staged-release> SKIP_GIT_SYNC=1 MAINTENANCE_MODE=0 bash <staged-release>/scripts/deploy-live.sh`.
 3. The deploy script will:
+   - clear any stale Laravel maintenance lock left by an interrupted deploy
    - create a database backup
-   - enter maintenance mode
-   - install PHP and Node dependencies
-   - build frontend assets
-   - run migrations
-   - refresh caches and storage links
+   - install PHP and Node dependencies in the staged release
+   - build frontend assets in the staged release
+   - run migrations after the staged build succeeds
+   - publish the staged release to the live directory only after the build and health gate pass
+   - refresh live caches and storage links
    - restart queues
    - run `ops:deploy-health`
-   - bring the app back up
+   - force Laravel maintenance mode off as a final safety step
    - run `scripts/smoke-production.sh`
+
+Default deploys intentionally do not call `php artisan down`. If a fully blocking maintenance deploy is ever required, set `MAINTENANCE_MODE=1` explicitly for that one operation.
 
 ## Smoke checks
 
@@ -98,11 +101,13 @@ bash scripts/rollback-live.sh <commit-sha>
 Rollback behavior:
 
 - resolves the previous deployed commit from `storage/logs/deploy-live.state` if no commit is provided
-- puts the app in maintenance mode
+- keeps the app live by default and clears stale maintenance locks
 - resets code to the target commit
 - rebuilds dependencies and caches
 - restarts queues
 - runs smoke checks before finishing
+
+Set `MAINTENANCE_MODE=1` only for an intentional blocking rollback window.
 
 ## Recovery notes
 

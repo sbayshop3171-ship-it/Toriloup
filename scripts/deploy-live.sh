@@ -8,28 +8,90 @@ GIT_BRANCH="${GIT_BRANCH:-main}"
 PHP_BIN="${PHP_BIN:-php}"
 COMPOSER_BIN="${COMPOSER_BIN:-composer}"
 NPM_BIN="${NPM_BIN:-npm}"
+RSYNC_BIN="${RSYNC_BIN:-rsync}"
 SKIP_GIT_SYNC="${SKIP_GIT_SYNC:-0}"
 FORCE_DEPLOY="${FORCE_DEPLOY:-0}"
 BACKUP_BEFORE_DEPLOY="${BACKUP_BEFORE_DEPLOY:-1}"
 RUN_SMOKE="${RUN_SMOKE:-1}"
-MAINTENANCE_MODE="${MAINTENANCE_MODE:-1}"
+MAINTENANCE_MODE="${MAINTENANCE_MODE:-0}"
 DEPLOY_COMMIT_SHA="${DEPLOY_COMMIT_SHA:-}"
+SOURCE_DIR="${SOURCE_DIR:-}"
 LOCK_FILE_RELATIVE="${LOCK_FILE_RELATIVE:-storage/logs/deploy-live.lock}"
 STATE_FILE_RELATIVE="${STATE_FILE_RELATIVE:-storage/logs/deploy-live.state}"
 
 cd "$APP_DIR"
 
-mkdir -p storage/logs
+mkdir -p storage/logs storage/framework
 exec 9>"$APP_DIR/$LOCK_FILE_RELATIVE"
 flock -n 9 || exit 0
 
 maintenance_enabled=0
 backup_artifact="none"
 
+force_disable_maintenance() {
+    (cd "$APP_DIR" && "$PHP_BIN" artisan up >/dev/null 2>&1) || true
+    rm -f "$APP_DIR/storage/framework/down"
+}
+
 cleanup() {
     if [ "$maintenance_enabled" = "1" ]; then
-        "$PHP_BIN" artisan up >/dev/null 2>&1 || true
+        force_disable_maintenance
     fi
+}
+
+prepare_source_dir() {
+    if [ -z "$SOURCE_DIR" ]; then
+        return
+    fi
+
+    if [ ! -d "$SOURCE_DIR" ]; then
+        echo "SOURCE_DIR does not exist: $SOURCE_DIR" >&2
+        exit 1
+    fi
+
+    if [ "$SKIP_GIT_SYNC" != "1" ]; then
+        echo "SOURCE_DIR deploy requires SKIP_GIT_SYNC=1." >&2
+        exit 1
+    fi
+
+    cp "$APP_DIR/.env" "$SOURCE_DIR/.env"
+    mkdir -p \
+        "$SOURCE_DIR/storage/app/public" \
+        "$SOURCE_DIR/storage/logs" \
+        "$SOURCE_DIR/storage/framework/cache" \
+        "$SOURCE_DIR/storage/framework/sessions" \
+        "$SOURCE_DIR/storage/framework/views" \
+        "$SOURCE_DIR/bootstrap/cache"
+    chmod -R ug+rw "$SOURCE_DIR/storage" "$SOURCE_DIR/bootstrap/cache"
+    cd "$SOURCE_DIR"
+}
+
+publish_source_dir() {
+    if [ -z "$SOURCE_DIR" ]; then
+        return
+    fi
+
+    "$RSYNC_BIN" -a --delete --delay-updates \
+        --exclude='.env' \
+        --exclude='.git' \
+        --exclude='.github' \
+        --exclude='.DS_Store' \
+        --exclude='node_modules' \
+        --exclude='public/hot' \
+        --exclude='storage' \
+        "$SOURCE_DIR"/ "$APP_DIR"/
+
+    cd "$APP_DIR"
+    force_disable_maintenance
+
+    "$PHP_BIN" artisan optimize:clear
+    "$PHP_BIN" artisan storage:link >/dev/null 2>&1 || true
+    "$PHP_BIN" artisan config:cache
+    "$PHP_BIN" artisan route:cache
+    "$PHP_BIN" artisan view:cache
+    "$PHP_BIN" artisan queue:restart >/dev/null 2>&1 || true
+    "$PHP_BIN" artisan schedule:list >/dev/null
+    "$PHP_BIN" artisan ops:deploy-health
 }
 
 env_file_value() {
@@ -48,7 +110,9 @@ env_file_value() {
 }
 
 php_env_value() {
-    local key="$1" value=""
+    local key="$1" value="" app_dir
+
+    app_dir="$(pwd)"
 
     if [ -f vendor/autoload.php ]; then
         value="$("$PHP_BIN" -r '
@@ -68,7 +132,7 @@ php_env_value() {
             }
 
             echo (string) ($value ?? "");
-        ' "$key" "$APP_DIR" 2>/dev/null || true)"
+        ' "$key" "$app_dir" 2>/dev/null || true)"
     fi
 
     printf '%s' "$value"
@@ -169,6 +233,9 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+force_disable_maintenance
+prepare_source_dir
+
 target_commit="${DEPLOY_COMMIT_SHA:-}"
 
 if [ "$SKIP_GIT_SYNC" != "1" ]; then
@@ -216,6 +283,7 @@ if [ "$MAINTENANCE_MODE" = "1" ]; then
 fi
 
 trap cleanup EXIT
+trap 'cleanup; exit 130' HUP INT TERM
 
 "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
 "$NPM_BIN" ci --include=dev --no-audit --no-fund
@@ -230,7 +298,8 @@ trap cleanup EXIT
 "$PHP_BIN" artisan schedule:list >/dev/null
 "$PHP_BIN" artisan ops:deploy-health
 
-"$PHP_BIN" artisan up >/dev/null 2>&1 || true
+publish_source_dir
+force_disable_maintenance
 maintenance_enabled=0
 
 if [ "$RUN_SMOKE" = "1" ]; then

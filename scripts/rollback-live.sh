@@ -8,9 +8,23 @@ NPM_BIN="${NPM_BIN:-npm}"
 TARGET_COMMIT="${1:-${TARGET_COMMIT:-}}"
 RUN_SMOKE="${RUN_SMOKE:-1}"
 BACKUP_BEFORE_ROLLBACK="${BACKUP_BEFORE_ROLLBACK:-1}"
+MAINTENANCE_MODE="${MAINTENANCE_MODE:-0}"
 STATE_FILE_RELATIVE="${STATE_FILE_RELATIVE:-storage/logs/deploy-live.state}"
 
 cd "$APP_DIR"
+
+force_disable_maintenance() {
+    "$PHP_BIN" artisan up >/dev/null 2>&1 || true
+    rm -f "$APP_DIR/storage/framework/down"
+}
+
+cleanup() {
+    if [ "${maintenance_enabled:-0}" = "1" ]; then
+        force_disable_maintenance
+    fi
+}
+
+maintenance_enabled=0
 
 if [ ! -d .git ]; then
     echo "Rollback requires a git checkout on the server." >&2
@@ -41,8 +55,15 @@ if [ "$BACKUP_BEFORE_ROLLBACK" = "1" ]; then
         bash "$APP_DIR/scripts/deploy-live.sh" >/dev/null
 fi
 
-"$PHP_BIN" artisan down --retry=60
-trap '"$PHP_BIN" artisan up >/dev/null 2>&1 || true' EXIT
+force_disable_maintenance
+
+if [ "$MAINTENANCE_MODE" = "1" ]; then
+    "$PHP_BIN" artisan down --retry=60
+    maintenance_enabled=1
+fi
+
+trap cleanup EXIT
+trap 'cleanup; exit 130' HUP INT TERM
 
 git fetch --quiet --all --tags
 git reset --hard "$TARGET_COMMIT"
@@ -56,7 +77,8 @@ git reset --hard "$TARGET_COMMIT"
 "$PHP_BIN" artisan route:cache
 "$PHP_BIN" artisan view:cache
 "$PHP_BIN" artisan queue:restart >/dev/null 2>&1 || true
-"$PHP_BIN" artisan up >/dev/null 2>&1 || true
+force_disable_maintenance
+maintenance_enabled=0
 trap - EXIT
 
 if [ "$RUN_SMOKE" = "1" ]; then
