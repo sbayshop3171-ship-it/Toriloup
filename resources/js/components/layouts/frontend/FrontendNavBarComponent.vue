@@ -13,7 +13,7 @@
 
                     <router-link :to="{ name: 'frontend.home' }"
                         class="router-link-active router-link-exact-active flex items-center justify-center flex-shrink-0 w-24 h-14 overflow-hidden">
-                        <img class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
+                        <img v-if="setting.theme_logo" class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
                     </router-link>
                 </div>
 
@@ -259,7 +259,7 @@
         <div class="flex items-center justify-between mb-4">
             <router-link :to="{ name: 'frontend.home' }"
                 class="router-link-active router-link-exact-active flex items-center justify-center flex-shrink-0 w-24 h-14 overflow-hidden">
-                <img class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
+                <img v-if="setting.theme_logo" class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
             </router-link>
             <button type="button">
                 <i @click.prevent="hideTarget('search', 'search-active')"

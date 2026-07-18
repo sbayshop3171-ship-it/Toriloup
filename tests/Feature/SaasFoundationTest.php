@@ -175,6 +175,8 @@ class SaasFoundationTest extends TestCase
             ->assertJsonPath('surface', 'storefront')
             ->assertJsonPath('tenant.slug', 'bootstrap-store')
             ->assertJsonPath('domain.hostname', 'bootstrap-store.company.com')
+            ->assertJsonPath('data.theme_logo', null)
+            ->assertJsonPath('data.theme_footer_logo', null)
             ->assertJsonStructure([
                 'status',
                 'surface',
@@ -184,6 +186,16 @@ class SaasFoundationTest extends TestCase
                 'payment_methods',
                 'data' => ['company_name', 'site_default_currency_symbol'],
             ]);
+
+        $settingsResponse = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://bootstrap-store.company.com/api/frontend/setting');
+
+        $settingsResponse
+            ->assertOk()
+            ->assertJsonPath('data.theme_logo', null)
+            ->assertJsonPath('data.theme_footer_logo', null);
     }
 
     public function test_merchant_login_returns_tenant_memberships(): void

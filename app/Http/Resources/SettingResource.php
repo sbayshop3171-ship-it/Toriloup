@@ -42,8 +42,8 @@ class SettingResource extends JsonResource
             'shipping_setup_method'                 => $this->info['shipping_setup_method'],
             'shipping_setup_flat_rate_wise_cost'    => $this->info['shipping_setup_flat_rate_wise_cost'],
             'shipping_setup_area_wise_default_cost' => $this->info['shipping_setup_area_wise_default_cost'],
-            'theme_logo'                            => $this->tenantLogo('company_logo') ?? $this->themeImage('theme_logo')->logo,
-            'theme_footer_logo'                     => $this->tenantLogo('company_logo') ?? $this->themeImage('theme_footer_logo')->footerLogo,
+            'theme_logo'                            => $this->tenantAwareLogo($request, 'theme_logo', 'logo'),
+            'theme_footer_logo'                     => $this->tenantAwareLogo($request, 'theme_footer_logo', 'footerLogo'),
             'theme_favicon_logo'                    => $this->themeImage('theme_favicon_logo')->faviconLogo,
             'otp_type'                              => $this->info['otp_type'],
             'otp_digit_limit'                       => $this->info['otp_digit_limit'],
@@ -84,5 +84,23 @@ class SettingResource extends JsonResource
         $path = $this->info[$key] ?? null;
 
         return filled($path) ? Storage::disk('public')->url($path) : null;
+    }
+
+    private function tenantAwareLogo($request, string $themeKey, string $themeAttribute): ?string
+    {
+        $tenantLogo = $this->tenantLogo('company_logo');
+
+        if ($tenantLogo !== null || $this->hasTenantContext($request)) {
+            return $tenantLogo;
+        }
+
+        return $this->themeImage($themeKey)?->{$themeAttribute};
+    }
+
+    private function hasTenantContext($request): bool
+    {
+        $tenantAttribute = config('tenancy.tenant_request_attribute', 'saas.tenant');
+
+        return $request?->attributes->has($tenantAttribute) || app()->bound('currentTenant');
     }
 }
