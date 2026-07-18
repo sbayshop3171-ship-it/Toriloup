@@ -28,9 +28,14 @@
                                 :class="step.completed ? 'border-green-100' : 'border-[#E5E7EB]'"
                                 @click="goStep(step)">
                                 <div class="flex items-start gap-3">
-                                    <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                                        :class="step.completed ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'">
-                                        <i :class="step.completed ? 'lab lab-tick-circle' : 'lab lab-arrow-right'"></i>
+                                    <span
+                                        class="relative w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ring-1 ring-inset"
+                                        :class="stepIcon(step).bubble">
+                                        <i class="text-base" :class="stepIcon(step).icon"></i>
+                                        <span v-if="step.completed"
+                                            class="absolute -right-1 -bottom-1 w-4 h-4 rounded-full bg-green-500 text-white border-2 border-white flex items-center justify-center">
+                                            <i class="fa-solid fa-check text-[9px]"></i>
+                                        </span>
                                     </span>
                                     <span>
                                         <span class="block font-semibold text-heading">{{ step.title }}</span>
@@ -153,6 +158,34 @@ export default {
         storefrontUrl: function () {
             return this.metrics.storefront_url || (this.storefrontHost ? "https://" + this.storefrontHost : "");
         },
+        setupIconMap: function () {
+            return {
+                general_settings: {
+                    icon: "fa-solid fa-store",
+                    bubble: "bg-[#FFF1F2] text-primary ring-primary/10",
+                },
+                business_localization: {
+                    icon: "fa-solid fa-globe",
+                    bubble: "bg-[#FFF7ED] text-[#F97316] ring-[#FED7AA]",
+                },
+                first_product: {
+                    icon: "fa-solid fa-box-open",
+                    bubble: "bg-[#EFF6FF] text-[#2563EB] ring-[#BFDBFE]",
+                },
+                shipping_delivery: {
+                    icon: "fa-solid fa-truck-fast",
+                    bubble: "bg-[#ECFDF3] text-[#16A34A] ring-[#BBF7D0]",
+                },
+                payment_methods: {
+                    icon: "fa-solid fa-credit-card",
+                    bubble: "bg-[#F5F3FF] text-[#7C3AED] ring-[#DDD6FE]",
+                },
+                launch_domain: {
+                    icon: "fa-solid fa-rocket",
+                    bubble: "bg-[#EEF2FF] text-[#4F46E5] ring-[#C7D2FE]",
+                },
+            };
+        },
     },
     data() {
         return {
@@ -164,6 +197,12 @@ export default {
             if (step.route_name) {
                 this.$router.push({ name: step.route_name });
             }
+        },
+        stepIcon(step) {
+            return this.setupIconMap[step.key] || {
+                icon: "fa-solid fa-list-check",
+                bubble: "bg-primary/10 text-primary ring-primary/10",
+            };
         },
         copyStorefrontUrl() {
             if (!this.storefrontUrl) {
