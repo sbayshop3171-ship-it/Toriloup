@@ -15,6 +15,7 @@
     <!--========OVERVIEW END=============-->
 
     <MerchantSetupChecklistComponent v-if="isMerchantWorkspace" :setup="merchantSetup" />
+    <MerchantWalletSnapshotComponent v-if="isMerchantWorkspace" />
 
     <!--========ORDER STATISTIC START=============-->
     <OrderStatisticsComponent />
@@ -52,6 +53,7 @@ import CustomerStatsComponent from "./CustomerStatsComponent";
 import TopCustomersComponent from "./TopCustomersComponent";
 import TopProductsComponent from "./TopProductsComponent";
 import MerchantSetupChecklistComponent from "./MerchantSetupChecklistComponent";
+import MerchantWalletSnapshotComponent from "./MerchantWalletSnapshotComponent.vue";
 import ENV from "../../../config/env";
 import { isMerchantHost } from "../../../services/workspaceService";
 
@@ -67,6 +69,7 @@ export default {
         TopCustomersComponent,
         TopProductsComponent,
         MerchantSetupChecklistComponent,
+        MerchantWalletSnapshotComponent,
     },
     data() {
         return {
