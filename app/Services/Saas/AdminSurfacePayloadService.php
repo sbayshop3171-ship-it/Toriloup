@@ -34,7 +34,10 @@ class AdminSurfacePayloadService
         }
 
         $role = $user->roles[0];
-        $permissionResource = PermissionResource::collection($this->permissionService->permission($role));
+        $permissionResource = PermissionResource::collection($this->permissionService->permission(
+            $role,
+            strictTenantRole: $surface !== 'merchant'
+        ));
         $defaultPermission = AppLibrary::defaultPermission($permissionResource->collection);
         $menu = MenuResource::collection(collect($this->menuService->menu($role)))->resolve(request());
         $defaultMenu = (object) AppLibrary::defaultMenu($this->menuService->menu($role), $defaultPermission);
@@ -81,7 +84,10 @@ class AdminSurfacePayloadService
         ];
 
         if ($role !== null) {
-            $permissionResource = PermissionResource::collection($this->permissionService->permission($role));
+            $permissionResource = PermissionResource::collection($this->permissionService->permission(
+                $role,
+                strictTenantRole: $surface !== 'merchant'
+            ));
             $payload['menu'] = MenuResource::collection(collect($this->menuService->menu($role)))->resolve(request());
             $payload['permission'] = $permissionResource->resolve(request());
             $payload['defaultPermission'] = AppLibrary::defaultPermission($permissionResource->collection);

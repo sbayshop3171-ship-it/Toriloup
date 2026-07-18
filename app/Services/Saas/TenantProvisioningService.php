@@ -5,7 +5,13 @@ namespace App\Services\Saas;
 use App\Enums\Ask;
 use App\Enums\Role;
 use App\Enums\Status;
+use App\Models\Benefit;
+use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\Outlet;
+use App\Models\Page;
+use App\Models\Slider;
+use App\Models\Tax;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantFeatureFlag;
@@ -102,6 +108,7 @@ class TenantProvisioningService
             ]);
 
             $this->seedCommerceDefaults($tenant, $user);
+            $this->seedStorefrontDefaults($tenant);
             $this->subscriptionManagerService->assignPlanToTenant(
                 $tenant,
                 $tenant->plan_code ?? 'starter',
@@ -266,5 +273,65 @@ class TenantProvisioningService
                 'updated_by_user_id' => $actor->id,
             ]
         );
+    }
+
+    private function seedStorefrontDefaults(Tenant $tenant): void
+    {
+        $this->seedTenantCopies($tenant, Slider::class, ['title', 'link', 'description', 'status'], ['title'], ['slider']);
+        $this->seedTenantCopies($tenant, Page::class, ['title', 'slug', 'description', 'menu_section_id', 'menu_template_id', 'status'], ['slug'], ['page-image']);
+        $this->seedTenantCopies($tenant, Benefit::class, ['title', 'description', 'status', 'sort'], ['title'], ['benefit']);
+        $this->seedTenantCopies($tenant, Currency::class, ['name', 'symbol', 'code', 'is_cryptocurrency', 'exchange_rate'], ['code']);
+        $this->seedTenantCopies($tenant, Tax::class, ['name', 'code', 'tax_rate', 'status'], ['code']);
+        $this->seedTenantCopies($tenant, Outlet::class, ['name', 'email', 'phone', 'country_code', 'latitude', 'longitude', 'city', 'state', 'zip_code', 'address', 'status'], ['name']);
+    }
+
+    /**
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelClass
+     * @param  array<int, string>  $columns
+     * @param  array<int, string>  $identityColumns
+     * @param  array<int, string>  $mediaCollections
+     */
+    private function seedTenantCopies(
+        Tenant $tenant,
+        string $modelClass,
+        array $columns,
+        array $identityColumns,
+        array $mediaCollections = []
+    ): void {
+        $modelClass::withoutGlobalScopes()
+            ->whereNull('tenant_id')
+            ->orderBy('id')
+            ->get()
+            ->each(function ($source) use ($tenant, $modelClass, $columns, $identityColumns, $mediaCollections): void {
+                $attributes = ['tenant_id' => $tenant->id];
+
+                foreach ($columns as $column) {
+                    $attributes[$column] = $source->{$column};
+                }
+
+                $identity = ['tenant_id' => $tenant->id];
+
+                foreach ($identityColumns as $column) {
+                    $identity[$column] = $attributes[$column] ?? null;
+                }
+
+                $copy = $modelClass::withoutGlobalScopes()->firstOrCreate($identity, $attributes);
+
+                foreach ($mediaCollections as $collection) {
+                    if ($copy->getMedia($collection)->isNotEmpty()) {
+                        continue;
+                    }
+
+                    $source->getMedia($collection)->each(function ($media) use ($copy, $collection): void {
+                        try {
+                            $copy->addMedia($media->getPath())
+                                ->preservingOriginal()
+                                ->toMediaCollection($collection);
+                        } catch (\Throwable) {
+                            // Default content still works with fallback images if a legacy media file is missing.
+                        }
+                    });
+                }
+            });
     }
 }

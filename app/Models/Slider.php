@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Image\Enums\CropPosition;
@@ -11,11 +12,13 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Slider extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
 
     protected $table = "sliders";
-    protected $fillable = ['title', 'link', 'description', 'status'];
+    protected $fillable = ['tenant_id', 'title', 'link', 'description', 'status'];
     protected $casts = [
+        'tenant_id'    => 'integer',
         'id'          => 'integer',
         'title'       => 'string',
         'description' => 'string',

@@ -4,6 +4,7 @@ namespace App\Models;
 
 
 
+use App\Models\Concerns\BelongsToTenant;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Image\Enums\CropPosition;
@@ -13,10 +14,12 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Benefit extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
     protected $table = "benefits";
-    protected $fillable = ['title', 'description', 'status', 'sort'];
+    protected $fillable = ['tenant_id', 'title', 'description', 'status', 'sort'];
     protected $casts = [
+        'tenant_id'    => 'integer',
         'id'          => 'integer',
         'title'       => 'string',
         'description' => 'string',

@@ -40,6 +40,8 @@ return new class extends Migration
 
         Schema::create($tableNames['roles'], function (Blueprint $table) use ($teams, $columnNames) {
             $table->bigIncrements('id');
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->index('tenant_id', 'roles_tenant_id_index');
             if ($teams || config('permission.testing')) {
                 $table->unsignedBigInteger($columnNames['team_foreign_key'])->nullable();
                 $table->index($columnNames['team_foreign_key'], 'roles_team_foreign_key_index');
@@ -51,7 +53,7 @@ return new class extends Migration
             if ($teams || config('permission.testing')) {
                 $table->unique([$columnNames['team_foreign_key'], 'name', 'guard_name']);
             } else {
-                $table->unique(['name', 'guard_name']);
+                $table->unique(['tenant_id', 'name', 'guard_name'], 'roles_tenant_name_guard_unique');
             }
         });
 

@@ -29,6 +29,7 @@ use App\Http\Requests\ChangeImageRequest;
 use App\Http\Requests\ProductOfferRequest;
 use App\Http\Requests\ShippingAndReturnRequest;
 use App\Libraries\QueryExceptionLibrary;
+use Throwable;
 
 class ProductService
 {
@@ -219,13 +220,22 @@ class ProductService
 
     private function attachBarcodeImage(Product $product, int $barcodeId, string $sku): void
     {
-        $barcode = $this->makeBarcode($barcodeId, $sku);
+        try {
+            $barcode = $this->makeBarcode($barcodeId, $sku);
 
-        if ($barcode === null) {
-            return;
+            if ($barcode === null) {
+                return;
+            }
+
+            $product->addMedia($this->writeBarcodeImage($barcode))->toMediaCollection('product-barcode');
+        } catch (Throwable $exception) {
+            Log::warning('Product barcode image generation skipped.', [
+                'product_id' => $product->id,
+                'barcode_id' => $barcodeId,
+                'sku' => $sku,
+                'message' => $exception->getMessage(),
+            ]);
         }
-
-        $product->addMedia($this->writeBarcodeImage($barcode))->toMediaCollection('product-barcode');
     }
 
     /**

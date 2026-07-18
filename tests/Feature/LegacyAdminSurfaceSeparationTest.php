@@ -3,11 +3,19 @@
 namespace Tests\Feature;
 
 use App\Enums\Role as LegacyRole;
+use App\Models\Benefit;
 use App\Models\Barcode;
 use App\Models\Customer;
+use App\Models\Currency;
+use App\Models\MenuSection;
+use App\Models\MenuTemplate;
+use App\Models\Outlet;
+use App\Models\Page;
 use App\Models\PlatformRole;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\Slider;
+use App\Models\Tax;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantMember;
@@ -162,27 +170,191 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
 
         Sanctum::actingAs($context['user'], ['surface:merchant']);
 
-        $this
-            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
-            ->getJson('http://merchant.company.com/api/admin/setting/site')
-            ->assertNotFound();
-
         foreach ([
             'setting/sms-gateway',
+            'setting/mail',
+            'setting/otp',
+            'setting/notification',
+            'setting/notification-alert',
             'setting/payment-gateway',
             'setting/language',
-            'setting/role',
-            'setting/permission/1',
-            'setting/benefit',
-            'setting/page',
-            'setting/tax',
-            'setting/outlet',
+            'setting/cookies',
+            'setting/analytic',
+            'setting/license',
         ] as $ownerOnlyEndpoint) {
             $this
                 ->withHeaders($this->tenantHeaders($context['tenant']->slug))
                 ->getJson("http://merchant.company.com/api/admin/{$ownerOnlyEndpoint}")
                 ->assertNotFound();
         }
+    }
+
+    public function test_merchant_can_manage_storefront_settings_without_cross_tenant_data(): void
+    {
+        $context = $this->createMerchantContext('legacy-storefront-settings-store', ['settings']);
+        $otherTenant = $this->createTenant('outside-storefront-settings-store');
+
+        $sliderA = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'title' => 'Tenant Hero',
+            'link' => 'https://tenant.example.test',
+            'description' => 'Current tenant slider',
+            'status' => 5,
+        ]);
+        $sliderB = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'title' => 'Outside Hero',
+            'link' => 'https://outside.example.test',
+            'description' => 'Other tenant slider',
+            'status' => 5,
+        ]);
+
+        $menuSection = MenuSection::query()->create(['name' => 'Footer']);
+        $menuTemplate = MenuTemplate::query()->create(['name' => 'Simple']);
+
+        $pageA = Page::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'title' => 'Tenant About',
+            'slug' => 'tenant-about',
+            'description' => 'Current tenant page',
+            'menu_section_id' => $menuSection->id,
+            'menu_template_id' => $menuTemplate->id,
+            'status' => 5,
+        ]);
+        $pageB = Page::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'title' => 'Outside About',
+            'slug' => 'outside-about',
+            'description' => 'Other tenant page',
+            'menu_section_id' => $menuSection->id,
+            'menu_template_id' => $menuTemplate->id,
+            'status' => 5,
+        ]);
+
+        $benefitA = Benefit::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'title' => 'Tenant Benefit',
+            'description' => 'Current tenant benefit',
+            'status' => 5,
+            'sort' => 1,
+        ]);
+        $benefitB = Benefit::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'title' => 'Outside Benefit',
+            'description' => 'Other tenant benefit',
+            'status' => 5,
+            'sort' => 1,
+        ]);
+
+        $currencyA = Currency::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Tenant Dollar',
+            'symbol' => '$',
+            'code' => 'TDA',
+            'is_cryptocurrency' => 5,
+            'exchange_rate' => 1,
+        ]);
+        $currencyB = Currency::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Outside Dollar',
+            'symbol' => '$',
+            'code' => 'ODB',
+            'is_cryptocurrency' => 5,
+            'exchange_rate' => 1,
+        ]);
+
+        $taxA = Tax::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Tenant VAT',
+            'code' => 'TVA',
+            'tax_rate' => '5',
+            'status' => 5,
+        ]);
+        $taxB = Tax::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Outside VAT',
+            'code' => 'OVA',
+            'tax_rate' => '7',
+            'status' => 5,
+        ]);
+
+        $outletA = Outlet::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Tenant Outlet',
+            'email' => 'tenant-outlet@test.test',
+            'phone' => '111111',
+            'country_code' => '+880',
+            'latitude' => '23.7',
+            'longitude' => '90.3',
+            'city' => 'Dhaka',
+            'state' => 'Dhaka',
+            'zip_code' => '1200',
+            'address' => 'Tenant outlet address',
+            'status' => 5,
+        ]);
+        $outletB = Outlet::withoutGlobalScopes()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Outside Outlet',
+            'email' => 'outside-outlet@test.test',
+            'phone' => '222222',
+            'country_code' => '+880',
+            'latitude' => '24.7',
+            'longitude' => '91.3',
+            'city' => 'Chattogram',
+            'state' => 'Chattogram',
+            'zip_code' => '4000',
+            'address' => 'Outside outlet address',
+            'status' => 5,
+        ]);
+
+        $roleA = Role::query()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Tenant Staff',
+            'guard_name' => 'sanctum',
+        ]);
+        $roleB = Role::query()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Tenant Staff',
+            'guard_name' => 'sanctum',
+        ]);
+
+        Sanctum::actingAs($context['user'], ['surface:merchant']);
+
+        foreach ([
+            'setting/company',
+            'setting/site',
+            'setting/shipping-setup',
+            'setting/social-media',
+            'setting/theme',
+        ] as $settingsEndpoint) {
+            $this
+                ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+                ->getJson("http://merchant.company.com/api/admin/{$settingsEndpoint}")
+                ->assertOk();
+        }
+
+        $this->assertListContainsOnlyCurrentTenant('setting/slider', $sliderA->id, $sliderB->id, $context['tenant']->slug);
+        $this->assertListContainsOnlyCurrentTenant('setting/page', $pageA->id, $pageB->id, $context['tenant']->slug);
+        $this->assertListContainsOnlyCurrentTenant('setting/benefit', $benefitA->id, $benefitB->id, $context['tenant']->slug);
+        $this->assertListContainsOnlyCurrentTenant('setting/currency', $currencyA->id, $currencyB->id, $context['tenant']->slug);
+        $this->assertListContainsOnlyCurrentTenant('setting/tax', $taxA->id, $taxB->id, $context['tenant']->slug);
+        $this->assertListContainsOnlyCurrentTenant('setting/outlet', $outletA->id, $outletB->id, $context['tenant']->slug);
+        $this->assertListContainsOnlyCurrentTenant('setting/role', $roleA->id, $roleB->id, $context['tenant']->slug);
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->getJson("http://merchant.company.com/api/admin/setting/permission/{$roleA->id}")
+            ->assertStatus(201);
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->getJson("http://merchant.company.com/api/admin/setting/permission/{$roleB->id}")
+            ->assertStatus(422);
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->getJson('http://merchant.company.com/api/admin/setting/permission/'.LegacyRole::MANAGER)
+            ->assertStatus(422);
     }
 
     public function test_merchant_legacy_user_modules_are_tenant_scoped(): void
@@ -420,5 +592,22 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             'x-localization' => 'en',
             'X-Tenant-Slug' => $tenantSlug,
         ];
+    }
+
+    private function assertListContainsOnlyCurrentTenant(
+        string $endpoint,
+        int $currentTenantModelId,
+        int $otherTenantModelId,
+        string $tenantSlug
+    ): void {
+        $response = $this
+            ->withHeaders($this->tenantHeaders($tenantSlug))
+            ->getJson("http://merchant.company.com/api/admin/{$endpoint}")
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id');
+
+        $this->assertTrue($ids->contains($currentTenantModelId), "{$endpoint} did not include the current tenant record.");
+        $this->assertFalse($ids->contains($otherTenantModelId), "{$endpoint} leaked another tenant record.");
     }
 }

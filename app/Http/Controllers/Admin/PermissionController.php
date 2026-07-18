@@ -4,13 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 
 use Exception;
-use App\Libraries\AppLibrary;
 use Illuminate\Http\JsonResponse;
 use Spatie\Permission\Models\Role;
 use App\Services\PermissionService;
 use App\Http\Resources\RoleResource;
 use App\Http\Requests\PermissionRequest;
-use Spatie\Permission\Models\Permission;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Routing\Controllers\HasMiddleware;
 
@@ -35,15 +33,10 @@ class PermissionController extends AdminController implements HasMiddleware
     public function index(Role $role): \Illuminate\Foundation\Application|\Illuminate\Http\Response|JsonResponse|\Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\Routing\ResponseFactory
     {
         try {
-            $permissions     = Permission::get();
-            $rolePermissions = Permission::join(
-                "role_has_permissions",
-                "role_has_permissions.permission_id",
-                "=",
-                "permissions.id"
-            )->where("role_has_permissions.role_id", $role->id)->get()->pluck('name', 'id');
-            $permissions     = AppLibrary::permissionWithAccess($permissions, $rolePermissions);
-            $permissions     = AppLibrary::numericToAssociativeArrayBuilder($permissions->toArray());
+            $permissions = \App\Libraries\AppLibrary::numericToAssociativeArrayBuilder(
+                $this->permissionService->permission($role)->toArray()
+            );
+
             return new JsonResponse(['data' => $permissions], 201);
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);

@@ -7,6 +7,9 @@ use App\Enums\Activity;
 use App\Http\Requests\SiteRequest;
 use App\Libraries\QueryExceptionLibrary;
 use App\Models\Currency;
+use App\Models\Tenant;
+use App\Services\Saas\TenantSettingsService;
+use App\Services\Tenancy\TenantContext;
 use Dipokhalder\EnvEditor\EnvEditor;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
@@ -17,7 +20,11 @@ class SiteService
 {
     public EnvEditor $envService;
 
-    public function __construct(EnvEditor $envEditor)
+    public function __construct(
+        EnvEditor $envEditor,
+        private readonly TenantContext $tenantContext,
+        private readonly TenantSettingsService $tenantSettingsService,
+    )
     {
         $this->envService = $envEditor;
     }
@@ -28,6 +35,10 @@ class SiteService
     public function list()
     {
         try {
+            if ($tenant = $this->merchantTenant()) {
+                return $this->tenantSettingsService->groupForTenant($tenant, 'site');
+            }
+
             return Settings::group('site')->all();
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
@@ -41,12 +52,23 @@ class SiteService
     public function update(SiteRequest $request)
     {
         try {
-            $currency = Currency::find($request->site_default_currency);
+            $currency = Currency::query()->find($request->site_default_currency)
+                ?: Currency::withoutGlobalScopes()->find($request->site_default_currency);
             $app_debug = $this->envService->getValue('DEMO') ? Activity::DISABLE : $request->site_app_debug;
 
             $data = $request->validated();
-            $data['site_default_currency_symbol'] = $currency->symbol;
+            $data['site_default_currency_symbol'] = $currency?->symbol ?? (string) ($data['site_default_currency_symbol'] ?? '$');
             $data['site_app_debug'] = $app_debug;
+
+            if ($tenant = $this->merchantTenant()) {
+                return $this->tenantSettingsService->syncGroupForTenant(
+                    $tenant,
+                    'site',
+                    $data,
+                    request()->user()
+                );
+            }
+
             Settings::group('site')->set($data);
 
             $this->envService->addData([
@@ -67,5 +89,14 @@ class SiteService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function merchantTenant(): ?Tenant
+    {
+        if (app()->bound('saas.currentSurface') && app('saas.currentSurface') === 'merchant') {
+            return $this->tenantContext->current();
+        }
+
+        return null;
     }
 }

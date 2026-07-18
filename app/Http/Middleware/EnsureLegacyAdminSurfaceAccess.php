@@ -12,6 +12,18 @@ class EnsureLegacyAdminSurfaceAccess
 {
     private const MERCHANT_ALLOWED_PREFIXES = [
         'dashboard',
+        'setting/company',
+        'setting/site',
+        'setting/location-setup',
+        'setting/shipping-setup',
+        'setting/social-media',
+        'setting/theme',
+        'setting/slider',
+        'setting/currency',
+        'setting/outlet',
+        'setting/benefit',
+        'setting/tax',
+        'setting/page',
         'setting/product-category',
         'setting/product-brand',
         'setting/product-attribute',
@@ -20,6 +32,8 @@ class EnsureLegacyAdminSurfaceAccess
         'setting/unit',
         'setting/return-reason',
         'setting/barcode',
+        'setting/role',
+        'setting/permission',
         'country-code',
         'product',
         'purchase',
@@ -42,7 +56,13 @@ class EnsureLegacyAdminSurfaceAccess
         'products-report',
     ];
 
-    private const MERCHANT_GET_ONLY_PREFIXES = [];
+    private const MERCHANT_GET_ONLY_PREFIXES = [
+        'country',
+        'state',
+        'city',
+        'setting/menu-section',
+        'setting/menu-template',
+    ];
 
     public function __construct(private readonly TenantContext $tenantContext)
     {

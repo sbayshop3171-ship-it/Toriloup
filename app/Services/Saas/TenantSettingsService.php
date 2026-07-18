@@ -59,6 +59,18 @@ class TenantSettingsService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function groupForTenant(Tenant $tenant, string $groupKey): array
+    {
+        return array_filter(
+            $this->mergedForTenant($tenant),
+            fn (mixed $value, string $settingKey): bool => $this->inferGroupKey($settingKey) === $groupKey,
+            ARRAY_FILTER_USE_BOTH
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $settings
      */
     public function syncForTenant(Tenant $tenant, array $settings, ?User $actor = null): array
@@ -83,6 +95,31 @@ class TenantSettingsService
         }
 
         return array_merge($merged, $settings);
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    public function syncGroupForTenant(Tenant $tenant, string $groupKey, array $settings, ?User $actor = null): array
+    {
+        foreach ($settings as $settingKey => $settingValue) {
+            TenantSetting::query()->updateOrCreate(
+                [
+                    'tenant_id' => $tenant->id,
+                    'group_key' => $groupKey,
+                    'setting_key' => $settingKey,
+                ],
+                [
+                    'setting_value' => $this->serializeValue($settingValue),
+                    'value_type' => $this->inferValueType($settingValue),
+                    'is_encrypted' => false,
+                    'updated_by_user_id' => $actor?->id,
+                ]
+            );
+        }
+
+        return $this->groupForTenant($tenant, $groupKey);
     }
 
     private function inferGroupKey(string $settingKey): string
@@ -155,7 +192,13 @@ class TenantSettingsService
             'company_longitude' => null,
             'company_address' => null,
             'company_logo' => null,
+            'site_date_format' => 'Y-m-d',
+            'site_time_format' => 'H:i',
+            'site_default_timezone' => 'UTC',
+            'site_default_currency' => 1,
             'site_default_language' => 1,
+            'site_app_debug' => 10,
+            'site_auto_update' => 10,
             'site_android_app_link' => null,
             'site_ios_app_link' => null,
             'site_copyright' => 'Toriloup',
@@ -166,7 +209,10 @@ class TenantSettingsService
             'site_email_verification' => 5,
             'site_language_switch' => 5,
             'site_online_payment_gateway' => 5,
+            'site_default_sms_gateway' => null,
             'site_cash_on_delivery' => 5,
+            'site_non_purchase_product_maximum_quantity' => 10,
+            'site_is_return_product_price_add_to_credit' => 5,
             'shipping_setup_method' => 5,
             'shipping_setup_flat_rate_wise_cost' => '0',
             'shipping_setup_area_wise_default_cost' => '0',

@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Page extends Model implements HasMedia
 {
+    use BelongsToTenant;
     use InteractsWithMedia;
 
     protected $table = "pages";
-    protected $fillable = ['title', 'slug', 'description', 'menu_section_id', 'menu_template_id', 'status'];
+    protected $fillable = ['tenant_id', 'title', 'slug', 'description', 'menu_section_id', 'menu_template_id', 'status'];
     protected $casts = [
+        'tenant_id'         => 'integer',
         'id'               => 'integer',
         'title'            => 'string',
         'slug'             => 'string',
