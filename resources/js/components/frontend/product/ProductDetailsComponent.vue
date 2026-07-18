@@ -612,6 +612,16 @@ export default {
                 name: "frontend.checkout.checkout",
             });
         },
+        goToCheckout: function () {
+            this.$nextTick(() => {
+                if (this.$store.getters.authStatus) {
+                    router.push({ name: "frontend.checkout.checkout" });
+                    return;
+                }
+
+                router.push({ name: "auth.login" });
+            });
+        },
         addToCart: function (redirectToCheckout = false) {
 
             if (+this.temp.quantity < 1) {
@@ -631,6 +641,8 @@ export default {
                 shipping: this.temp.shipping,
                 quantity: this.temp.quantity,
                 discount: this.temp.discount,
+                is_offer: this.temp.isOffer,
+                discount_percentage: this.temp.discountPercentage,
                 price: this.temp.price,
                 old_price: this.temp.oldPrice,
                 total_price: this.temp.totalPrice,
@@ -652,12 +664,14 @@ export default {
                         this.temp.stock = this.initProduct.stock;
                         this.temp.quantity = this.initProduct.quantity;
                         this.temp.discount = this.initProduct.discount;
+                        this.temp.isOffer = this.initProduct.isOffer;
+                        this.temp.discountPercentage = this.initProduct.discountPercentage;
                         this.temp.price = this.initProduct.price;
                         this.temp.oldPrice = this.initProduct.oldPrice;
                         this.temp.totalPrice = this.initProduct.price;
                         this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
                         if (redirectToCheckout) {
-                            router.push({ name: "frontend.checkout.checkout" });
+                            this.goToCheckout();
                         }
                     }).catch((err) => {
                         alertService.error(this.$t('message.maximum_quantity'));
@@ -665,6 +679,13 @@ export default {
                         this.selectedVariation = null;
                         this.temp.stock = this.initProduct.stock;
                         this.temp.quantity = this.initProduct.quantity;
+                        this.temp.discount = this.initProduct.discount;
+                        this.temp.isOffer = this.initProduct.isOffer;
+                        this.temp.discountPercentage = this.initProduct.discountPercentage;
+                        this.temp.price = this.initProduct.price;
+                        this.temp.oldPrice = this.initProduct.oldPrice;
+                        this.temp.totalPrice = this.initProduct.price;
+                        this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
                     });
                 }).catch((err) => {
                 });
@@ -680,12 +701,14 @@ export default {
                     this.temp.stock = this.initProduct.stock;
                     this.temp.quantity = this.initProduct.quantity;
                     this.temp.discount = this.initProduct.discount;
+                    this.temp.isOffer = this.initProduct.isOffer;
+                    this.temp.discountPercentage = this.initProduct.discountPercentage;
                     this.temp.price = this.initProduct.price;
                     this.temp.oldPrice = this.initProduct.oldPrice;
                     this.temp.totalPrice = this.initProduct.price;
                     this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
                     if (redirectToCheckout) {
-                        router.push({ name: "frontend.checkout.checkout" });
+                        this.goToCheckout();
                     }
                 }).catch((err) => {
                     alertService.error(this.$t('message.maximum_quantity'));
@@ -693,6 +716,13 @@ export default {
                     this.selectedVariation = null;
                     this.temp.stock = this.initProduct.stock;
                     this.temp.quantity = this.initProduct.quantity;
+                    this.temp.discount = this.initProduct.discount;
+                    this.temp.isOffer = this.initProduct.isOffer;
+                    this.temp.discountPercentage = this.initProduct.discountPercentage;
+                    this.temp.price = this.initProduct.price;
+                    this.temp.oldPrice = this.initProduct.oldPrice;
+                    this.temp.totalPrice = this.initProduct.price;
+                    this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
                 });
             }
         }

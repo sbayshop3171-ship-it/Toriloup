@@ -127,6 +127,8 @@ export const frontendCart = {
                             shipping: payload.shipping,
                             quantity: payload.quantity,
                             discount: payload.discount,
+                            is_offer: payload.is_offer,
+                            discount_percentage: payload.discount_percentage,
                             price: payload.price,
                             old_price: payload.old_price,
                             total_tax: 0,

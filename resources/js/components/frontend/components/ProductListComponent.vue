@@ -47,6 +47,10 @@
                     <h4 class="text-sm sm:text-base font-semibold text-shopperz-red">
                         <del>{{ product.currency_price }}</del>
                     </h4>
+                    <span v-if="product.discount_percentage > 0"
+                        class="rounded-full bg-[#FFF4F1] px-2.5 py-1 text-[11px] font-bold text-primary">
+                        {{ Math.round(Number(product.discount_percentage)) }}% OFF
+                    </span>
                 </div>
                 <h4 class="text-xl sm:text-[22px] font-bold" v-else>
                     <span>{{ product.currency_price }}</span>

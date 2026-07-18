@@ -17,7 +17,7 @@
                     <span class="font-semibold font-sans">
                         {{ currencyFormat(cart.price, setting.site_digit_after_decimal_point, setting.site_default_currency_symbol, setting.site_currency_position) }}
                     </span>
-                            <del v-if="cart.discount > 0" class="font-semibold font-sans text-[#FF6262]">
+                            <del v-if="cart.is_offer || cart.discount > 0" class="font-semibold font-sans text-[#FF6262]">
                                 {{ currencyFormat(cart.old_price, setting.site_digit_after_decimal_point, setting.site_default_currency_symbol, setting.site_currency_position) }}
                             </del>
                         </div>
