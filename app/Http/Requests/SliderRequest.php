@@ -28,14 +28,16 @@ class SliderRequest extends FormRequest
         $slider = $this->route('slider') ?? $this->route('sliderId');
         $sliderId = is_object($slider) ? $slider->id : $slider;
         $tenantId = app(TenantContext::class)->currentId($this);
+        $tenantScope = fn ($rule) => $tenantId === null
+            ? $rule->whereNull('tenant_id')
+            : $rule->where('tenant_id', $tenantId);
 
         return [
             'title'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique("sliders", "title")
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                $tenantScope(Rule::unique("sliders", "title"))
                     ->ignore($sliderId)
             ],
             'description' => ['nullable'],

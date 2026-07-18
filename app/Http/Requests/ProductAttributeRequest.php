@@ -28,14 +28,16 @@ class ProductAttributeRequest extends FormRequest
         $productAttribute = $this->route('productAttribute') ?? $this->route('attributeId');
         $productAttributeId = is_object($productAttribute) ? $productAttribute->id : $productAttribute;
         $tenantId = app(TenantContext::class)->currentId($this);
+        $tenantScope = fn ($rule) => $tenantId === null
+            ? $rule->whereNull('tenant_id')
+            : $rule->where('tenant_id', $tenantId);
 
         return [
             'name'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique('product_attributes', 'name')
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                $tenantScope(Rule::unique('product_attributes', 'name'))
                     ->ignore($productAttributeId)
             ],
         ];

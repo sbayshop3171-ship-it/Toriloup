@@ -30,24 +30,25 @@ class ProductRequest extends FormRequest
         $product = $this->route('product') ?? $this->route('productId');
         $productId = is_object($product) ? $product->id : $product;
         $tenantId = app(TenantContext::class)->currentId($this);
+        $tenantScope = fn ($rule) => $tenantId === null
+            ? $rule->whereNull('tenant_id')
+            : $rule->where('tenant_id', $tenantId);
 
         return [
             'name'                       => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique('products', 'name')
+                $tenantScope(Rule::unique('products', 'name'))
                     ->whereNull('deleted_at')
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
                     ->ignore($productId)
             ],
             'sku'                        => [
                 'required',
                 'numeric',
                 'max_digits:7',
-                Rule::unique('products', 'sku')
+                $tenantScope(Rule::unique('products', 'sku'))
                     ->whereNull('deleted_at')
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
                     ->ignore($productId)
             ],
             'product_category_id'        => ['required', 'numeric', 'not_in:0'],
@@ -87,9 +88,9 @@ class ProductRequest extends FormRequest
             $tenantId = app(TenantContext::class)->currentId($this);
             $skuQuery = ProductVariation::withoutGlobalScopes()->where('sku', $this->sku);
 
-            if ($tenantId !== null) {
-                $skuQuery->where('tenant_id', $tenantId);
-            }
+            $tenantId === null
+                ? $skuQuery->whereNull('tenant_id')
+                : $skuQuery->where('tenant_id', $tenantId);
 
             $sku = $skuQuery->first();
 

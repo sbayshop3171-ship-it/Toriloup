@@ -10,14 +10,30 @@ use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Outlet;
 use App\Models\Page;
+use App\Models\Product;
+use App\Models\ProductAttribute;
+use App\Models\ProductAttributeOption;
+use App\Models\ProductBrand;
+use App\Models\ProductCategory;
+use App\Models\ProductSection;
+use App\Models\ProductSectionProduct;
+use App\Models\ProductSeo;
+use App\Models\ProductTag;
+use App\Models\ProductTax;
+use App\Models\ProductVariation;
+use App\Models\ProductVideo;
 use App\Models\Slider;
 use App\Models\Tax;
 use App\Models\Tenant;
+use App\Models\TenantDemoContentSeed;
 use App\Models\TenantDomain;
 use App\Models\TenantFeatureFlag;
 use App\Models\TenantMember;
 use App\Models\TenantPaymentMethod;
+use App\Models\Unit;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -275,7 +291,34 @@ class TenantProvisioningService
         );
     }
 
-    private function seedStorefrontDefaults(Tenant $tenant): void
+    /**
+     * @return array{tenants: int, seeded_records: int}
+     */
+    public function seedStorefrontDefaultsForTenants(?string $tenantSlug = null): array
+    {
+        $stats = [
+            'tenants' => 0,
+            'seeded_records' => 0,
+        ];
+
+        Tenant::query()
+            ->when(filled($tenantSlug), fn ($query) => $query->where('slug', $tenantSlug))
+            ->orderBy('id')
+            ->get()
+            ->each(function (Tenant $tenant) use (&$stats): void {
+                $before = TenantDemoContentSeed::query()->where('tenant_id', $tenant->id)->count();
+
+                DB::transaction(fn () => $this->seedStorefrontDefaults($tenant));
+
+                $after = TenantDemoContentSeed::query()->where('tenant_id', $tenant->id)->count();
+                $stats['tenants']++;
+                $stats['seeded_records'] += max($after - $before, 0);
+            });
+
+        return $stats;
+    }
+
+    public function seedStorefrontDefaults(Tenant $tenant): void
     {
         $this->seedTenantCopies($tenant, Slider::class, ['title', 'link', 'description', 'status'], ['title'], ['slider']);
         $this->seedTenantCopies($tenant, Page::class, ['title', 'slug', 'description', 'menu_section_id', 'menu_template_id', 'status'], ['slug'], ['page-image']);
@@ -283,13 +326,433 @@ class TenantProvisioningService
         $this->seedTenantCopies($tenant, Currency::class, ['name', 'symbol', 'code', 'is_cryptocurrency', 'exchange_rate'], ['code']);
         $this->seedTenantCopies($tenant, Tax::class, ['name', 'code', 'tax_rate', 'status'], ['code']);
         $this->seedTenantCopies($tenant, Outlet::class, ['name', 'email', 'phone', 'country_code', 'latitude', 'longitude', 'city', 'state', 'zip_code', 'address', 'status'], ['name']);
+        $this->seedProductCatalogDefaults($tenant);
+    }
+
+    private function seedProductCatalogDefaults(Tenant $tenant): void
+    {
+        $categoryMap = $this->seedProductCategoryCopies($tenant);
+        $brandMap = $this->seedTenantCopies($tenant, ProductBrand::class, ['name', 'slug', 'description', 'status'], ['slug'], ['product-brand']);
+        $unitMap = $this->seedTenantCopies($tenant, Unit::class, ['name', 'code', 'status'], ['code']);
+        $taxMap = $this->seedTenantCopies($tenant, Tax::class, ['name', 'code', 'tax_rate', 'status'], ['code']);
+        $attributeMap = $this->seedTenantCopies($tenant, ProductAttribute::class, ['name'], ['name']);
+        $attributeOptionMap = $this->seedProductAttributeOptionCopies($tenant, $attributeMap);
+        $productMap = $this->seedProductCopies($tenant, $categoryMap, $brandMap, $unitMap, $taxMap, $attributeMap, $attributeOptionMap);
+        $sectionMap = $this->seedTenantCopies($tenant, ProductSection::class, ['name', 'slug', 'status'], ['slug']);
+
+        $this->seedProductSectionProductCopies($tenant, $sectionMap, $productMap);
     }
 
     /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelClass
+     * @return array<int, int>
+     */
+    private function seedProductCategoryCopies(Tenant $tenant): array
+    {
+        $categoryMap = [];
+
+        $this->templateQuery(ProductCategory::class)
+            ->get()
+            ->each(function (ProductCategory $source) use ($tenant, &$categoryMap): void {
+                $this->seedProductCategoryCopy($tenant, $source, $categoryMap);
+            });
+
+        return array_filter($categoryMap);
+    }
+
+    /**
+     * @param  array<int, int|null>  $categoryMap
+     */
+    private function seedProductCategoryCopy(Tenant $tenant, ProductCategory $source, array &$categoryMap): ?ProductCategory
+    {
+        if (array_key_exists($source->id, $categoryMap)) {
+            $targetId = $categoryMap[$source->id];
+
+            return $targetId === null
+                ? null
+                : ProductCategory::withoutGlobalScopes()->whereKey($targetId)->first();
+        }
+
+        $parentId = null;
+
+        if ($source->parent_id !== null) {
+            $sourceParent = ProductCategory::withoutGlobalScopes()
+                ->whereNull('tenant_id')
+                ->whereKey($source->parent_id)
+                ->first();
+
+            if ($sourceParent !== null) {
+                $parentId = $this->seedProductCategoryCopy($tenant, $sourceParent, $categoryMap)?->id;
+            }
+        }
+
+        $attributes = $this->copyAttributes($tenant, $source, ['name', 'slug', 'description', 'status']);
+        $attributes['parent_id'] = $parentId;
+
+        $copy = $this->seededCopy(
+            $tenant,
+            $source,
+            $attributes,
+            ['tenant_id' => $tenant->id, 'slug' => $source->slug],
+            ['product-category']
+        );
+
+        $categoryMap[$source->id] = $copy?->id;
+
+        return $copy instanceof ProductCategory ? $copy : null;
+    }
+
+    /**
+     * @param  array<int, int>  $attributeMap
+     * @return array<int, int>
+     */
+    private function seedProductAttributeOptionCopies(Tenant $tenant, array $attributeMap): array
+    {
+        $optionMap = [];
+
+        $this->templateQuery(ProductAttributeOption::class)
+            ->get()
+            ->each(function (ProductAttributeOption $source) use ($tenant, $attributeMap, &$optionMap): void {
+                $attributeId = $attributeMap[$source->product_attribute_id] ?? null;
+
+                if ($attributeId === null) {
+                    return;
+                }
+
+                $attributes = $this->copyAttributes($tenant, $source, ['name']);
+                $attributes['product_attribute_id'] = $attributeId;
+
+                $copy = $this->seededCopy(
+                    $tenant,
+                    $source,
+                    $attributes,
+                    [
+                        'tenant_id' => $tenant->id,
+                        'product_attribute_id' => $attributeId,
+                        'name' => $source->name,
+                    ]
+                );
+
+                if ($copy !== null) {
+                    $optionMap[$source->id] = $copy->id;
+                }
+            });
+
+        return $optionMap;
+    }
+
+    /**
+     * @param  array<int, int>  $categoryMap
+     * @param  array<int, int>  $brandMap
+     * @param  array<int, int>  $unitMap
+     * @param  array<int, int>  $taxMap
+     * @param  array<int, int>  $attributeMap
+     * @param  array<int, int>  $attributeOptionMap
+     * @return array<int, int>
+     */
+    private function seedProductCopies(
+        Tenant $tenant,
+        array $categoryMap,
+        array $brandMap,
+        array $unitMap,
+        array $taxMap,
+        array $attributeMap,
+        array $attributeOptionMap
+    ): array {
+        $productMap = [];
+
+        $this->templateQuery(Product::class)
+            ->get()
+            ->each(function (Product $source) use (
+                $tenant,
+                $categoryMap,
+                $brandMap,
+                $unitMap,
+                $taxMap,
+                $attributeMap,
+                $attributeOptionMap,
+                &$productMap
+            ): void {
+                $attributes = $this->copyAttributes($tenant, $source, [
+                    'name',
+                    'slug',
+                    'sku',
+                    'barcode_id',
+                    'buying_price',
+                    'selling_price',
+                    'variation_price',
+                    'status',
+                    'order',
+                    'can_purchasable',
+                    'show_stock_out',
+                    'maximum_purchase_quantity',
+                    'low_stock_quantity_warning',
+                    'weight',
+                    'warranty',
+                    'refundable',
+                    'description',
+                    'shipping_and_return',
+                    'add_to_flash_sale',
+                    'discount',
+                    'offer_start_date',
+                    'offer_end_date',
+                    'shipping_type',
+                    'shipping_cost',
+                    'is_product_quantity_multiply',
+                ]);
+
+                $attributes['product_category_id'] = $source->product_category_id === null
+                    ? null
+                    : ($categoryMap[$source->product_category_id] ?? null);
+                $attributes['product_brand_id'] = $source->product_brand_id === null
+                    ? null
+                    : ($brandMap[$source->product_brand_id] ?? null);
+                $attributes['unit_id'] = $source->unit_id === null
+                    ? null
+                    : ($unitMap[$source->unit_id] ?? null);
+
+                $copy = $this->seededCopy(
+                    $tenant,
+                    $source,
+                    $attributes,
+                    ['tenant_id' => $tenant->id, 'sku' => $source->sku],
+                    ['product', 'product-barcode']
+                );
+
+                if (!$copy instanceof Product) {
+                    return;
+                }
+
+                $productMap[$source->id] = $copy->id;
+
+                $this->seedProductTagCopies($tenant, $source, $copy);
+                $this->seedProductTaxCopies($tenant, $source, $copy, $taxMap);
+                $this->seedProductVideoCopies($tenant, $source, $copy);
+                $this->seedProductSeoCopy($tenant, $source, $copy);
+                $this->seedProductVariationCopies($tenant, $source, $copy, $attributeMap, $attributeOptionMap);
+            });
+
+        return $productMap;
+    }
+
+    private function seedProductTagCopies(Tenant $tenant, Product $sourceProduct, Product $copyProduct): void
+    {
+        ProductTag::query()
+            ->where('product_id', $sourceProduct->id)
+            ->orderBy('id')
+            ->get()
+            ->each(function (ProductTag $source) use ($tenant, $copyProduct): void {
+                $this->seededCopy(
+                    $tenant,
+                    $source,
+                    ['product_id' => $copyProduct->id, 'name' => $source->name],
+                    ['product_id' => $copyProduct->id, 'name' => $source->name]
+                );
+            });
+    }
+
+    /**
+     * @param  array<int, int>  $taxMap
+     */
+    private function seedProductTaxCopies(Tenant $tenant, Product $sourceProduct, Product $copyProduct, array $taxMap): void
+    {
+        $this->templateQuery(ProductTax::class)
+            ->where('product_id', $sourceProduct->id)
+            ->get()
+            ->each(function (ProductTax $source) use ($tenant, $copyProduct, $taxMap): void {
+                $taxId = $source->tax_id === null ? null : ($taxMap[$source->tax_id] ?? null);
+
+                if ($source->tax_id !== null && $taxId === null) {
+                    return;
+                }
+
+                $attributes = [
+                    'tenant_id' => $tenant->id,
+                    'product_id' => $copyProduct->id,
+                    'tax_id' => $taxId,
+                ];
+
+                $this->seededCopy($tenant, $source, $attributes, $attributes);
+            });
+    }
+
+    private function seedProductVideoCopies(Tenant $tenant, Product $sourceProduct, Product $copyProduct): void
+    {
+        $this->templateQuery(ProductVideo::class)
+            ->where('product_id', $sourceProduct->id)
+            ->get()
+            ->each(function (ProductVideo $source) use ($tenant, $copyProduct): void {
+                $attributes = $this->copyAttributes($tenant, $source, ['video_provider', 'link']);
+                $attributes['product_id'] = $copyProduct->id;
+
+                $this->seededCopy(
+                    $tenant,
+                    $source,
+                    $attributes,
+                    [
+                        'tenant_id' => $tenant->id,
+                        'product_id' => $copyProduct->id,
+                        'link' => $source->link,
+                    ]
+                );
+            });
+    }
+
+    private function seedProductSeoCopy(Tenant $tenant, Product $sourceProduct, Product $copyProduct): void
+    {
+        $source = $this->templateQuery(ProductSeo::class)
+            ->where('product_id', $sourceProduct->id)
+            ->orderBy('id')
+            ->first();
+
+        if (!$source instanceof ProductSeo) {
+            return;
+        }
+
+        $attributes = $this->copyAttributes($tenant, $source, ['title', 'description', 'meta_keyword']);
+        $attributes['product_id'] = $copyProduct->id;
+
+        $this->seededCopy(
+            $tenant,
+            $source,
+            $attributes,
+            ['tenant_id' => $tenant->id, 'product_id' => $copyProduct->id],
+            ['product-seo']
+        );
+    }
+
+    /**
+     * @param  array<int, int>  $attributeMap
+     * @param  array<int, int>  $attributeOptionMap
+     */
+    private function seedProductVariationCopies(
+        Tenant $tenant,
+        Product $sourceProduct,
+        Product $copyProduct,
+        array $attributeMap,
+        array $attributeOptionMap
+    ): void {
+        $variationMap = [];
+
+        $this->templateQuery(ProductVariation::class)
+            ->where('product_id', $sourceProduct->id)
+            ->get()
+            ->each(function (ProductVariation $source) use (
+                $tenant,
+                $copyProduct,
+                $attributeMap,
+                $attributeOptionMap,
+                &$variationMap
+            ): void {
+                $this->seedProductVariationCopy($tenant, $source, $copyProduct, $attributeMap, $attributeOptionMap, $variationMap);
+            });
+    }
+
+    /**
+     * @param  array<int, int>  $attributeMap
+     * @param  array<int, int>  $attributeOptionMap
+     * @param  array<int, int|null>  $variationMap
+     */
+    private function seedProductVariationCopy(
+        Tenant $tenant,
+        ProductVariation $source,
+        Product $copyProduct,
+        array $attributeMap,
+        array $attributeOptionMap,
+        array &$variationMap
+    ): ?ProductVariation {
+        if (array_key_exists($source->id, $variationMap)) {
+            $targetId = $variationMap[$source->id];
+
+            return $targetId === null
+                ? null
+                : ProductVariation::withoutGlobalScopes()->whereKey($targetId)->first();
+        }
+
+        $attributeId = $attributeMap[$source->product_attribute_id] ?? null;
+        $attributeOptionId = $attributeOptionMap[$source->product_attribute_option_id] ?? null;
+
+        if ($attributeId === null || $attributeOptionId === null) {
+            $variationMap[$source->id] = null;
+
+            return null;
+        }
+
+        $parentId = null;
+
+        if ($source->parent_id !== null) {
+            $sourceParent = ProductVariation::withoutGlobalScopes()
+                ->whereNull('tenant_id')
+                ->whereKey($source->parent_id)
+                ->first();
+
+            if ($sourceParent !== null) {
+                $parentId = $this->seedProductVariationCopy(
+                    $tenant,
+                    $sourceParent,
+                    $copyProduct,
+                    $attributeMap,
+                    $attributeOptionMap,
+                    $variationMap
+                )?->id;
+            }
+        }
+
+        $attributes = $this->copyAttributes($tenant, $source, ['price', 'sku', 'order']);
+        $attributes['product_id'] = $copyProduct->id;
+        $attributes['product_attribute_id'] = $attributeId;
+        $attributes['product_attribute_option_id'] = $attributeOptionId;
+        $attributes['parent_id'] = $parentId;
+
+        $identity = [
+            'tenant_id' => $tenant->id,
+            'product_id' => $copyProduct->id,
+            'product_attribute_id' => $attributeId,
+            'product_attribute_option_id' => $attributeOptionId,
+            'parent_id' => $parentId,
+        ];
+
+        if (filled($source->sku)) {
+            $identity['sku'] = $source->sku;
+        }
+
+        $copy = $this->seededCopy($tenant, $source, $attributes, $identity, ['product-variation-barcode']);
+        $variationMap[$source->id] = $copy?->id;
+
+        return $copy instanceof ProductVariation ? $copy : null;
+    }
+
+    /**
+     * @param  array<int, int>  $sectionMap
+     * @param  array<int, int>  $productMap
+     */
+    private function seedProductSectionProductCopies(Tenant $tenant, array $sectionMap, array $productMap): void
+    {
+        $this->templateQuery(ProductSectionProduct::class)
+            ->get()
+            ->each(function (ProductSectionProduct $source) use ($tenant, $sectionMap, $productMap): void {
+                $sectionId = $sectionMap[$source->product_section_id] ?? null;
+                $productId = $productMap[$source->product_id] ?? null;
+
+                if ($sectionId === null || $productId === null) {
+                    return;
+                }
+
+                $attributes = [
+                    'tenant_id' => $tenant->id,
+                    'product_section_id' => $sectionId,
+                    'product_id' => $productId,
+                ];
+
+                $this->seededCopy($tenant, $source, $attributes, $attributes);
+            });
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
      * @param  array<int, string>  $columns
      * @param  array<int, string>  $identityColumns
      * @param  array<int, string>  $mediaCollections
+     * @return array<int, int>
      */
     private function seedTenantCopies(
         Tenant $tenant,
@@ -297,41 +760,146 @@ class TenantProvisioningService
         array $columns,
         array $identityColumns,
         array $mediaCollections = []
-    ): void {
-        $modelClass::withoutGlobalScopes()
-            ->whereNull('tenant_id')
-            ->orderBy('id')
+    ): array {
+        $map = [];
+
+        $this->templateQuery($modelClass)
             ->get()
-            ->each(function ($source) use ($tenant, $modelClass, $columns, $identityColumns, $mediaCollections): void {
-                $attributes = ['tenant_id' => $tenant->id];
-
-                foreach ($columns as $column) {
-                    $attributes[$column] = $source->{$column};
-                }
-
+            ->each(function (Model $source) use ($tenant, $columns, $identityColumns, $mediaCollections, &$map): void {
+                $attributes = $this->copyAttributes($tenant, $source, $columns);
                 $identity = ['tenant_id' => $tenant->id];
 
                 foreach ($identityColumns as $column) {
                     $identity[$column] = $attributes[$column] ?? null;
                 }
 
-                $copy = $modelClass::withoutGlobalScopes()->firstOrCreate($identity, $attributes);
+                $copy = $this->seededCopy($tenant, $source, $attributes, $identity, $mediaCollections);
 
-                foreach ($mediaCollections as $collection) {
-                    if ($copy->getMedia($collection)->isNotEmpty()) {
-                        continue;
-                    }
-
-                    $source->getMedia($collection)->each(function ($media) use ($copy, $collection): void {
-                        try {
-                            $copy->addMedia($media->getPath())
-                                ->preservingOriginal()
-                                ->toMediaCollection($collection);
-                        } catch (\Throwable) {
-                            // Default content still works with fallback images if a legacy media file is missing.
-                        }
-                    });
+                if ($copy !== null) {
+                    $map[(int) $source->getKey()] = (int) $copy->getKey();
                 }
             });
+
+        return $map;
+    }
+
+    /**
+     * @param  array<int, string>  $columns
+     * @return array<string, mixed>
+     */
+    private function copyAttributes(Tenant $tenant, Model $source, array $columns): array
+    {
+        $attributes = ['tenant_id' => $tenant->id];
+
+        foreach ($columns as $column) {
+            $attributes[$column] = $source->getAttribute($column);
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>  $identity
+     * @param  array<int, string>  $mediaCollections
+     */
+    private function seededCopy(
+        Tenant $tenant,
+        Model $source,
+        array $attributes,
+        array $identity,
+        array $mediaCollections = []
+    ): ?Model {
+        $modelClass = $source::class;
+        $seed = TenantDemoContentSeed::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', $modelClass)
+            ->where('source_id', $source->getKey())
+            ->first();
+
+        if ($seed instanceof TenantDemoContentSeed) {
+            return $this->seedTarget($seed);
+        }
+
+        /** @var Model $copy */
+        $copy = $modelClass::withoutGlobalScopes()->firstOrCreate($identity, $attributes);
+
+        $this->copyMediaCollections($source, $copy, $mediaCollections);
+
+        TenantDemoContentSeed::query()->create([
+            'tenant_id' => $tenant->id,
+            'source_type' => $modelClass,
+            'source_id' => $source->getKey(),
+            'target_type' => $copy::class,
+            'target_id' => $copy->getKey(),
+        ]);
+
+        return $copy;
+    }
+
+    private function seedTarget(TenantDemoContentSeed $seed): ?Model
+    {
+        if (!filled($seed->target_type) || !filled($seed->target_id)) {
+            return null;
+        }
+
+        /** @var class-string<Model> $targetType */
+        $targetType = $seed->target_type;
+        $target = $targetType::withoutGlobalScopes()->whereKey($seed->target_id)->first();
+
+        if (!$target instanceof Model || $this->isDeletedCopy($target)) {
+            return null;
+        }
+
+        return $target;
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
+     */
+    private function templateQuery(string $modelClass)
+    {
+        /** @var Model $model */
+        $model = new $modelClass();
+        $query = $modelClass::withoutGlobalScopes()
+            ->whereNull($model->qualifyColumn('tenant_id'))
+            ->orderBy($model->qualifyColumn('id'));
+
+        if (in_array(SoftDeletes::class, class_uses_recursive($modelClass), true)) {
+            $query->whereNull($model->qualifyColumn($model->getDeletedAtColumn()));
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array<int, string>  $collections
+     */
+    private function copyMediaCollections(Model $source, Model $copy, array $collections): void
+    {
+        if ($collections === [] || !method_exists($source, 'getMedia') || !method_exists($copy, 'addMedia')) {
+            return;
+        }
+
+        foreach ($collections as $collection) {
+            if ($copy->getMedia($collection)->isNotEmpty()) {
+                continue;
+            }
+
+            $source->getMedia($collection)->each(function ($media) use ($copy, $collection): void {
+                try {
+                    $copy->addMedia($media->getPath())
+                        ->preservingOriginal()
+                        ->toMediaCollection($collection);
+                } catch (\Throwable) {
+                    // Default demo content still works with fallback images if a media file is missing.
+                }
+            });
+        }
+    }
+
+    private function isDeletedCopy(Model $model): bool
+    {
+        return method_exists($model, 'trashed') && $model->trashed();
     }
 }

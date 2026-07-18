@@ -30,15 +30,17 @@ class ProductCategoryRequest extends FormRequest
         $productCategory = $this->route('productCategory') ?? $this->route('categoryId');
         $productCategoryId = is_object($productCategory) ? $productCategory->id : $productCategory;
         $tenantId = app(TenantContext::class)->currentId($this);
+        $tenantScope = fn ($rule) => $tenantId === null
+            ? $rule->whereNull('tenant_id')
+            : $rule->where('tenant_id', $tenantId);
 
         return [
             'name'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique('product_categories', 'name')
+                $tenantScope(Rule::unique('product_categories', 'name'))
                     ->where('parent_id', $this->input('parent_id'))
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
                     ->ignore($productCategoryId)
             ],
             'parent_id'   => ['nullable', 'string', 'max:900'],

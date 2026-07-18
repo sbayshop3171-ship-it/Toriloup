@@ -477,5 +477,25 @@ Artisan::command('ops:soft-launch-onboard {manifest} {--dry-run} {--mark-live} {
     return $stats['failed'] === 0 ? 0 : 1;
 })->purpose('Dry-run or provision a controlled cohort of merchants for soft launch from a JSON manifest.');
 
+Artisan::command('tenants:seed-demo-content {--tenant=} {--json}', function (TenantProvisioningService $tenantProvisioningService) {
+    $tenantSlug = filled($this->option('tenant')) ? (string) $this->option('tenant') : null;
+    $stats = $tenantProvisioningService->seedStorefrontDefaultsForTenants($tenantSlug);
+
+    if ((bool) $this->option('json')) {
+        $this->line(json_encode([
+            'status' => true,
+            'tenant' => $tenantSlug,
+            'stats' => $stats,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    } else {
+        $scope = $tenantSlug === null ? 'all tenants' : "tenant {$tenantSlug}";
+        $this->info("Demo storefront content seeded for {$scope}.");
+        $this->line("Tenants processed: {$stats['tenants']}");
+        $this->line("New seed records: {$stats['seeded_records']}");
+    }
+
+    return 0;
+})->purpose('Copy owner demo sliders, products, categories, and storefront sections into merchant tenants.');
+
 Schedule::command('ops:backup-audit --allow-missing --max-age-hours='.env('OPS_BACKUP_MAX_AGE_HOURS', 36))
     ->dailyAt('03:15');

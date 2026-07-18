@@ -28,6 +28,9 @@ class TaxRequest extends FormRequest
         $tax = $this->route('tax') ?? $this->route('taxId');
         $taxId = is_object($tax) ? $tax->id : $tax;
         $tenantId = app(TenantContext::class)->currentId($this);
+        $tenantScope = fn ($rule) => $tenantId === null
+            ? $rule->whereNull('tenant_id')
+            : $rule->where('tenant_id', $tenantId);
 
         return [
             'name'              => [
@@ -39,8 +42,7 @@ class TaxRequest extends FormRequest
                 'required',
                 'string',
                 'max:20',
-                Rule::unique("taxes", "code")
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                $tenantScope(Rule::unique("taxes", "code"))
                     ->ignore($taxId)
             ],
             'tax_rate' => ['required', 'numeric', 'min:0', 'max:100'],

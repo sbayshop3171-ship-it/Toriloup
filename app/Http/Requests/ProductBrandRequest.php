@@ -28,14 +28,16 @@ class ProductBrandRequest extends FormRequest
         $productBrand = $this->route('productBrand') ?? $this->route('brandId');
         $productBrandId = is_object($productBrand) ? $productBrand->id : $productBrand;
         $tenantId = app(TenantContext::class)->currentId($this);
+        $tenantScope = fn ($rule) => $tenantId === null
+            ? $rule->whereNull('tenant_id')
+            : $rule->where('tenant_id', $tenantId);
 
         return [
             'name'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique('product_brands', 'name')
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                $tenantScope(Rule::unique('product_brands', 'name'))
                     ->ignore($productBrandId)
             ],
             'description' => ['nullable', 'string', 'max:900'],

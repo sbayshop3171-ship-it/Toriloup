@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Requests\PaginateRequest;
 use App\Libraries\QueryExceptionLibrary;
 use App\Http\Requests\ProductCategoryRequest;
+use App\Services\Tenancy\TenantContext;
 
 class ProductCategoryService
 {
@@ -110,8 +111,7 @@ class ProductCategoryService
     {
         try {
             $categorySlug = Str::slug($request->name);
-            $slug = ProductCategory::where('slug', $categorySlug)->first();
-            if ($slug) {
+            if ($this->slugExistsInCurrentScope($categorySlug)) {
                 $categorySlug = Str::slug($request->name) . $request->parent_id;
             }
             $productCategory = ProductCategory::create(Arr::except($request->validated(), 'parent_id') + ['slug' => $categorySlug, 'parent_id' => $request->parent_id == 'NULL' ? NULL : $request->parent_id]);
@@ -132,8 +132,7 @@ class ProductCategoryService
     {
         try {
             $categorySlug = Str::slug($request->name);
-            $slug = ProductCategory::where('slug', $categorySlug)->first();
-            if ($slug) {
+            if ($this->slugExistsInCurrentScope($categorySlug, $productCategory->id)) {
                 $categorySlug = Str::slug($request->name) . $request->parent_id;
             }
 
@@ -185,5 +184,21 @@ class ProductCategoryService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function slugExistsInCurrentScope(string $slug, ?int $ignoreId = null): bool
+    {
+        $tenantId = app(TenantContext::class)->currentId();
+        $query = ProductCategory::withoutGlobalScopes()->where('slug', $slug);
+
+        $tenantId === null
+            ? $query->whereNull('tenant_id')
+            : $query->where('tenant_id', $tenantId);
+
+        if ($ignoreId !== null) {
+            $query->whereKeyNot($ignoreId);
+        }
+
+        return $query->exists();
     }
 }

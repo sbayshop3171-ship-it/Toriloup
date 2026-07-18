@@ -28,22 +28,23 @@ class UnitRequest extends FormRequest
         $unit = $this->route('unit') ?? $this->route('unitId');
         $unitId = is_object($unit) ? $unit->id : $unit;
         $tenantId = app(TenantContext::class)->currentId($this);
+        $tenantScope = fn ($rule) => $tenantId === null
+            ? $rule->whereNull('tenant_id')
+            : $rule->where('tenant_id', $tenantId);
 
         return [
             'name'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique('units', 'name')
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                $tenantScope(Rule::unique('units', 'name'))
                     ->ignore($unitId)
             ],
             'code'              => [
                 'required',
                 'string',
                 'max:20',
-                Rule::unique('units', 'code')
-                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                $tenantScope(Rule::unique('units', 'code'))
                     ->ignore($unitId)
             ],
             'status' => ['required', 'numeric'],
