@@ -117,13 +117,16 @@ class MerchantWalletSettlementTest extends TestCase
                 'fee_type' => 'fixed',
                 'fee_value' => 5,
                 'fields' => [
-                    ['key' => 'account_number', 'label' => 'Account Number', 'type' => 'text'],
+                    ['key' => 'account_number', 'label' => 'bKash Number', 'type' => 'text', 'required' => true, 'width' => 50],
+                    ['key' => 'account_type', 'label' => 'Account Type', 'type' => 'select', 'required' => true, 'width' => 50, 'options' => ['Personal', 'Agent']],
                 ],
             ]);
 
         $methodResponse
             ->assertOk()
-            ->assertJsonPath('data.code', 'bkash');
+            ->assertJsonPath('data.code', 'bkash')
+            ->assertJsonPath('data.fields.0.label', 'bKash Number')
+            ->assertJsonPath('data.fields.1.options.0', 'Personal');
 
         $payoutMethodId = $methodResponse->json('data.id');
 
@@ -134,7 +137,7 @@ class MerchantWalletSettlementTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.wallet.available_balance', 120);
 
-        $withdrawalResponse = $this
+        $this
             ->withToken($merchantToken)
             ->withHeaders($this->jsonHeaders($tenant))
             ->postJson('http://merchant.company.com/api/merchant/wallet/withdrawals', [
@@ -143,6 +146,20 @@ class MerchantWalletSettlementTest extends TestCase
                 'destination' => [
                     'account_number' => '01700000000',
                 ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Account Type is required for bKash withdrawal.');
+
+        $withdrawalResponse = $this
+            ->withToken($merchantToken)
+            ->withHeaders($this->jsonHeaders($tenant))
+            ->postJson('http://merchant.company.com/api/merchant/wallet/withdrawals', [
+                'payout_method_id' => $payoutMethodId,
+                'amount' => 50,
+                'destination' => [
+                    'account_number' => '01700000000',
+                    'account_type' => 'Personal',
+                ],
                 'merchant_note' => 'Please send today.',
             ]);
 
@@ -150,13 +167,26 @@ class MerchantWalletSettlementTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.amount', 50)
-            ->assertJsonPath('data.fee_amount', 5);
+            ->assertJsonPath('data.fee_amount', 5)
+            ->assertJsonPath('data.destination_details.0.label', 'bKash Number')
+            ->assertJsonPath('data.destination_details.0.value', '01700000000')
+            ->assertJsonPath('data.destination_details.1.value', 'Personal');
 
         $wallet = MerchantWallet::withoutGlobalScopes()->where('tenant_id', $tenant->id)->firstOrFail();
         $this->assertEquals(65.0, (float) $wallet->available_balance);
         $this->assertEquals(50.0, (float) $wallet->pending_withdrawal_balance);
 
         $withdrawalId = $withdrawalResponse->json('data.id');
+
+        $this
+            ->withToken($platformToken)
+            ->withHeaders($this->jsonHeaders())
+            ->getJson('http://owner.company.com/api/platform/wallet/withdrawals?status=pending')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $withdrawalId)
+            ->assertJsonPath('data.0.destination_details.0.label', 'bKash Number')
+            ->assertJsonPath('data.0.destination_details.1.label', 'Account Type')
+            ->assertJsonPath('data.0.requested_by.email', $context['user']->email);
 
         $this
             ->withToken($platformToken)

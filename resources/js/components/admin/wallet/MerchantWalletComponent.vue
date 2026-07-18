@@ -82,10 +82,29 @@
                         <p class="mt-1">Fee: {{ feeLabel(selectedMethod) }}</p>
                     </div>
 
-                    <div class="space-y-3">
-                        <label v-for="field in selectedMethodFields" :key="field.key" class="db-field">
-                            <span class="db-field-title">{{ field.label }}</span>
-                            <input v-model="requestForm.destination[field.key]" :type="field.type || 'text'" class="db-field-control" :placeholder="field.label">
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <label v-for="field in selectedMethodFields" :key="field.key" class="db-field" :class="destinationFieldClass(field)">
+                            <span class="db-field-title" :class="{ 'after:hidden': !field.required }">{{ field.label }}</span>
+                            <textarea
+                                v-if="field.type === 'textarea'"
+                                v-model="requestForm.destination[field.key]"
+                                rows="3"
+                                class="db-field-control h-auto py-3"
+                                :placeholder="field.placeholder || field.label"></textarea>
+                            <select
+                                v-else-if="field.type === 'select'"
+                                v-model="requestForm.destination[field.key]"
+                                class="db-field-control">
+                                <option value="">Select {{ field.label }}</option>
+                                <option v-for="option in destinationOptions(field)" :key="option" :value="option">{{ option }}</option>
+                            </select>
+                            <input
+                                v-else
+                                v-model="requestForm.destination[field.key]"
+                                :type="inputType(field)"
+                                class="db-field-control"
+                                :placeholder="field.placeholder || field.label">
+                            <span v-if="field.instructions" class="mt-1 block text-xs text-gray-500">{{ field.instructions }}</span>
                         </label>
                     </div>
 
@@ -223,8 +242,8 @@ import axios from "axios";
 import LoadingComponent from "../components/LoadingComponent";
 
 const defaultDestinationFields = [
-    { key: "account_name", label: "Account Name", type: "text" },
-    { key: "account_number", label: "Account Number", type: "text" },
+    { key: "account_name", label: "Account Name", type: "text", required: true, width: 50 },
+    { key: "account_number", label: "Account Number", type: "text", required: true, width: 50 },
 ];
 
 export default {
@@ -266,9 +285,20 @@ export default {
                 return defaultDestinationFields;
             }
 
-            return Array.isArray(this.selectedMethod.fields) && this.selectedMethod.fields.length > 0
+            const fields = Array.isArray(this.selectedMethod.fields) && this.selectedMethod.fields.length > 0
                 ? this.selectedMethod.fields
                 : defaultDestinationFields;
+
+            return fields.map((field) => ({
+                key: field.key,
+                label: field.label || this.formatLabel(field.key),
+                type: field.type || "text",
+                required: field.required !== false,
+                placeholder: field.placeholder || "",
+                instructions: field.instructions || "",
+                width: Number(field.width || 100),
+                options: Array.isArray(field.options) ? field.options : [],
+            }));
         },
         balanceCards() {
             return [
@@ -314,6 +344,10 @@ export default {
             this.requestForm.destination = nextDestination;
         },
         submitWithdrawal() {
+            if (!this.validateDestinationFields()) {
+                return;
+            }
+
             this.savingWithdrawal = true;
             axios.post("merchant/wallet/withdrawals", this.requestForm).then(() => {
                 this.showFlash("success", "Withdrawal request submitted to owner.");
@@ -326,6 +360,32 @@ export default {
             }).finally(() => {
                 this.savingWithdrawal = false;
             });
+        },
+        validateDestinationFields() {
+            if (!this.requestForm.payout_method_id) {
+                this.showFlash("warning", "Please select a payout method.");
+                return false;
+            }
+
+            const missingField = this.selectedMethodFields.find((field) => {
+                return field.required && !String(this.requestForm.destination[field.key] || "").trim();
+            });
+
+            if (missingField) {
+                this.showFlash("warning", `${missingField.label} is required.`);
+                return false;
+            }
+
+            return true;
+        },
+        inputType(field) {
+            return ["email", "number", "url"].includes(field.type) ? field.type : "text";
+        },
+        destinationOptions(field) {
+            return Array.isArray(field.options) ? field.options : [];
+        },
+        destinationFieldClass(field) {
+            return Number(field.width || 100) >= 100 ? "md:col-span-2" : "";
         },
         downloadTransactions() {
             axios.get("merchant/wallet/transactions/export", { responseType: "blob" }).then((response) => {

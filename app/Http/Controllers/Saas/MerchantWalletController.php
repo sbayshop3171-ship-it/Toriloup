@@ -56,7 +56,7 @@ class MerchantWalletController extends Controller
     {
         $tenant = $this->tenant($request);
         $withdrawals = MerchantWithdrawal::withoutGlobalScopes()
-            ->with('payoutMethod:id,code,name')
+            ->with('payoutMethod')
             ->where('tenant_id', $tenant->id)
             ->when($request->filled('status'), fn (Builder $query): Builder => $query->where('status', $request->string('status')))
             ->latest('id')
@@ -90,6 +90,7 @@ class MerchantWalletController extends Controller
             'payout_method_id' => ['required', 'integer', 'exists:merchant_payout_methods,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'destination' => ['required', 'array'],
+            'destination.*' => ['nullable'],
             'merchant_note' => ['nullable', 'string', 'max:700'],
         ]);
 

@@ -65,7 +65,7 @@ class MerchantWalletService
                 ->map(fn (MerchantWalletTransaction $transaction): array => $this->serializeTransaction($transaction))
                 ->values(),
             'recent_withdrawals' => MerchantWithdrawal::withoutGlobalScopes()
-                ->with('payoutMethod:id,code,name')
+                ->with(['payoutMethod', 'requestedBy:id,name,email,phone'])
                 ->where('tenant_id', $tenant->id)
                 ->latest('id')
                 ->limit(8)
@@ -209,6 +209,7 @@ class MerchantWalletService
             ->findOrFail((int) $payload['payout_method_id']);
 
         $amount = $this->roundMoney((float) $payload['amount']);
+        $destination = $this->validateWithdrawalDestination($method, $payload['destination'] ?? []);
         $feeAmount = $this->calculatePayoutFee($method, $amount);
         $totalDebit = $this->roundMoney($amount + $feeAmount);
 
@@ -224,7 +225,7 @@ class MerchantWalletService
             throw new Exception('Withdrawal amount is above this payout method maximum.', 422);
         }
 
-        return DB::transaction(function () use ($tenant, $user, $method, $payload, $amount, $feeAmount, $totalDebit): MerchantWithdrawal {
+        return DB::transaction(function () use ($tenant, $user, $method, $payload, $amount, $feeAmount, $totalDebit, $destination): MerchantWithdrawal {
             $wallet = $this->lockWallet($tenant);
 
             if ((float) $wallet->available_balance < $totalDebit) {
@@ -247,7 +248,7 @@ class MerchantWalletService
                 'net_amount' => $amount,
                 'currency_code' => $wallet->currency_code,
                 'status' => 'pending',
-                'destination_json' => $payload['destination'] ?? [],
+                'destination_json' => $destination,
                 'merchant_note' => $payload['merchant_note'] ?? null,
                 'requested_by_user_id' => $user->id,
                 'requested_at' => now(),
@@ -288,7 +289,7 @@ class MerchantWalletService
                 actorScope: 'merchant'
             );
 
-            return $withdrawal->load('payoutMethod:id,code,name');
+            return $withdrawal->load(['payoutMethod', 'requestedBy:id,name,email,phone']);
         });
     }
 
@@ -343,7 +344,7 @@ class MerchantWalletService
                 actorScope: 'platform'
             );
 
-            return $withdrawal->load(['tenant:id,name,slug', 'payoutMethod:id,code,name']);
+            return $withdrawal->load(['tenant:id,name,slug', 'payoutMethod', 'requestedBy:id,name,email,phone']);
         });
     }
 
@@ -418,7 +419,7 @@ class MerchantWalletService
                 actorScope: 'platform'
             );
 
-            return $withdrawal->load(['tenant:id,name,slug', 'payoutMethod:id,code,name']);
+            return $withdrawal->load(['tenant:id,name,slug', 'payoutMethod', 'requestedBy:id,name,email,phone']);
         });
     }
 
@@ -527,7 +528,7 @@ class MerchantWalletService
                 'name' => $payload['name'],
                 'description' => $payload['description'] ?? null,
                 'instructions' => $payload['instructions'] ?? null,
-                'fields_json' => $payload['fields'] ?? $payload['fields_json'] ?? [],
+                'fields_json' => $this->normalizePayoutFields($payload['fields'] ?? $payload['fields_json'] ?? []),
                 'status' => (bool) ($payload['status'] ?? true),
                 'min_amount' => $this->roundMoney((float) ($payload['min_amount'] ?? 0)),
                 'max_amount' => filled($payload['max_amount'] ?? null) ? $this->roundMoney((float) $payload['max_amount']) : null,
@@ -637,17 +638,21 @@ class MerchantWalletService
             'currency_code' => $withdrawal->currency_code,
             'status' => $withdrawal->status,
             'destination' => $withdrawal->destination_json ?? [],
+            'destination_details' => $this->destinationDetails($withdrawal),
             'merchant_note' => $withdrawal->merchant_note,
             'admin_note' => $withdrawal->admin_note,
             'payout_reference' => $withdrawal->payout_reference,
             'requested_at' => $withdrawal->requested_at?->toISOString(),
             'processed_at' => $withdrawal->processed_at?->toISOString(),
             'created_at' => $withdrawal->created_at?->toISOString(),
+            'requested_by' => $withdrawal->relationLoaded('requestedBy') && $withdrawal->requestedBy
+                ? $withdrawal->requestedBy->only(['id', 'name', 'email', 'phone'])
+                : null,
             'tenant' => $withdrawal->relationLoaded('tenant') && $withdrawal->tenant
                 ? $withdrawal->tenant->only(['id', 'name', 'slug'])
                 : null,
             'payout_method' => $withdrawal->relationLoaded('payoutMethod') && $withdrawal->payoutMethod
-                ? $withdrawal->payoutMethod->only(['id', 'code', 'name'])
+                ? $this->serializePayoutMethod($withdrawal->payoutMethod)
                 : null,
         ];
     }
@@ -660,7 +665,7 @@ class MerchantWalletService
             'name' => $method->name,
             'description' => $method->description,
             'instructions' => $method->instructions,
-            'fields' => $method->fields_json ?? [],
+            'fields' => $this->normalizePayoutFields($method->fields_json ?? []),
             'status' => (bool) $method->status,
             'min_amount' => (float) $method->min_amount,
             'max_amount' => $method->max_amount === null ? null : (float) $method->max_amount,
@@ -711,6 +716,156 @@ class MerchantWalletService
         };
 
         return min($this->roundMoney($fee), $amount);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>>|array<string,mixed>|null $fields
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizePayoutFields(?array $fields): array
+    {
+        if (!is_array($fields)) {
+            return [];
+        }
+
+        $allowedTypes = ['text', 'email', 'number', 'url', 'textarea', 'select'];
+        $allowedWidths = [25, 33, 50, 100];
+        $normalizedFields = [];
+
+        foreach ($fields as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $label = trim((string) ($field['label'] ?? ''));
+            $key = trim((string) ($field['key'] ?? ''));
+
+            if ($key === '' && $label !== '') {
+                $key = Str::of($label)->lower()->replaceMatches('/[^a-z0-9]+/', '_')->trim('_')->toString();
+            }
+
+            $key = Str::of($key)->lower()->replaceMatches('/[^a-z0-9_]+/', '_')->trim('_')->toString();
+
+            if ($key === '' || $label === '') {
+                continue;
+            }
+
+            $type = strtolower((string) ($field['type'] ?? 'text'));
+            $width = (int) ($field['width'] ?? 100);
+            $options = collect($field['options'] ?? [])
+                ->filter(fn ($option): bool => is_scalar($option) && trim((string) $option) !== '')
+                ->map(fn ($option): string => trim((string) $option))
+                ->values()
+                ->all();
+
+            $normalizedFields[] = [
+                'key' => $key,
+                'label' => $label,
+                'type' => in_array($type, $allowedTypes, true) ? $type : 'text',
+                'required' => (bool) ($field['required'] ?? true),
+                'placeholder' => trim((string) ($field['placeholder'] ?? '')),
+                'instructions' => trim((string) ($field['instructions'] ?? '')),
+                'width' => in_array($width, $allowedWidths, true) ? $width : 100,
+                'options' => $options,
+            ];
+        }
+
+        return $normalizedFields;
+    }
+
+    /**
+     * @param array<string,mixed> $destination
+     * @return array<string,mixed>
+     */
+    private function validateWithdrawalDestination(MerchantPayoutMethod $method, array $destination): array
+    {
+        $fields = $this->normalizePayoutFields($method->fields_json ?? []);
+        $cleanDestination = [];
+
+        foreach ($fields as $field) {
+            $key = $field['key'];
+            $value = $destination[$key] ?? null;
+            $value = is_scalar($value) ? trim((string) $value) : $value;
+
+            if (($field['required'] ?? false) && blank($value)) {
+                throw new Exception($field['label'] . ' is required for ' . $method->name . ' withdrawal.', 422);
+            }
+
+            if (blank($value)) {
+                continue;
+            }
+
+            if (($field['type'] ?? 'text') === 'email' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
+                throw new Exception($field['label'] . ' must be a valid email address.', 422);
+            }
+
+            if (($field['type'] ?? 'text') === 'url' && filter_var($value, FILTER_VALIDATE_URL) === false) {
+                throw new Exception($field['label'] . ' must be a valid URL.', 422);
+            }
+
+            if (($field['type'] ?? 'text') === 'number' && !is_numeric($value)) {
+                throw new Exception($field['label'] . ' must be a number.', 422);
+            }
+
+            if (($field['type'] ?? 'text') === 'select' && !empty($field['options']) && !in_array((string) $value, $field['options'], true)) {
+                throw new Exception($field['label'] . ' selection is not available.', 422);
+            }
+
+            $cleanDestination[$key] = $value;
+        }
+
+        foreach ($destination as $key => $value) {
+            if (!is_string($key) || array_key_exists($key, $cleanDestination) || !is_scalar($value)) {
+                continue;
+            }
+
+            $cleanDestination[$key] = trim((string) $value);
+        }
+
+        return $cleanDestination;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function destinationDetails(MerchantWithdrawal $withdrawal): array
+    {
+        $destination = $withdrawal->destination_json ?? [];
+        $fields = $withdrawal->relationLoaded('payoutMethod') && $withdrawal->payoutMethod
+            ? $this->normalizePayoutFields($withdrawal->payoutMethod->fields_json ?? [])
+            : [];
+
+        $details = [];
+
+        foreach ($fields as $field) {
+            $key = $field['key'];
+
+            if (!array_key_exists($key, $destination)) {
+                continue;
+            }
+
+            $details[] = [
+                'key' => $key,
+                'label' => $field['label'],
+                'type' => $field['type'],
+                'value' => $destination[$key],
+            ];
+        }
+
+        foreach ($destination as $key => $value) {
+            if (collect($details)->contains('key', $key)) {
+                continue;
+            }
+
+            $details[] = [
+                'key' => $key,
+                'label' => Str::headline((string) $key),
+                'type' => 'text',
+                'value' => is_scalar($value) ? $value : json_encode($value),
+            ];
+        }
+
+        return $details;
     }
 
     private function aggregateTransactions(Collection $transactions): array

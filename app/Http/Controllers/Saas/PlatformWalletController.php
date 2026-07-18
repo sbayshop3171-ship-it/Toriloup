@@ -38,7 +38,7 @@ class PlatformWalletController extends Controller
             'status' => true,
             'summary' => $this->walletService->platformOverview(),
             'recent_withdrawals' => MerchantWithdrawal::withoutGlobalScopes()
-                ->with(['tenant:id,name,slug', 'payoutMethod:id,code,name'])
+                ->with(['tenant:id,name,slug', 'payoutMethod', 'requestedBy:id,name,email,phone'])
                 ->latest('id')
                 ->limit(8)
                 ->get()
@@ -218,6 +218,15 @@ class PlatformWalletController extends Controller
             'instructions' => ['nullable', 'string', 'max:1200'],
             'fields' => ['nullable', 'array'],
             'fields_json' => ['nullable', 'array'],
+            'fields.*.key' => ['nullable', 'string', 'max:80'],
+            'fields.*.label' => ['required_with:fields', 'string', 'max:120'],
+            'fields.*.type' => ['nullable', 'in:text,email,number,url,textarea,select'],
+            'fields.*.required' => ['nullable', 'boolean'],
+            'fields.*.placeholder' => ['nullable', 'string', 'max:160'],
+            'fields.*.instructions' => ['nullable', 'string', 'max:300'],
+            'fields.*.width' => ['nullable', 'integer', 'in:25,33,50,100'],
+            'fields.*.options' => ['nullable', 'array'],
+            'fields.*.options.*' => ['nullable', 'string', 'max:120'],
             'status' => ['nullable', 'boolean'],
             'min_amount' => ['nullable', 'numeric', 'min:0'],
             'max_amount' => ['nullable', 'numeric', 'min:0'],
@@ -347,7 +356,7 @@ class PlatformWalletController extends Controller
 
         return response()->streamDownload(function () use ($rows): void {
             $output = fopen('php://output', 'w');
-            fputcsv($output, ['Requested At', 'Request No', 'Tenant', 'Method', 'Status', 'Amount', 'Fee', 'Net', 'Reference', 'Admin Note']);
+            fputcsv($output, ['Requested At', 'Request No', 'Tenant', 'Method', 'Destination', 'Status', 'Amount', 'Fee', 'Net', 'Reference', 'Admin Note']);
 
             foreach ($rows as $row) {
                 fputcsv($output, [
@@ -355,6 +364,9 @@ class PlatformWalletController extends Controller
                     $row->request_no,
                     $row->tenant?->name,
                     $row->payoutMethod?->name,
+                    collect($this->walletService->serializeWithdrawal($row)['destination_details'] ?? [])
+                        ->map(fn (array $detail): string => ($detail['label'] ?? $detail['key']) . ': ' . ($detail['value'] ?? ''))
+                        ->implode(' | '),
                     $row->status,
                     (float) $row->amount,
                     (float) $row->fee_amount,
@@ -413,7 +425,7 @@ class PlatformWalletController extends Controller
     private function withdrawalQuery(Request $request): Builder
     {
         return MerchantWithdrawal::withoutGlobalScopes()
-            ->with(['tenant:id,name,slug', 'payoutMethod:id,code,name'])
+            ->with(['tenant:id,name,slug', 'payoutMethod', 'requestedBy:id,name,email,phone'])
             ->when($request->filled('tenant_id'), fn (Builder $query): Builder => $query->where('tenant_id', $request->integer('tenant_id')))
             ->when($request->filled('status'), fn (Builder $query): Builder => $query->where('status', $request->string('status')))
             ->when($request->filled('from_date'), fn (Builder $query): Builder => $query->whereDate('requested_at', '>=', $request->input('from_date')))
