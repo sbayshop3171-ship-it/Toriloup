@@ -167,19 +167,6 @@ const routeHasAccess = function (route) {
     return !permission || permission.access !== false;
 };
 
-const routeHasSubscriptionFeatureAccess = function (route) {
-    const featureCode = route.meta?.subscriptionFeature;
-
-    if (!featureCode) {
-        return true;
-    }
-
-    const setup = store.getters["merchantDashboard/setup"];
-    const feature = setup?.billing?.features?.features?.[featureCode];
-
-    return feature?.status === true;
-};
-
 router.beforeEach((to, from, next) => {
     const hostname = window.location.hostname;
     const workspaceHost = detectWorkspaceHost(hostname);
@@ -264,20 +251,13 @@ router.beforeEach((to, from, next) => {
         }
 
         if (isMerchantHost && to.meta?.subscriptionFeature) {
-            const redirectToBilling = () => next({
-                name: "admin.settings.billing",
-                query: { upgrade: to.meta.subscriptionFeature },
-            });
-            const continueIfAllowed = () => routeHasSubscriptionFeatureAccess(to) ? next() : redirectToBilling();
-
             if (store.getters["merchantDashboard/setup"]) {
-                continueIfAllowed();
+                next();
                 return;
             }
 
             store.dispatch("merchantDashboard/setup")
-                .then(continueIfAllowed)
-                .catch(redirectToBilling);
+                .finally(() => next());
             return;
         }
 

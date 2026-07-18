@@ -64,6 +64,7 @@ export default {
                 { name: "admin.settings.notificationAlert", icon: "lab lab-line-notification-alert", labelKey: "menu.notification_alert" },
                 { name: "admin.settings.smsGateway", icon: "lab lab-line-sms", labelKey: "menu.sms_gateway" },
                 { name: "admin.settings.paymentGateway", icon: "lab lab-line-payment-gateway", labelKey: "menu.payment_gateway" },
+                { name: "admin.settings.billing", icon: "lab lab-line-report", label: "Plans & Billing" },
                 { name: "admin.settings.socialMedia", icon: "lab lab-line-social", labelKey: "menu.social_media" },
                 { name: "admin.settings.cookies", icon: "lab lab-line-cookies", labelKey: "menu.cookies" },
                 { name: "admin.settings.analytic", icon: "lab lab-line-analytic", labelKey: "menu.analytics" },
@@ -100,13 +101,6 @@ export default {
             return appService.openSettingMenu(event);
         },
         settingRoute: function (item) {
-            if (this.isFeatureLocked(item)) {
-                return {
-                    name: 'admin.settings.billing',
-                    query: { upgrade: item.feature },
-                };
-            }
-
             return { name: item.name };
         },
         isFeatureLocked: function (item) {

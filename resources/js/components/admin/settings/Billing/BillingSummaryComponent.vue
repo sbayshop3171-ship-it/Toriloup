@@ -48,7 +48,18 @@
                 </div>
             </div>
             <div class="db-card-body">
-                <div class="grid gap-4 xl:grid-cols-4 lg:grid-cols-2">
+                <div v-if="plans.length === 0" class="rounded-2xl border border-dashed border-gray-200 bg-[#FAFBFC] p-8 text-center">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF4F1] text-primary">
+                        <i class="fa-solid fa-tags"></i>
+                    </div>
+                    <h4 class="mt-3 text-base font-semibold text-gray-900">No public plans available yet</h4>
+                    <p class="mt-1 text-sm text-gray-500">
+                        The platform owner can publish Free, Basic, Premium, or Advanced plans from Owner Plans & Billing.
+                        Your current plan stays active until an upgrade is available.
+                    </p>
+                </div>
+
+                <div v-else class="grid gap-4 xl:grid-cols-4 lg:grid-cols-2">
                     <article
                         v-for="plan in plans"
                         :key="plan.code"
@@ -89,7 +100,7 @@
                     </article>
                 </div>
 
-                <div class="mt-8 overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+                <div v-if="plans.length > 0 && compareGroups.length > 0" class="mt-8 overflow-x-auto rounded-2xl border border-gray-200 bg-white">
                     <table class="min-w-full text-left text-sm">
                         <thead>
                         <tr class="border-b border-gray-200 bg-[#FAFBFC]">
@@ -121,6 +132,10 @@
                         </template>
                         </tbody>
                     </table>
+                </div>
+
+                <div v-else-if="plans.length > 0" class="mt-8 rounded-2xl border border-dashed border-gray-200 bg-[#FAFBFC] p-6 text-center text-sm text-gray-500">
+                    Plan feature comparison will appear here after the owner configures plan features.
                 </div>
             </div>
         </div>

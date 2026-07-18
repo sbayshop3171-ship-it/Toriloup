@@ -290,13 +290,6 @@ export default {
             return this.normalizeMenuUrl(url) === 'online-orders';
         },
         menuRoute: function (menu) {
-            if (this.isFeatureLocked(menu)) {
-                return {
-                    name: 'admin.settings.billing',
-                    query: { upgrade: menu.feature },
-                };
-            }
-
             return '/admin/' + menu.url;
         },
         isFeatureLocked: function (menu) {
