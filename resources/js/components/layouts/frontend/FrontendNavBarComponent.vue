@@ -307,8 +307,11 @@
 <script>
 import statusEnum from "../../../enums/modules/statusEnum";
 import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import { useStore } from "vuex";
 import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
+import storefrontInstantService from "../../../services/storefrontInstantService";
 import activityEnum from "../../../enums/modules/activityEnum";
 import MenuChildrenComponent from "../../frontend/components/MenuChildrenComponent";
 import FrontendLogoSlotComponent from "./FrontendLogoSlotComponent";
@@ -325,7 +328,16 @@ export default {
     components: { FrontendLogoSlotComponent, MenuChildrenComponent },
     setup() {
         const isSticky = ref();
+        const router = useRouter();
+        const store = useStore();
         const { openCanvas } = useCanvas();
+        const openCartCanvas = (targetID) => {
+            storefrontInstantService.prefetchRoute(router, store, {
+                name: "frontend.checkout.checkout",
+            });
+            openCanvas(targetID);
+        };
+
         onMounted(() => {
             window.addEventListener('scroll', function () {
                 let windowScroll = this.scrollY;
@@ -338,7 +350,7 @@ export default {
         })
         return {
             isSticky,
-            openCanvas
+            openCanvas: openCartCanvas
         }
     },
     data() {
@@ -520,6 +532,10 @@ export default {
         },
         search: function () {
             if (typeof this.searchProduct !== "undefined" && this.searchProduct !== "") {
+                storefrontInstantService.prefetchRoute(this.$router, this.$store, {
+                    name: "frontend.product",
+                    query: { name: this.searchProduct },
+                });
                 this.$router.push({ name: "frontend.product", query: { name: this.searchProduct } });
                 this.searchProduct = "";
                 this.hideTarget('search', 'search-active')
@@ -555,6 +571,10 @@ export default {
         },
         goSearchProduct: function (slug) {
             targetService.hideTarget('search', 'search-active');
+            storefrontInstantService.prefetchRoute(this.$router, this.$store, {
+                name: "frontend.product.details",
+                params: { slug: slug },
+            });
             this.$router.push({ name: 'frontend.product.details', params: { slug: slug } })
         },
         resetSearch: function(){

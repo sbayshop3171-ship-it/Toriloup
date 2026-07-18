@@ -18,6 +18,8 @@ import "../../public/themes/default/fonts/fontawesome/fontawesome.css";
 import 'sweetalert2/dist/sweetalert2.min.css';
 import { createHead } from '@vueuse/head';
 import VueApexCharts from "vue3-apexcharts";
+import storefrontCacheService from "./services/storefrontCacheService";
+import storefrontInstantService from "./services/storefrontInstantService";
 const head = createHead();
 
 const toastOptions = {
@@ -95,6 +97,9 @@ axios.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+storefrontCacheService.installAxiosCache(axios);
+storefrontInstantService.install(router, store);
 
 const app = createApp(DefaultComponent);
 app.component('vue-select', VueNextSelect)

@@ -32,19 +32,23 @@
 
                 <div class="col-12 sm:col-6 lg:col-7 lg:pl-10">
                     <h2 class="text-3xl sm:text-4xl font-bold capitalize mb-5">{{ product.name }}</h2>
-                    <h3 class="flex items-start gap-4 mb-5">
+                    <h3 class="flex flex-wrap items-start gap-4 mb-5">
                         <span class="text-2xl font-bold">
                             {{
                                 currencyFormat(temp.price, setting.site_digit_after_decimal_point,
                                     setting.site_default_currency_symbol, setting.site_currency_position)
                             }}
                         </span>
-                        <del v-if="product.is_offer" class="text-lg font-bold text-shopperz-red">
+                        <del v-if="temp.isOffer" class="text-lg font-bold text-shopperz-red">
                             {{
                                 currencyFormat(temp.oldPrice, setting.site_digit_after_decimal_point,
                                     setting.site_default_currency_symbol, setting.site_currency_position)
                             }}
                         </del>
+                        <span v-if="temp.isOffer && offerPercent > 0"
+                            class="mt-1 rounded-full bg-[#FFF4F1] px-3 py-1 text-xs font-bold text-primary">
+                            {{ offerPercent }}% OFF
+                        </span>
                     </h3>
 
                     <div class="flex flex-wrap items-center gap-2 border-b border-gray-100 mb-6 pb-6">
@@ -279,6 +283,7 @@ import ProductListComponent from "../components/ProductListComponent";
 import VariationComponent from "../components/VariationComponent";
 import appService from "../../../services/appService";
 import alertService from "../../../services/alertService";
+import storefrontInstantService from "../../../services/storefrontInstantService";
 import { useHead } from '@vueuse/head';
 import 'vue-inner-image-zoom/lib/vue-inner-image-zoom.css';
 
@@ -329,6 +334,8 @@ export default {
                 stock: 0,
                 quantity: 1,
                 discount: 0,
+                isOffer: false,
+                discountPercentage: 0,
                 price: 0,
                 oldPrice: 0,
                 totalPrice: 0,
@@ -346,6 +353,8 @@ export default {
                 shipping: {},
                 quantity: 1,
                 discount: 0,
+                isOffer: false,
+                discountPercentage: 0,
                 price: 0,
                 oldPrice: 0,
                 totalPrice: 0,
@@ -380,10 +389,14 @@ export default {
         relatedProducts: function () {
             return this.$store.getters["frontendProduct/relatedProducts"];
         },
+        offerPercent: function () {
+            return Math.round(Number(this.temp.discountPercentage || 0));
+        },
     },
     mounted() {
         this.show();
         this.showRelatedProduct();
+        this.prefetchCheckout();
     },
     methods: {
         onlyNumber: function (e) {
@@ -430,6 +443,8 @@ export default {
                         stock: res.data.data.stock,
                         quantity: 1,
                         discount: 0,
+                        isOffer: res.data.data.is_offer,
+                        discountPercentage: res.data.data.discount_percentage,
                         price: res.data.data.price,
                         oldPrice: res.data.data.old_price,
                         totalPrice: res.data.data.price,
@@ -447,6 +462,8 @@ export default {
                         shipping: res.data.data.shipping,
                         quantity: 1,
                         discount: 0,
+                        isOffer: res.data.data.is_offer,
+                        discountPercentage: res.data.data.discount_percentage,
                         price: res.data.data.price,
                         oldPrice: res.data.data.old_price,
                         totalPrice: res.data.data.price,
@@ -517,6 +534,8 @@ export default {
             this.temp.stock = this.initProduct.stock;
             this.temp.quantity = this.initProduct.quantity;
             this.temp.discount = this.initProduct.discount;
+            this.temp.isOffer = this.initProduct.isOffer;
+            this.temp.discountPercentage = this.initProduct.discountPercentage;
             this.temp.price = this.initProduct.price;
             this.temp.oldPrice = this.initProduct.oldPrice;
             this.temp.totalPrice = this.initProduct.price;
@@ -532,6 +551,8 @@ export default {
                 this.temp.stock = variation.stock;
                 this.temp.quantity = 1;
                 this.temp.discount = 0;
+                this.temp.isOffer = variation.is_offer;
+                this.temp.discountPercentage = variation.discount_percentage;
                 this.temp.price = variation.price;
                 this.temp.oldPrice = variation.old_price;
                 this.temp.totalPrice = variation.price;
@@ -583,7 +604,13 @@ export default {
             this.temp.totalPrice = (this.temp.price * this.temp.quantity);
         },
         buyNow: function () {
+            this.prefetchCheckout();
             this.addToCart(true);
+        },
+        prefetchCheckout: function () {
+            storefrontInstantService.prefetchRoute(router, this.$store, {
+                name: "frontend.checkout.checkout",
+            });
         },
         addToCart: function (redirectToCheckout = false) {
 
