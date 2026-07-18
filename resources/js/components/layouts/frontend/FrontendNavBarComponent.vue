@@ -13,7 +13,7 @@
 
                     <router-link :to="{ name: 'frontend.home' }"
                         class="router-link-active router-link-exact-active flex items-center justify-center flex-shrink-0 w-24 h-14 overflow-hidden">
-                        <img v-if="setting.theme_logo" class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
+                        <FrontendLogoSlotComponent :src="setting.theme_logo" />
                     </router-link>
                 </div>
 
@@ -259,7 +259,7 @@
         <div class="flex items-center justify-between mb-4">
             <router-link :to="{ name: 'frontend.home' }"
                 class="router-link-active router-link-exact-active flex items-center justify-center flex-shrink-0 w-24 h-14 overflow-hidden">
-                <img v-if="setting.theme_logo" class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
+                <FrontendLogoSlotComponent :src="setting.theme_logo" />
             </router-link>
             <button type="button">
                 <i @click.prevent="hideTarget('search', 'search-active')"
@@ -311,6 +311,7 @@ import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
 import activityEnum from "../../../enums/modules/activityEnum";
 import MenuChildrenComponent from "../../frontend/components/MenuChildrenComponent";
+import FrontendLogoSlotComponent from "./FrontendLogoSlotComponent";
 import orderTypeEnum from "../../../enums/modules/orderTypeEnum";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -321,7 +322,7 @@ import { useCanvas } from "../../../composables/canvas";
 
 export default {
     name: "FrontendNavbarComponent",
-    components: { MenuChildrenComponent },
+    components: { FrontendLogoSlotComponent, MenuChildrenComponent },
     setup() {
         const isSticky = ref();
         const { openCanvas } = useCanvas();

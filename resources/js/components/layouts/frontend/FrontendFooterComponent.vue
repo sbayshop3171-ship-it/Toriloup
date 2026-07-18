@@ -6,8 +6,8 @@
             <div class="row">
                 <div class="col-12 md:col-4 lg:col-5 mb-6 md:mb-0">
                     <div class="tablet:text-center tablet:mx-auto w-full max-w-xs">
-                        <router-link :to="{ name: 'frontend.home' }" class="mb-8 flex w-36 min-h-12 items-center">
-                            <img v-if="setting.theme_footer_logo" class="w-36" :src="setting.theme_footer_logo" alt="logo">
+                        <router-link :to="{ name: 'frontend.home' }" class="mb-8 flex w-36 h-12 items-center">
+                            <FrontendLogoSlotComponent :src="setting.theme_footer_logo" variant="footer" />
                         </router-link>
 
                         <form @submit.prevent="saveSubscription" class="mt-5 mb-6 block">
@@ -110,11 +110,12 @@ import axios from "axios";
 import alertService from "../../../services/alertService";
 import LoadingComponent from "../../frontend/components/LoadingComponent";
 import menuSectionEnum from "../../../enums/modules/menuSectionEnum";
+import FrontendLogoSlotComponent from "./FrontendLogoSlotComponent";
 import _ from "lodash";
 
 export default {
     name: "FrontendFooterComponent",
-    components: { LoadingComponent },
+    components: { FrontendLogoSlotComponent, LoadingComponent },
     data() {
         return {
             loading: {

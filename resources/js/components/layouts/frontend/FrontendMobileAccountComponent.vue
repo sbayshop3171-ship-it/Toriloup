@@ -6,7 +6,7 @@
             <div class="py-4 flex items-center justify-between px-4 border-b border-slate-100">
                 <router-link :to="{ name: 'frontend.home' }"
                     class="router-link-active router-link-exact-active flex items-center justify-center flex-shrink-0 w-24 h-12 overflow-hidden">
-                    <img v-if="setting.theme_logo" class="w-full h-full object-contain" :src="setting.theme_logo" alt="logo">
+                    <FrontendLogoSlotComponent :src="setting.theme_logo" />
                 </router-link>
 
                 <button type="button">
@@ -92,9 +92,11 @@
 <script>
 import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
+import FrontendLogoSlotComponent from "./FrontendLogoSlotComponent";
 
 export default {
     name: "FrontendMobileAccountComponent",
+    components: { FrontendLogoSlotComponent },
     data() {
         return {
             currentRoute: "",
