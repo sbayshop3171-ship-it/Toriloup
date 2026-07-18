@@ -11,7 +11,9 @@ use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantPaymentMethod;
 use App\Services\Saas\PlatformAuditLogService;
+use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Saas\TenantSettingsService;
+use App\Services\Saas\TenantPaymentMethodCatalogService;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +24,8 @@ class MerchantSettingsController extends Controller
         private readonly TenantContext $tenantContext,
         private readonly TenantSettingsService $tenantSettingsService,
         private readonly PlatformAuditLogService $platformAuditLogService,
+        private readonly TenantPaymentMethodCatalogService $tenantPaymentMethodCatalogService,
+        private readonly SubscriptionManagerService $subscriptionManagerService,
     ) {
     }
 
@@ -133,6 +137,7 @@ class MerchantSettingsController extends Controller
     public function paymentMethods(): JsonResponse
     {
         $tenant = $this->currentTenant();
+        $this->tenantPaymentMethodCatalogService->syncAvailableForTenant($tenant);
 
         return response()->json([
             'status' => true,
@@ -152,10 +157,27 @@ class MerchantSettingsController extends Controller
             'methods.*.sort_order' => ['nullable', 'integer', 'min:0', 'max:999'],
         ]);
 
-        $methods = TenantPaymentMethod::query()
-            ->where('tenant_id', $tenant->id)
-            ->get()
+        $methods = $this->tenantPaymentMethodCatalogService
+            ->syncAvailableForTenant($tenant)
             ->keyBy('id');
+
+        $requiresExternalGateway = collect($validated['methods'])->contains(function (array $payload) use ($methods): bool {
+            $method = $methods->get((int) $payload['id']);
+
+            return $method !== null
+                && (bool) $payload['status']
+                && $this->paymentMethodRequiresExternalGateway($method);
+        });
+
+        if ($requiresExternalGateway && !$this->subscriptionManagerService->hasFeatureAccess($tenant, 'external_gateways')) {
+            return response()->json([
+                'status' => false,
+                'code' => 'upgrade_required',
+                'feature_code' => 'external_gateways',
+                'message' => 'External payment gateways require an upgraded plan.',
+                'upgrade_url' => sprintf('https://%s/admin/settings/billing', trim((string) config('saas.merchant_host'), '.')),
+            ], 402);
+        }
 
         foreach ($validated['methods'] as $payload) {
             $method = $methods->get((int) $payload['id']);
@@ -202,24 +224,36 @@ class MerchantSettingsController extends Controller
      */
     private function serializePaymentMethods(Tenant $tenant): array
     {
-        return TenantPaymentMethod::query()
-            ->where('tenant_id', $tenant->id)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get()
-            ->map(fn (TenantPaymentMethod $method) => [
-                'id' => $method->id,
-                'provider_code' => $method->provider_code,
-                'display_name' => $method->display_name,
-                'status' => $method->status,
-                'checkout_label' => $method->checkout_label,
-                'fee_type' => $method->fee_type,
-                'fee_value' => $method->fee_value,
-                'sort_order' => $method->sort_order,
-                'managed_by' => $method->config_json['managed_by'] ?? null,
-            ])
+        $canUseExternalGateways = $this->subscriptionManagerService->hasFeatureAccess($tenant, 'external_gateways');
+
+        return $this->tenantPaymentMethodCatalogService
+            ->syncAvailableForTenant($tenant)
+            ->map(function (TenantPaymentMethod $method) use ($canUseExternalGateways) {
+                $requiresExternalGateway = $this->paymentMethodRequiresExternalGateway($method);
+
+                return [
+                    'id' => $method->id,
+                    'provider_code' => $method->provider_code,
+                    'gateway_slug' => $this->tenantPaymentMethodCatalogService->gatewaySlugForProviderCode($method->provider_code),
+                    'gateway_id' => $method->config_json['gateway_id'] ?? null,
+                    'display_name' => $method->display_name,
+                    'status' => $method->status,
+                    'checkout_label' => $method->checkout_label,
+                    'fee_type' => $method->fee_type,
+                    'fee_value' => $method->fee_value,
+                    'sort_order' => $method->sort_order,
+                    'managed_by' => $method->config_json['managed_by'] ?? null,
+                    'requires_feature' => $requiresExternalGateway ? 'external_gateways' : null,
+                    'locked' => $requiresExternalGateway && !$canUseExternalGateways,
+                ];
+            })
             ->values()
             ->all();
+    }
+
+    private function paymentMethodRequiresExternalGateway(TenantPaymentMethod $method): bool
+    {
+        return $this->tenantPaymentMethodCatalogService->gatewaySlugForProviderCode($method->provider_code) !== 'cashondelivery';
     }
 
     /**

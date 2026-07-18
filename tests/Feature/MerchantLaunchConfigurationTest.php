@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\Role as LegacyRole;
 use App\Enums\ShippingMethod;
+use App\Enums\Activity;
 use App\Models\PlatformRole;
 use App\Models\PlatformPlan;
+use App\Models\PaymentGateway;
 use App\Models\ProductBrand;
 use App\Models\ProductCategory;
 use App\Models\Tenant;
@@ -17,6 +19,7 @@ use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionInvoice;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Saas\SubscriptionManagerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -47,6 +50,12 @@ class MerchantLaunchConfigurationTest extends TestCase
         $context = $this->createMerchantContext('launch-config-store');
         $otherTenant = $this->createTenant('outside-store');
         $merchantToken = $this->merchantToken($context['user']);
+
+        PaymentGateway::query()->create([
+            'name' => 'Cash on Delivery',
+            'slug' => 'cashondelivery',
+            'status' => Activity::ENABLE,
+        ]);
 
         $tenantMethod = TenantPaymentMethod::query()->create([
             'tenant_id' => $context['tenant']->id,
@@ -279,6 +288,94 @@ class MerchantLaunchConfigurationTest extends TestCase
             ->assertJsonPath('data.id', $unit->id)
             ->assertJsonPath('data.name', 'Piece')
             ->assertJsonPath('data.code', 'pc');
+    }
+
+    public function test_external_payment_gateways_follow_plan_feature_access(): void
+    {
+        $context = $this->createMerchantContext('external-gateway-store');
+        $merchantToken = $this->merchantToken($context['user']);
+        $headers = [
+            'x-api-key' => 'testing-key',
+            'x-localization' => 'en',
+            'X-Tenant-Slug' => $context['tenant']->slug,
+        ];
+
+        PaymentGateway::query()->create([
+            'name' => 'Stripe',
+            'slug' => 'stripe',
+            'status' => Activity::ENABLE,
+        ]);
+
+        $methodsResponse = $this
+            ->withToken($merchantToken)
+            ->withHeaders($headers)
+            ->getJson('http://merchant.company.com/api/merchant/settings/payment-methods');
+
+        $stripeMethod = collect($methodsResponse->json('data'))
+            ->firstWhere('provider_code', 'stripe');
+
+        $this->assertNotNull($stripeMethod);
+        $this->assertSame('external_gateways', $stripeMethod['requires_feature']);
+        $this->assertTrue($stripeMethod['locked']);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeaders($headers)
+            ->putJson('http://merchant.company.com/api/merchant/settings/payment-methods', [
+                'methods' => [
+                    [
+                        'id' => $stripeMethod['id'],
+                        'status' => true,
+                        'display_name' => 'Stripe',
+                        'checkout_label' => 'Pay with card',
+                        'sort_order' => 2,
+                    ],
+                ],
+            ])
+            ->assertStatus(402)
+            ->assertJsonPath('code', 'upgrade_required')
+            ->assertJsonPath('feature_code', 'external_gateways');
+
+        app(SubscriptionManagerService::class)->upsertPlan('gateway-unlocked', [
+            'name' => 'Gateway Unlocked',
+            'status' => 'active',
+            'is_public' => false,
+            'currency_code' => 'USD',
+            'prices' => [
+                'monthly' => 0,
+                'semiannual' => 0,
+                'yearly' => 0,
+            ],
+            'limits' => [
+                ['key' => 'products', 'value' => 20, 'is_unlimited' => false],
+                ['key' => 'custom_domains', 'value' => 0, 'is_unlimited' => false],
+                ['key' => 'staff_members', 'value' => 1, 'is_unlimited' => false],
+            ],
+            'features' => [
+                ['code' => 'external_gateways', 'label' => 'External payment gateways', 'group' => 'Payments & Delivery', 'type' => 'boolean', 'value' => true],
+            ],
+        ]);
+
+        app(SubscriptionManagerService::class)->assignPlanToTenant($context['tenant'], 'gateway-unlocked');
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeaders($headers)
+            ->putJson('http://merchant.company.com/api/merchant/settings/payment-methods', [
+                'methods' => [
+                    [
+                        'id' => $stripeMethod['id'],
+                        'status' => true,
+                        'display_name' => 'Stripe',
+                        'checkout_label' => 'Pay with card',
+                        'sort_order' => 2,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.provider_code', 'stripe')
+            ->assertJsonPath('data.0.status', true)
+            ->assertJsonPath('data.0.locked', false);
     }
 
     private function createMerchantContext(string $slug): array

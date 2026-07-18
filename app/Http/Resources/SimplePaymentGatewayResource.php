@@ -18,11 +18,13 @@ class SimplePaymentGatewayResource extends JsonResource
     public function toArray($request): array
     {
         return [
-            'id'     => $this->id,
-            'name'   => $this->name,
-            'slug'   => $this->slug,
-            'status' => $this->status,
-            'image'  => $this->image
+            'id'             => $this->id,
+            'name'           => $this->tenant_display_name ?: $this->name,
+            'slug'           => $this->slug,
+            'status'         => $this->status,
+            'image'          => $this->image,
+            'checkout_label' => $this->tenant_checkout_label,
+            'provider_code'  => $this->tenant_provider_code,
         ];
     }
 

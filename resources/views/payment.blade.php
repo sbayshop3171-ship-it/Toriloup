@@ -48,7 +48,7 @@
         <fieldset class="payment-fieldset hidden">
             @if (!blank($paymentGateways))
                 @foreach ($paymentGateways as $paymentGateway)
-                    @if(!$cashOnDelivery && $paymentGateway->slug === 'cash-on-delivery')
+                    @if(!$cashOnDelivery && in_array($paymentGateway->slug, ['cashondelivery', 'cash-on-delivery'], true))
                         @continue
                     @elseif (!$credit && $paymentGateway->slug === 'credit')
                         @continue

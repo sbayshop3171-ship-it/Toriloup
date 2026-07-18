@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\Activity;
 use App\Enums\OrderType;
+use App\Models\PaymentGateway;
 use App\Rules\ValidJsonOrder;
-use Illuminate\Validation\Rule;
-use Dipokhalder\Settings\Facades\Settings;
+use App\Services\Saas\TenantPaymentMethodCatalogService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class OrderRequest extends FormRequest
@@ -50,6 +49,26 @@ class OrderRequest extends FormRequest
         $validator->after(function ($validator) {
             if (request('order_type') != OrderType::DELIVERY && request('order_type') != OrderType::PICK_UP) {
                 $validator->errors()->add('order_type', 'This order type is disabled now you can try another order type right now or call the management.');
+            }
+
+            $tenant = $this->attributes->get(config('tenancy.tenant_request_attribute', 'saas.tenant'));
+
+            if ($tenant === null) {
+                return;
+            }
+
+            $paymentGateway = PaymentGateway::query()->find((int) $this->input('payment_method'));
+
+            if ($paymentGateway === null) {
+                $validator->errors()->add('payment_method', 'The selected payment method is invalid.');
+
+                return;
+            }
+
+            $activeGatewaySlugs = app(TenantPaymentMethodCatalogService::class)->activeGatewaySlugsForTenant($tenant);
+
+            if (!in_array($paymentGateway->slug, $activeGatewaySlugs, true)) {
+                $validator->errors()->add('payment_method', 'This payment method is not enabled for this store.');
             }
         });
     }

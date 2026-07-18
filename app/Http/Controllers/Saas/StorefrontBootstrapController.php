@@ -6,14 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\SettingResource;
 use App\Models\TenantFeatureFlag;
 use App\Models\TenantPaymentMethod;
+use App\Services\Saas\TenantPaymentMethodCatalogService;
 use App\Services\Saas\TenantSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StorefrontBootstrapController extends Controller
 {
-    public function __construct(private readonly TenantSettingsService $tenantSettingsService)
-    {
+    public function __construct(
+        private readonly TenantSettingsService $tenantSettingsService,
+        private readonly TenantPaymentMethodCatalogService $tenantPaymentMethodCatalogService,
+    ) {
     }
 
     public function __invoke(Request $request): JsonResponse
@@ -32,12 +35,18 @@ class StorefrontBootstrapController extends Controller
                 ->where('tenant_id', $tenant->id)
                 ->get(['feature_code', 'status', 'source'])
                 ->toArray() : [],
-            'payment_methods' => $tenant ? TenantPaymentMethod::query()
-                ->where('tenant_id', $tenant->id)
-                ->where('status', true)
-                ->orderBy('sort_order')
-                ->get(['provider_code', 'display_name', 'checkout_label', 'fee_type', 'fee_value'])
-                ->toArray() : [],
+            'payment_methods' => $tenant ? $this->tenantPaymentMethodCatalogService
+                ->activeMethodsForTenant($tenant)
+                ->map(fn (TenantPaymentMethod $method) => [
+                    'provider_code' => $method->provider_code,
+                    'gateway_slug' => $this->tenantPaymentMethodCatalogService->gatewaySlugForProviderCode($method->provider_code),
+                    'display_name' => $method->display_name,
+                    'checkout_label' => $method->checkout_label,
+                    'fee_type' => $method->fee_type,
+                    'fee_value' => $method->fee_value,
+                ])
+                ->values()
+                ->all() : [],
             'data' => $settings,
         ]);
     }

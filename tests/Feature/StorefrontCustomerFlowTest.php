@@ -18,6 +18,7 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
+use App\Models\TenantPaymentMethod;
 use App\Models\Unit;
 use App\Models\User;
 use Dipokhalder\Settings\Facades\Settings;
@@ -103,6 +104,78 @@ class StorefrontCustomerFlowTest extends TestCase
             ->getJson("http://{$tenant->slug}.company.com/api/frontend/overview/total-orders")
             ->assertForbidden()
             ->assertJsonPath('message', 'Forbidden. storefront token required.');
+    }
+
+    public function test_storefront_payment_gateways_follow_merchant_enabled_methods(): void
+    {
+        $tenant = $this->createTenant('payment-method-store');
+
+        PaymentGateway::query()->create([
+            'name' => 'Cash on Delivery',
+            'slug' => 'cashondelivery',
+            'status' => Activity::ENABLE,
+        ]);
+
+        PaymentGateway::query()->create([
+            'name' => 'Stripe',
+            'slug' => 'stripe',
+            'status' => Activity::ENABLE,
+        ]);
+
+        PaymentGateway::query()->create([
+            'name' => 'Paypal',
+            'slug' => 'paypal',
+            'status' => Activity::ENABLE,
+        ]);
+
+        TenantPaymentMethod::query()->create([
+            'tenant_id' => $tenant->id,
+            'provider_code' => 'cash_on_delivery',
+            'display_name' => 'Pay Later',
+            'status' => true,
+            'checkout_label' => 'Pay when delivered',
+            'fee_type' => 'none',
+            'fee_value' => 0,
+            'sort_order' => 1,
+            'config_json' => ['managed_by' => 'owner'],
+        ]);
+
+        TenantPaymentMethod::query()->create([
+            'tenant_id' => $tenant->id,
+            'provider_code' => 'stripe',
+            'display_name' => 'Card',
+            'status' => false,
+            'checkout_label' => 'Pay with card',
+            'fee_type' => 'none',
+            'fee_value' => 0,
+            'sort_order' => 2,
+            'config_json' => ['managed_by' => 'owner'],
+        ]);
+
+        TenantPaymentMethod::query()->create([
+            'tenant_id' => $tenant->id,
+            'provider_code' => 'paypal',
+            'display_name' => 'Paypal Express',
+            'status' => true,
+            'checkout_label' => 'Pay with Paypal',
+            'fee_type' => 'none',
+            'fee_value' => 0,
+            'sort_order' => 3,
+            'config_json' => ['managed_by' => 'owner'],
+        ]);
+
+        $response = $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/payment-gateway?status=".Activity::ENABLE);
+
+        $response->assertOk();
+
+        $gateways = collect($response->json('data'));
+
+        $this->assertSame(['cashondelivery', 'paypal'], $gateways->pluck('slug')->all());
+        $this->assertSame('Pay Later', $gateways->firstWhere('slug', 'cashondelivery')['name']);
+        $this->assertSame('Paypal Express', $gateways->firstWhere('slug', 'paypal')['name']);
+        $this->assertNull($gateways->firstWhere('slug', 'stripe'));
     }
 
     public function test_storefront_customer_can_create_address_place_order_and_complete_cod_checkout(): void

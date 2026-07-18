@@ -19,12 +19,27 @@
                         <div class="p-4 rounded-lg border border-gray-200 bg-white">
                             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
-                                    <h4 class="text-base font-semibold capitalize text-gray-900">{{ method.display_name || method.provider_code }}</h4>
-                                    <p class="text-sm text-gray-500">Provider: {{ method.provider_code }}</p>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="text-base font-semibold capitalize text-gray-900">{{ method.display_name || method.provider_code }}</h4>
+                                        <span
+                                            v-if="isMethodLocked(method)"
+                                            class="inline-flex items-center justify-center h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-primary bg-[#FFF4F1]">
+                                            Lock
+                                        </span>
+                                        <span
+                                            v-else-if="method.managed_by === 'owner'"
+                                            class="inline-flex items-center justify-center h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-emerald-700 bg-emerald-50">
+                                            Owner approved
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-gray-500">Provider: {{ method.gateway_slug || method.provider_code }}</p>
+                                    <p v-if="isMethodLocked(method)" class="mt-1 text-xs text-primary">
+                                        Upgrade your plan to enable this payment gateway.
+                                    </p>
                                 </div>
 
                                 <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                                    <input v-model="method.status" type="checkbox" class="w-4 h-4" />
+                                    <input v-model="method.status" :disabled="isMethodLocked(method) && !method.status" type="checkbox" class="w-4 h-4 disabled:cursor-not-allowed" />
                                     {{ $t("label.status") }}
                                 </label>
                             </div>
@@ -167,8 +182,15 @@ export default {
         paymentGateways: function () {
             return this.$store.getters["paymentGateway/lists"];
         },
+        merchantSetup: function () {
+            return this.$store.getters["merchantDashboard/setup"];
+        },
     },
     mounted() {
+        if (this.isMerchantWorkspace && !this.merchantSetup) {
+            this.$store.dispatch("merchantDashboard/setup").catch(() => {});
+        }
+
         this.load();
     },
     methods: {
@@ -194,6 +216,20 @@ export default {
                 this.loading.isActive = false;
                 alertService.error(err);
             }
+        },
+        hasFeature: function (featureCode) {
+            if (!featureCode) {
+                return true;
+            }
+
+            if (!this.merchantSetup) {
+                return false;
+            }
+
+            return this.merchantSetup?.billing?.features?.features?.[featureCode]?.status === true;
+        },
+        isMethodLocked: function (method) {
+            return Boolean(method?.locked || (method?.requires_feature && !this.hasFeature(method.requires_feature)));
         },
         saveMerchantMethods: function () {
             try {

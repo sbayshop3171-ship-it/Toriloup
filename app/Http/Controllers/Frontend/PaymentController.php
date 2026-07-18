@@ -17,8 +17,10 @@ use App\Libraries\AppLibrary;
 use App\Models\Currency;
 use App\Models\Order;
 use App\Models\PaymentGateway;
+use App\Models\TenantPaymentMethod;
 use App\Models\ThemeSetting;
 use App\Services\PaymentManagerService;
+use App\Services\Saas\TenantPaymentMethodCatalogService;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Dipokhalder\Settings\Facades\Settings;
@@ -27,26 +29,32 @@ class PaymentController extends Controller
 {
     private PaymentManagerService $paymentManagerService;
 
-    public function __construct(PaymentManagerService $paymentManagerService)
-    {
+    public function __construct(
+        PaymentManagerService $paymentManagerService,
+        private readonly TenantPaymentMethodCatalogService $tenantPaymentMethodCatalogService,
+    ) {
         $this->paymentManagerService = $paymentManagerService;
     }
 
     public function index(PaymentGateway $paymentGateway, Order $order): \Illuminate\Contracts\View\Factory|\Illuminate\Foundation\Application|\Illuminate\Contracts\View\View|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
+        if (!$this->orderCanUseGateway($order, $paymentGateway->slug)) {
+            return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
+        }
+
         $credit          = false;
         $cashOnDelivery  = false;
-        $paymentGateways = PaymentGateway::with('gatewayOptions')->where(['status' => Activity::ENABLE])->get();
+        $paymentGateways = $this->paymentGatewaysForOrder($order);
         $company         = Settings::group('company')->all();
         $site            = Settings::group('site')->all();
         $logo            = ThemeSetting::where(['key' => 'theme_logo'])->first();
         $faviconLogo     = ThemeSetting::where(['key' => 'theme_favicon_logo'])->first();
         $currency        = Currency::findOrFail(Settings::group('site')->get('site_default_currency'));
-        if ($order?->user?->balance >= $order->total) {
+        if ($order?->user?->balance >= $order->total && $this->orderAllowsGateway($order, 'credit')) {
             $credit = true;
         }
 
-        if ($site['site_cash_on_delivery'] == Activity::ENABLE) {
+        if (($site['site_cash_on_delivery'] ?? Activity::DISABLE) == Activity::ENABLE && $this->orderAllowsGateway($order, 'cashondelivery')) {
             $cashOnDelivery = true;
         }
 
@@ -69,6 +77,13 @@ class PaymentController extends Controller
 
     public function payment(Order $order, PaymentRequest $request)
     {
+        if (!$this->orderCanUseGateway($order, $request->paymentMethod)) {
+            return redirect()->route('payment.index', [
+                'paymentGateway' => $order->paymentMethod?->slug ?? $request->paymentMethod,
+                'order' => $order,
+            ])->with('error', trans('all.message.payment_gateway_disable'));
+        }
+
         if ($this->paymentManagerService->gateway($request->paymentMethod)->status()) {
             $className = 'App\\Http\\PaymentGateways\\PaymentRequests\\' . ucfirst($request->paymentMethod);
             $gateway   = new $className;
@@ -111,5 +126,59 @@ class PaymentController extends Controller
         }
 
         return redirect('/account/order-success/' . $order->id);
+    }
+
+    private function orderCanUseGateway(Order $order, string $gatewaySlug): bool
+    {
+        $order->loadMissing('paymentMethod');
+
+        return $order->paymentMethod?->slug === $gatewaySlug
+            && $this->orderAllowsGateway($order, $gatewaySlug);
+    }
+
+    private function orderAllowsGateway(Order $order, string $gatewaySlug): bool
+    {
+        $order->loadMissing('tenant');
+
+        if (!filled($order->tenant_id) || $order->tenant === null) {
+            return PaymentGateway::query()
+                ->where('slug', $gatewaySlug)
+                ->where('status', Activity::ENABLE)
+                ->exists();
+        }
+
+        return in_array(
+            $gatewaySlug,
+            $this->tenantPaymentMethodCatalogService->activeGatewaySlugsForTenant($order->tenant),
+            true
+        );
+    }
+
+    private function paymentGatewaysForOrder(Order $order)
+    {
+        $order->loadMissing('tenant');
+
+        if (!filled($order->tenant_id) || $order->tenant === null) {
+            return PaymentGateway::with('gatewayOptions')
+                ->where(['status' => Activity::ENABLE])
+                ->get();
+        }
+
+        $activeMethods = $this->tenantPaymentMethodCatalogService->activeMethodsForTenant($order->tenant);
+        $methodsBySlug = $activeMethods->keyBy(
+            fn (TenantPaymentMethod $method): string => $this->tenantPaymentMethodCatalogService->gatewaySlugForProviderCode($method->provider_code)
+        );
+
+        return PaymentGateway::with('gatewayOptions')
+            ->whereIn('slug', $methodsBySlug->keys()->all())
+            ->where(['status' => Activity::ENABLE])
+            ->get()
+            ->each(function (PaymentGateway $gateway) use ($methodsBySlug): void {
+                $method = $methodsBySlug->get($gateway->slug);
+
+                if ($method instanceof TenantPaymentMethod) {
+                    $gateway->setAttribute('name', $method->display_name ?: $gateway->name);
+                }
+            });
     }
 }
