@@ -226,10 +226,43 @@ class MerchantDashboardController extends Controller
 
     private function fallbackDomain(Tenant $tenant): ?TenantDomain
     {
-        return $tenant->domains()
+        $domain = $tenant->domains()
             ->where('is_fallback', true)
             ->orderByDesc('is_primary')
             ->first();
+
+        if ($domain instanceof TenantDomain) {
+            return $domain;
+        }
+
+        $suffix = trim((string) config('saas.fallback_subdomain_suffix', 'toriloup.com'), '.');
+
+        if ($suffix === '' || !filled($tenant->slug)) {
+            return null;
+        }
+
+        $hostname = $tenant->slug.'.'.$suffix;
+        $hasPrimaryDomain = $tenant->domains()->where('is_primary', true)->exists();
+        $domain = $tenant->domains()->where('hostname', $hostname)->first();
+
+        if ($domain instanceof TenantDomain) {
+            $domain->forceFill([
+                'is_fallback' => true,
+                'is_primary' => $domain->is_primary || !$hasPrimaryDomain,
+            ])->save();
+
+            return $domain->fresh();
+        }
+
+        return $tenant->domains()->create([
+            'hostname' => $hostname,
+            'domain_type' => 'subdomain',
+            'is_primary' => !$hasPrimaryDomain,
+            'is_fallback' => true,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+            'dns_provider' => 'platform',
+        ]);
     }
 
     private function primaryDomain(Tenant $tenant): ?TenantDomain

@@ -127,6 +127,8 @@
 </template>
 
 <script>
+import ENV from "../../../config/env";
+
 export default {
     name: "MerchantSetupChecklistComponent",
     props: {
@@ -137,13 +139,28 @@ export default {
     },
     computed: {
         steps: function () {
-            return this.setup?.checklist || [];
+            const checklist = this.setup?.checklist;
+
+            if (Array.isArray(checklist) && checklist.length > 0) {
+                return checklist;
+            }
+
+            return this.defaultChecklist;
         },
         progress: function () {
-            return this.setup?.progress || {
-                completed: 0,
-                total: this.steps.length,
-                percent: 0,
+            const progress = this.setup?.progress;
+
+            if (progress && Number(progress.total || 0) > 0) {
+                return progress;
+            }
+
+            const completed = this.steps.filter((step) => step.completed === true).length;
+            const total = this.steps.length;
+
+            return {
+                completed,
+                total,
+                percent: total > 0 ? Math.round((completed / total) * 100) : 0,
             };
         },
         metrics: function () {
@@ -153,10 +170,18 @@ export default {
             return this.metrics.recent_orders || [];
         },
         storefrontHost: function () {
-            return this.metrics.primary_domain?.hostname || this.metrics.fallback_domain?.hostname || "";
+            return this.metrics.primary_domain?.hostname
+                || this.metrics.fallback_domain?.hostname
+                || this.fallbackStorefrontHost;
         },
         storefrontUrl: function () {
             return this.metrics.storefront_url || (this.storefrontHost ? "https://" + this.storefrontHost : "");
+        },
+        fallbackStorefrontHost: function () {
+            const slug = this.setup?.tenant?.slug || "";
+            const suffix = ENV.STOREFRONT_SUFFIX || ENV.MARKETING_HOST || "toriloup.com";
+
+            return slug ? `${slug}.${String(suffix).replace(/^\.+|\.+$/g, "")}` : "";
         },
         setupIconMap: function () {
             return {
@@ -190,6 +215,50 @@ export default {
     data() {
         return {
             copied: false,
+            defaultChecklist: [
+                {
+                    key: "general_settings",
+                    title: "General Settings",
+                    description: "Add store name, logo, contact, and address.",
+                    route_name: "admin.settings.company",
+                    completed: false,
+                },
+                {
+                    key: "business_localization",
+                    title: "Business & Localization",
+                    description: "Confirm currency, timezone, language, and country.",
+                    route_name: "admin.settings.company",
+                    completed: false,
+                },
+                {
+                    key: "first_product",
+                    title: "Add Your First Product",
+                    description: "Upload product details, images, pricing, and stock.",
+                    route_name: "admin.products.list",
+                    completed: false,
+                },
+                {
+                    key: "shipping_delivery",
+                    title: "Shipping & Delivery Setup",
+                    description: "Set delivery method and store-level delivery charges.",
+                    route_name: "admin.settings.shippingSetup",
+                    completed: false,
+                },
+                {
+                    key: "payment_methods",
+                    title: "Payment Method Setup",
+                    description: "Enable COD or owner-approved online payment methods.",
+                    route_name: "admin.settings.paymentGateway",
+                    completed: false,
+                },
+                {
+                    key: "launch_domain",
+                    title: "Launch & Domain Verification",
+                    description: "Keep fallback subdomain active and connect custom domain when ready.",
+                    route_name: "admin.settings.domains",
+                    completed: false,
+                },
+            ],
         };
     },
     methods: {

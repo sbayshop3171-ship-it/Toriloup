@@ -288,6 +288,32 @@ class MerchantTenantIsolationTest extends TestCase
         $this->assertSame(true, $firstProductStep['completed']);
     }
 
+    public function test_merchant_dashboard_recovers_missing_fallback_domain(): void
+    {
+        $context = $this->createMerchantContext('recovered-dashboard-store');
+        TenantDomain::query()->where('tenant_id', $context['tenant']->id)->delete();
+
+        Sanctum::actingAs($context['user'], ['surface:merchant']);
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/dashboard/setup')
+            ->assertOk()
+            ->assertJsonPath('data.metrics.fallback_domain.hostname', 'recovered-dashboard-store.company.com')
+            ->assertJsonPath('data.metrics.primary_domain.hostname', 'recovered-dashboard-store.company.com')
+            ->assertJsonCount(6, 'data.checklist');
+
+        $this->assertDatabaseHas('tenant_domains', [
+            'tenant_id' => $context['tenant']->id,
+            'hostname' => 'recovered-dashboard-store.company.com',
+            'is_fallback' => true,
+            'is_primary' => true,
+            'verification_status' => 'verified',
+        ]);
+    }
+
     public function test_merchant_can_create_same_product_sku_in_different_tenants(): void
     {
         $context = $this->createMerchantContext('gamma-store');

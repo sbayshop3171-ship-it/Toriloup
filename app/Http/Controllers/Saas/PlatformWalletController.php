@@ -12,6 +12,7 @@ use App\Services\Saas\MerchantWalletService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -23,6 +24,16 @@ class PlatformWalletController extends Controller
 
     public function overview(): JsonResponse
     {
+        if (!$this->walletStorageReady()) {
+            return response()->json([
+                'status' => true,
+                'setup_required' => true,
+                'message' => 'Wallet database tables are not ready yet. Please run migrations, then refresh this page.',
+                'summary' => $this->emptySummary(),
+                'recent_withdrawals' => [],
+            ]);
+        }
+
         return response()->json([
             'status' => true,
             'summary' => $this->walletService->platformOverview(),
@@ -38,6 +49,10 @@ class PlatformWalletController extends Controller
 
     public function wallets(Request $request): JsonResponse
     {
+        if (!$this->walletStorageReady()) {
+            return response()->json($this->emptyPaginatedResponse());
+        }
+
         $wallets = MerchantWallet::withoutGlobalScopes()
             ->with('tenant:id,name,slug,status,primary_currency_code')
             ->when($request->filled('tenant_id'), fn (Builder $query): Builder => $query->where('tenant_id', $request->integer('tenant_id')))
@@ -70,6 +85,10 @@ class PlatformWalletController extends Controller
 
     public function transactions(Request $request): JsonResponse
     {
+        if (!$this->walletStorageReady()) {
+            return response()->json($this->emptyPaginatedResponse());
+        }
+
         $transactions = $this->transactionQuery($request)->paginate($this->perPage($request));
 
         return response()->json([
@@ -91,6 +110,10 @@ class PlatformWalletController extends Controller
 
     public function withdrawals(Request $request): JsonResponse
     {
+        if (!$this->walletStorageReady()) {
+            return response()->json($this->emptyPaginatedResponse());
+        }
+
         $withdrawals = $this->withdrawalQuery($request)->paginate($this->perPage($request));
 
         return response()->json([
@@ -109,6 +132,10 @@ class PlatformWalletController extends Controller
 
     public function approveWithdrawal(Request $request, int $withdrawalId): JsonResponse
     {
+        if (!$this->walletStorageReady()) {
+            return $this->storageNotReadyResponse();
+        }
+
         $payload = $request->validate([
             'payout_reference' => ['nullable', 'string', 'max:120'],
             'admin_note' => ['nullable', 'string', 'max:700'],
@@ -136,6 +163,10 @@ class PlatformWalletController extends Controller
 
     public function rejectWithdrawal(Request $request, int $withdrawalId): JsonResponse
     {
+        if (!$this->walletStorageReady()) {
+            return $this->storageNotReadyResponse();
+        }
+
         $payload = $request->validate([
             'reason' => ['required', 'string', 'max:700'],
         ]);
@@ -161,6 +192,13 @@ class PlatformWalletController extends Controller
 
     public function payoutMethods(): JsonResponse
     {
+        if (!Schema::hasTable('merchant_payout_methods')) {
+            return response()->json([
+                'status' => true,
+                'data' => [],
+            ]);
+        }
+
         return response()->json([
             'status' => true,
             'data' => $this->walletService->payoutMethods(),
@@ -169,6 +207,10 @@ class PlatformWalletController extends Controller
 
     public function upsertPayoutMethod(Request $request): JsonResponse
     {
+        if (!Schema::hasTable('merchant_payout_methods')) {
+            return $this->storageNotReadyResponse();
+        }
+
         $payload = $request->validate([
             'code' => ['nullable', 'string', 'max:60'],
             'name' => ['required', 'string', 'max:120'],
@@ -201,6 +243,23 @@ class PlatformWalletController extends Controller
 
     public function statement(Request $request): JsonResponse
     {
+        if (!$this->walletStorageReady()) {
+            return response()->json([
+                'status' => true,
+                'setup_required' => true,
+                'data' => [
+                    'tenant' => null,
+                    'summary' => $this->emptySummary(),
+                    'totals' => $this->emptyTotals(),
+                    'filters' => [
+                        'tenant_id' => $request->input('tenant_id'),
+                        'from_date' => $request->input('from_date'),
+                        'to_date' => $request->input('to_date'),
+                    ],
+                ],
+            ]);
+        }
+
         $request->validate([
             'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
             'from_date' => ['nullable', 'date'],
@@ -234,6 +293,14 @@ class PlatformWalletController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
+        if (!$this->walletStorageReady()) {
+            return response()->streamDownload(function (): void {
+                $output = fopen('php://output', 'w');
+                fputcsv($output, ['Wallet storage is not ready. Run migrations, then export again.']);
+                fclose($output);
+            }, 'platform-wallet-export.csv', ['Content-Type' => 'text/csv']);
+        }
+
         $request->validate([
             'type' => ['nullable', 'in:transactions,withdrawals,wallets'],
         ]);
@@ -357,6 +424,80 @@ class PlatformWalletController extends Controller
     private function perPage(Request $request): int
     {
         return min(max((int) $request->input('per_page', 15), 1), 100);
+    }
+
+    private function walletStorageReady(): bool
+    {
+        foreach (['merchant_wallets', 'merchant_wallet_transactions', 'merchant_withdrawals', 'merchant_payout_methods'] as $table) {
+            if (!Schema::hasTable($table)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyPaginatedResponse(): array
+    {
+        return [
+            'status' => true,
+            'setup_required' => true,
+            'message' => 'Wallet database tables are not ready yet. Please run migrations, then refresh this page.',
+            'data' => [],
+            'meta' => [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => 15,
+                'total' => 0,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, float|int>
+     */
+    private function emptySummary(): array
+    {
+        return [
+            'wallets_count' => 0,
+            'available_balance' => 0,
+            'holding_balance' => 0,
+            'pending_withdrawal_balance' => 0,
+            'total_earned' => 0,
+            'total_withdrawn' => 0,
+            'total_fees' => 0,
+            'total_refunded' => 0,
+            'withdrawals_pending_count' => 0,
+            'withdrawals_pending_amount' => 0,
+            'withdrawals_approved_count' => 0,
+        ];
+    }
+
+    /**
+     * @return array<string, float|int>
+     */
+    private function emptyTotals(): array
+    {
+        return [
+            'gross_sales' => 0,
+            'net_sales' => 0,
+            'fees' => 0,
+            'refunds' => 0,
+            'withdrawal_requests' => 0,
+            'withdrawal_reversals' => 0,
+        ];
+    }
+
+    private function storageNotReadyResponse(): JsonResponse
+    {
+        return response()->json([
+            'status' => false,
+            'setup_required' => true,
+            'message' => 'Wallet database tables are not ready yet. Please run migrations, then refresh this page.',
+        ], 503);
     }
 
     private function statusCode(Throwable $exception): int
