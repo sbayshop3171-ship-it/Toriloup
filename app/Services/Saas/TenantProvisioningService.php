@@ -36,6 +36,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role as SpatieRole;
@@ -327,6 +328,94 @@ class TenantProvisioningService
         $this->seedTenantCopies($tenant, Tax::class, ['name', 'code', 'tax_rate', 'status'], ['code']);
         $this->seedTenantCopies($tenant, Outlet::class, ['name', 'email', 'phone', 'country_code', 'latitude', 'longitude', 'city', 'state', 'zip_code', 'address', 'status'], ['name']);
         $this->seedProductCatalogDefaults($tenant);
+    }
+
+    public function seedStorefrontDefaultsIfNeeded(Tenant $tenant): bool
+    {
+        if (!Schema::hasTable('tenant_demo_content_seeds')) {
+            return false;
+        }
+
+        if (!$this->hasMissingStorefrontDefaultSeeds($tenant)) {
+            return false;
+        }
+
+        DB::transaction(fn () => $this->seedStorefrontDefaults($tenant));
+
+        return true;
+    }
+
+    private function hasMissingStorefrontDefaultSeeds(Tenant $tenant): bool
+    {
+        foreach ($this->storefrontTemplateModels() as $modelClass) {
+            $sourceIds = $this->templateQuery($modelClass)->pluck('id');
+
+            if ($sourceIds->isEmpty()) {
+                continue;
+            }
+
+            $seededSourceCount = TenantDemoContentSeed::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('source_type', $modelClass)
+                ->whereIn('source_id', $sourceIds)
+                ->count();
+
+            if ($seededSourceCount < $sourceIds->count()) {
+                return true;
+            }
+        }
+
+        return $this->hasMissingProductTagSeeds($tenant);
+    }
+
+    /**
+     * @return array<int, class-string<Model>>
+     */
+    private function storefrontTemplateModels(): array
+    {
+        return [
+            Slider::class,
+            Page::class,
+            Benefit::class,
+            Currency::class,
+            Tax::class,
+            Outlet::class,
+            ProductCategory::class,
+            ProductBrand::class,
+            Unit::class,
+            ProductAttribute::class,
+            ProductAttributeOption::class,
+            Product::class,
+            ProductTax::class,
+            ProductVideo::class,
+            ProductSeo::class,
+            ProductVariation::class,
+            ProductSection::class,
+            ProductSectionProduct::class,
+        ];
+    }
+
+    private function hasMissingProductTagSeeds(Tenant $tenant): bool
+    {
+        $ownerProductIds = $this->templateQuery(Product::class)->pluck('id');
+
+        if ($ownerProductIds->isEmpty()) {
+            return false;
+        }
+
+        $sourceTagIds = ProductTag::query()
+            ->whereIn('product_id', $ownerProductIds)
+            ->pluck('id');
+
+        if ($sourceTagIds->isEmpty()) {
+            return false;
+        }
+
+        return TenantDemoContentSeed::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('source_type', ProductTag::class)
+            ->whereIn('source_id', $sourceTagIds)
+            ->count() < $sourceTagIds->count();
     }
 
     private function seedProductCatalogDefaults(Tenant $tenant): void

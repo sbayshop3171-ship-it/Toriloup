@@ -198,6 +198,53 @@ class TenantDemoContentProvisioningTest extends TestCase
         $this->assertNotSame($alphaProduct->id, $betaProduct->id);
     }
 
+    public function test_storefront_request_syncs_owner_demo_content_added_after_tenant_exists(): void
+    {
+        Storage::fake('public');
+
+        $tenant = $this->createTenant('lazy-storefront');
+        $source = $this->createOwnerDemoCatalog();
+
+        $this->assertDatabaseMissing('tenant_demo_content_seeds', [
+            'tenant_id' => $tenant->id,
+            'source_type' => Slider::class,
+            'source_id' => $source['slider']->id,
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson('http://lazy-storefront.company.com/api/frontend/slider?paginate=0&status='.Status::ACTIVE)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Demo Hero');
+
+        $tenantSlider = Slider::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('title', $source['slider']->title)
+            ->firstOrFail();
+        $tenantProduct = Product::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('sku', $source['product']->sku)
+            ->firstOrFail();
+
+        $this->assertNotSame($source['slider']->id, $tenantSlider->id);
+        $this->assertCount(1, $tenantSlider->getMedia('slider'));
+        $this->assertCount(1, $tenantProduct->getMedia('product'));
+        $this->assertDatabaseHas('tenant_demo_content_seeds', [
+            'tenant_id' => $tenant->id,
+            'source_type' => Slider::class,
+            'source_id' => $source['slider']->id,
+            'target_id' => $tenantSlider->id,
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson('http://lazy-storefront.company.com/api/frontend/product')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tenantProduct->id);
+    }
+
     public function test_owner_demo_product_validation_ignores_tenant_copies_with_matching_name_and_sku(): void
     {
         $tenant = $this->createTenant('tenant-copy');
