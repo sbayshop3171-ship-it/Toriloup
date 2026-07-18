@@ -16,6 +16,9 @@ class SetTenantContext
         $tenant = $request->attributes->get($tenantAttribute);
         $tenantDomain = $request->attributes->get($domainAttribute);
 
+        app()->forgetInstance('currentTenant');
+        app()->forgetInstance('currentTenantDomain');
+
         if ($tenant !== null) {
             app()->instance('currentTenant', $tenant);
         }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,6 +25,10 @@ class TaxRequest extends FormRequest
      */
     public function rules(): array
     {
+        $tax = $this->route('tax') ?? $this->route('taxId');
+        $taxId = is_object($tax) ? $tax->id : $tax;
+        $tenantId = app(TenantContext::class)->currentId($this);
+
         return [
             'name'              => [
                 'required',
@@ -34,7 +39,9 @@ class TaxRequest extends FormRequest
                 'required',
                 'string',
                 'max:20',
-                Rule::unique("taxes", "code")->ignore($this->route('tax.id'))
+                Rule::unique("taxes", "code")
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($taxId)
             ],
             'tax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'status'   => ['required', 'numeric'],

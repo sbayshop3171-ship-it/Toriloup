@@ -13,7 +13,7 @@ class TenantContext
 {
     public function current(?Request $request = null): ?Tenant
     {
-        $request ??= request();
+        $request ??= app()->bound('request') ? request() : null;
         $tenantAttribute = config('tenancy.tenant_request_attribute', 'saas.tenant');
 
         $tenant = $request?->attributes->get($tenantAttribute);
@@ -33,7 +33,13 @@ class TenantContext
             }
         }
 
-        if (app()->bound('currentTenant')) {
+        $tenant = $this->resolveFromHost($request);
+
+        if ($tenant instanceof Tenant) {
+            return $tenant;
+        }
+
+        if (!$request instanceof Request && app()->bound('currentTenant')) {
             $tenant = app('currentTenant');
 
             if ($tenant instanceof Tenant) {
@@ -51,7 +57,23 @@ class TenantContext
 
     public function currentDomain(?Request $request = null): ?TenantDomain
     {
-        if (app()->bound('currentTenantDomain')) {
+        $request ??= app()->bound('request') ? request() : null;
+        $domainAttribute = config('tenancy.tenant_domain_attribute', 'saas.tenant_domain');
+        $domain = $request?->attributes->get($domainAttribute);
+
+        if ($domain instanceof TenantDomain) {
+            return $domain;
+        }
+
+        $domain = $this->resolveDomainFromHost($request);
+
+        if ($domain instanceof TenantDomain) {
+            $this->set($domain->tenant, $domain, $request);
+
+            return $domain;
+        }
+
+        if (!$request instanceof Request && app()->bound('currentTenantDomain')) {
             $domain = app('currentTenantDomain');
 
             if ($domain instanceof TenantDomain) {
@@ -59,11 +81,7 @@ class TenantContext
             }
         }
 
-        $request ??= request();
-        $domainAttribute = config('tenancy.tenant_domain_attribute', 'saas.tenant_domain');
-        $domain = $request?->attributes->get($domainAttribute);
-
-        return $domain instanceof TenantDomain ? $domain : null;
+        return null;
     }
 
     public function set(Tenant $tenant, ?TenantDomain $domain = null, ?Request $request = null): void
@@ -131,5 +149,27 @@ class TenantContext
         }
 
         return $membershipQuery->first()?->tenant;
+    }
+
+    private function resolveFromHost(?Request $request): ?Tenant
+    {
+        $domain = $this->resolveDomainFromHost($request);
+
+        if (!$domain instanceof TenantDomain) {
+            return null;
+        }
+
+        $this->set($domain->tenant, $domain, $request);
+
+        return $domain->tenant;
+    }
+
+    private function resolveDomainFromHost(?Request $request): ?TenantDomain
+    {
+        if (!$request instanceof Request) {
+            return null;
+        }
+
+        return app(TenantResolver::class)->resolveFromRequest($request);
     }
 }

@@ -36,6 +36,10 @@ export const isMerchantHost = function (hostname = window.location.hostname) {
     return detectWorkspaceHost(hostname) === "merchant";
 };
 
+export const isStorefrontHost = function (hostname = window.location.hostname) {
+    return detectWorkspaceHost(hostname) === "storefront";
+};
+
 export const isAdminSurfaceHost = function (hostname = window.location.hostname) {
     const workspace = detectWorkspaceHost(hostname);
 

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\DiscountType;
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -25,15 +26,28 @@ class CouponRequest extends FormRequest
      */
     public function rules(): array
     {
+        $coupon = $this->route('coupon') ?? $this->route('couponId');
+        $couponId = is_object($coupon) ? $coupon->id : $coupon;
+        $tenantId = app(TenantContext::class)->currentId($this);
+
         return [
             'name'        => [
                 'required',
                 'string',
                 'max:190',
-                Rule::unique("coupons", "name")->ignore($this->route('coupon.id'))
+                Rule::unique("coupons", "name")
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($couponId)
             ],
             'description'      => ['nullable', 'string', 'max:900'],
-            'code'             => ['required', 'string', 'max:24', Rule::unique("coupons", "code")->ignore($this->route('coupon.id'))],
+            'code'             => [
+                'required',
+                'string',
+                'max:24',
+                Rule::unique("coupons", "code")
+                    ->when($tenantId !== null, fn ($rule) => $rule->where('tenant_id', $tenantId))
+                    ->ignore($couponId)
+            ],
             'discount'         => ['required', 'numeric'],
             'discount_type'    => ['required', 'numeric', 'max:24'],
             'start_date'       => ['required', 'string',],
@@ -41,7 +55,7 @@ class CouponRequest extends FormRequest
             'minimum_order'    => ['required', 'numeric'],
             'maximum_discount' => ['required', 'numeric'],
             'limit_per_user'   => ['nullable', 'numeric'],
-            'image'            => $this->route('coupon.id') ? ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'] : ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'image'            => $couponId ? ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'] : ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
 
         ];
     }

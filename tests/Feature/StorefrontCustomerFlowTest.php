@@ -16,6 +16,7 @@ use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\Slider;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantPaymentMethod;
@@ -63,6 +64,20 @@ class StorefrontCustomerFlowTest extends TestCase
 
         $alphaProduct = $this->createProductForTenant($alpha, 'Alpha Shirt', 'alpha-shirt', '1000001');
         $this->createProductForTenant($beta, 'Beta Shirt', 'beta-shirt', '1000002');
+        $alphaSlider = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => $alpha->id,
+            'title' => 'Alpha Hero',
+            'link' => 'https://alpha.example.test',
+            'description' => 'Alpha storefront banner',
+            'status' => Status::ACTIVE,
+        ]);
+        $betaSlider = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => $beta->id,
+            'title' => 'Beta Hero',
+            'link' => 'https://beta.example.test',
+            'description' => 'Beta storefront banner',
+            'status' => Status::ACTIVE,
+        ]);
 
         $this
             ->withHeaders($this->jsonHeaders())
@@ -71,6 +86,21 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $alphaProduct->id)
             ->assertJsonPath('data.0.slug', 'alpha-shirt');
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson('http://alpha-store.company.com/api/frontend/slider?paginate=0&status='.Status::ACTIVE)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $alphaSlider->id)
+            ->assertJsonPath('data.0.image', null);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson('http://beta-store.company.com/api/frontend/slider?paginate=0&status='.Status::ACTIVE)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $betaSlider->id);
 
         $this
             ->withHeaders($this->jsonHeaders())

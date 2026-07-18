@@ -3,7 +3,7 @@
     <section class="mb-10 sm:mb-20">
         <div class="container">
             <Swiper
-                v-if="sliders.length > 0"
+                v-if="visibleSliders.length > 0"
                 dir="rtl"
                 :slides-per-view="1"
                 :speed="1000"
@@ -14,7 +14,7 @@
                 :modules="modules"
                 class="banner-swiper"
             >
-                <SwiperSlide v-for="slider in sliders">
+                <SwiperSlide v-for="slider in visibleSliders" :key="slider.id">
                     <div v-if="slider.link">
                         <a :href="slider.link">
                             <img class="w-full rounded-2xl" :src="slider.image" alt="banner" >
@@ -66,6 +66,9 @@ export default {
     computed: {
         sliders: function () {
             return this.$store.getters['frontendSlider/lists'];
+        },
+        visibleSliders: function () {
+            return this.sliders.filter((slider) => slider.image);
         }
     },
     mounted() {
