@@ -41,9 +41,9 @@ return new class extends Migration
 
         Schema::create('subscription_checkout_sessions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
-            $table->foreignId('tenant_subscription_id')->constrained('tenant_subscriptions')->cascadeOnDelete();
-            $table->foreignId('tenant_subscription_invoice_id')->constrained('tenant_subscription_invoices')->cascadeOnDelete();
+            $table->foreignId('tenant_id');
+            $table->foreignId('tenant_subscription_id');
+            $table->foreignId('tenant_subscription_invoice_id');
             $table->string('provider_code', 80);
             $table->enum('status', ['pending', 'completed', 'cancelled', 'failed', 'expired'])->default('pending');
             $table->string('session_token', 100)->unique();
@@ -56,6 +56,9 @@ return new class extends Migration
             $table->timestamps();
             $table->index(['provider_code', 'status']);
             $table->index(['tenant_id', 'status']);
+            $table->foreign('tenant_id', 'sub_checkout_tenant_fk')->references('id')->on('tenants')->cascadeOnDelete();
+            $table->foreign('tenant_subscription_id', 'sub_checkout_subscription_fk')->references('id')->on('tenant_subscriptions')->cascadeOnDelete();
+            $table->foreign('tenant_subscription_invoice_id', 'sub_checkout_invoice_fk')->references('id')->on('tenant_subscription_invoices')->cascadeOnDelete();
         });
 
         Schema::table('tenant_subscriptions', function (Blueprint $table) {
