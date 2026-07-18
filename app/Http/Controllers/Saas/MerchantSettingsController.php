@@ -8,6 +8,7 @@ use App\Http\Requests\ShippingSetupRequest;
 use App\Http\Resources\CompanyResource;
 use App\Http\Resources\ShippingSetupResource;
 use App\Models\Tenant;
+use App\Models\TenantDomain;
 use App\Models\TenantPaymentMethod;
 use App\Services\Saas\PlatformAuditLogService;
 use App\Services\Saas\TenantSettingsService;
@@ -28,7 +29,7 @@ class MerchantSettingsController extends Controller
     {
         $tenant = $this->currentTenant();
 
-        return new CompanyResource($this->tenantSettingsService->mergedForTenant($tenant));
+        return new CompanyResource($this->companySettings($tenant));
     }
 
     public function updateCompany(CompanyRequest $request): CompanyResource
@@ -39,7 +40,8 @@ class MerchantSettingsController extends Controller
 
         $tenant = $this->currentTenant();
         $settings = $request->validated();
-        $oldValues = $this->tenantSettingsService->mergedForTenant($tenant);
+        $settings['company_website'] = $this->storefrontUrl($tenant) ?? $settings['company_website'] ?? null;
+        $oldValues = $this->companySettings($tenant);
 
         if ($request->hasFile('company_logo_file')) {
             $logoPath = $request->file('company_logo_file')->store("tenants/{$tenant->id}/branding", 'public');
@@ -68,6 +70,35 @@ class MerchantSettingsController extends Controller
         );
 
         return new CompanyResource($merged);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function companySettings(Tenant $tenant): array
+    {
+        $settings = $this->tenantSettingsService->mergedForTenant($tenant);
+        $settings['company_website'] = $this->storefrontUrl($tenant) ?? $settings['company_website'] ?? null;
+
+        return $settings;
+    }
+
+    private function storefrontUrl(Tenant $tenant): ?string
+    {
+        $domain = $tenant->domains()
+            ->where('is_primary', true)
+            ->orderByDesc('is_fallback')
+            ->first();
+
+        if ($domain === null) {
+            $domain = $tenant->domains()
+                ->where('is_fallback', true)
+                ->first();
+        }
+
+        return $domain instanceof TenantDomain && filled($domain->hostname)
+            ? 'https://'.$domain->hostname
+            : null;
     }
 
     public function shipping(): ShippingSetupResource

@@ -76,8 +76,13 @@
                         <label for="website" class="db-field-title">
                             {{ $t("label.website") }}
                         </label>
-                        <input v-model="form.company_website" v-bind:class="errors.company_website ? 'invalid' : ''"
-                            type="text" id="website" class="db-field-control" />
+                        <input v-model="form.company_website"
+                            :class="[errors.company_website ? 'invalid' : '', merchantHost ? 'bg-[#F8FAFC] cursor-not-allowed text-paragraph' : '']"
+                            :readonly="merchantHost" type="text" id="website" class="db-field-control"
+                        />
+                        <small v-if="merchantHost" class="block text-xs leading-5 text-paragraph mt-1">
+                            Website is managed from Domains and updates automatically.
+                        </small>
                         <small class="db-field-alert" v-if="errors.company_website">{{
                             errors.company_website[0]
                             }}</small>
@@ -167,6 +172,7 @@
 import LoadingComponent from "../../components/LoadingComponent";
 import alertService from "../../../../services/alertService";
 import appService from "../../../../services/appService";
+import { isMerchantHost } from "../../../../services/workspaceService";
 
 export default {
     name: "CompanyComponent",
@@ -195,6 +201,7 @@ export default {
             currentLogo: null,
             logoFile: null,
             errors: {},
+            merchantHost: isMerchantHost(),
         };
     },
     mounted() {

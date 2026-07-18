@@ -82,7 +82,7 @@ class MerchantLaunchConfigurationTest extends TestCase
                 'company_email' => 'owner@launch-config-store.test',
                 'company_calling_code' => '+1',
                 'company_phone' => '5551234567',
-                'company_website' => 'https://launch-config-store.test',
+                'company_website' => 'merchant-input-should-not-save',
                 'company_city' => 'Los Angeles',
                 'company_state' => 'CA',
                 'company_country_code' => 'US',
@@ -97,7 +97,39 @@ class MerchantLaunchConfigurationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.company_name', 'Launch Config Store')
             ->assertJsonPath('data.company_email', 'owner@launch-config-store.test')
+            ->assertJsonPath('data.company_website', 'https://launch-config-store.company.com')
             ->assertJsonPath('data.company_country_code', 'US');
+
+        $this->assertDatabaseHas('tenant_settings', [
+            'tenant_id' => $context['tenant']->id,
+            'setting_key' => 'company_website',
+            'setting_value' => 'https://launch-config-store.company.com',
+        ]);
+
+        TenantDomain::query()
+            ->where('tenant_id', $context['tenant']->id)
+            ->update(['is_primary' => false]);
+
+        TenantDomain::query()->create([
+            'tenant_id' => $context['tenant']->id,
+            'hostname' => 'store.launch-config-store.test',
+            'domain_type' => 'custom',
+            'is_primary' => true,
+            'is_fallback' => false,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+            'verified_at' => now(),
+            'last_checked_at' => now(),
+        ]);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/settings/company')
+            ->assertOk()
+            ->assertJsonPath('data.company_website', 'https://store.launch-config-store.test');
 
         $logoSetting = TenantSetting::query()
             ->where('tenant_id', $context['tenant']->id)

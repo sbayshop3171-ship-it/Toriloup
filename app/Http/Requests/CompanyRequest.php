@@ -3,10 +3,16 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class CompanyRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->is('api/merchant/settings/company')) {
+            $this->merge(['company_website' => null]);
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      *
