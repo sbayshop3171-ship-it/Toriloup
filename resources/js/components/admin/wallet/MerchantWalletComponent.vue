@@ -22,14 +22,25 @@
             </div>
             <div class="db-card-body">
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div v-for="card in balanceCards" :key="card.label" class="rounded-2xl border border-gray-200 bg-white p-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ card.label }}</p>
-                        <h4 class="mt-2 text-2xl font-bold text-gray-900">{{ money(card.value) }}</h4>
+                    <div
+                        v-for="card in balanceCards"
+                        :key="card.label"
+                        class="rounded-2xl border bg-white p-4 shadow-[0_10px_28px_rgba(17,24,39,0.04)]"
+                        :class="card.shellClass">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ card.label }}</p>
+                                <h4 class="mt-2 text-2xl font-bold text-gray-900">{{ money(card.value) }}</h4>
+                            </div>
+                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl" :class="card.iconClass">
+                                <i :class="card.icon"></i>
+                            </span>
+                        </div>
                         <p class="mt-1 text-xs text-gray-500">{{ card.help }}</p>
                     </div>
                 </div>
 
-                <div class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <div class="mt-5 rounded-2xl border border-[#FFD8CF] bg-gradient-to-r from-[#FFF7F4] via-white to-[#FFF1EC] p-4 shadow-[0_12px_32px_rgba(255,61,31,0.06)]">
                     <div class="grid gap-4 md:grid-cols-4">
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Gross Sales</p>
@@ -53,14 +64,29 @@
         </div>
 
         <div class="grid gap-6 xl:grid-cols-[420px_1fr]">
-            <div class="db-card">
-                <div class="db-card-header">
-                    <div>
-                        <h3 class="db-card-title">Request Withdrawal</h3>
-                        <p class="text-sm text-gray-500">Choose an owner-approved payout method and submit account details.</p>
+            <div class="db-card overflow-hidden border border-[#FFD6CC] bg-gradient-to-br from-[#FFF7F4] via-white to-[#FFF1EC] shadow-[0_20px_45px_rgba(255,61,31,0.10)]">
+                <div class="db-card-header border-b-0 bg-gradient-to-r from-[#FF3D1F] to-[#FF744F] text-white">
+                    <div class="flex items-center gap-3">
+                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-lg text-white">
+                            <i class="lab lab-line-account"></i>
+                        </span>
+                        <div>
+                            <h3 class="db-card-title text-white">Request Withdrawal</h3>
+                            <p class="text-sm text-white/80">Choose an owner-approved payout method and submit account details.</p>
+                        </div>
                     </div>
                 </div>
                 <form class="db-card-body space-y-4" @submit.prevent="submitWithdrawal">
+                    <div class="rounded-2xl border border-[#FFD6CC] bg-white/80 p-4 shadow-[0_8px_24px_rgba(255,61,31,0.06)]">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Available To Withdraw</p>
+                        <div class="mt-2 flex items-end justify-between gap-3">
+                            <h4 class="text-2xl font-bold text-[#FF3D1F]">{{ money(wallet.available_balance) }}</h4>
+                            <span class="rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-semibold text-[#047857]">
+                                Owner approved payout
+                            </span>
+                        </div>
+                    </div>
+
                     <label class="db-field">
                         <span class="db-field-title">Payout Method</span>
                         <select v-model="requestForm.payout_method_id" class="db-field-control" @change="syncDestinationFields">
@@ -113,25 +139,25 @@
                         <textarea v-model="requestForm.merchant_note" rows="3" class="db-field-control" placeholder="Optional note for owner"></textarea>
                     </label>
 
-                    <button type="submit" class="db-btn py-2 text-white bg-primary" :disabled="savingWithdrawal || payoutMethods.length === 0">
+                    <button type="submit" class="db-btn w-full justify-center py-3 text-white bg-primary shadow-[0_14px_30px_rgba(255,61,31,0.25)]" :disabled="savingWithdrawal || payoutMethods.length === 0">
                         {{ savingWithdrawal ? "Submitting..." : "Request Withdrawal" }}
                     </button>
                 </form>
             </div>
 
-            <div class="db-card">
-                <div class="db-card-header">
+            <div class="db-card overflow-hidden border border-[#E7E8F2] shadow-[0_18px_40px_rgba(17,24,39,0.05)]">
+                <div class="db-card-header bg-gradient-to-r from-[#F8FAFF] to-white">
                     <div>
                         <h3 class="db-card-title">Available Payout Methods</h3>
                         <p class="text-sm text-gray-500">These are controlled by the owner admin panel.</p>
                     </div>
                 </div>
                 <div class="db-card-body">
-                    <div v-if="payoutMethods.length === 0" class="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+                    <div v-if="payoutMethods.length === 0" class="rounded-xl border border-dashed border-[#D9DBE9] bg-[#F7F7FC] p-8 text-center text-sm text-gray-500">
                         No payout method is active yet. Please contact platform owner.
                     </div>
                     <div v-else class="grid gap-3 md:grid-cols-2">
-                        <div v-for="method in payoutMethods" :key="method.id" class="rounded-xl border border-gray-200 p-4">
+                        <div v-for="method in payoutMethods" :key="method.id" class="rounded-xl border border-[#E7E8F2] bg-white p-4 shadow-[0_10px_26px_rgba(17,24,39,0.04)]">
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <p class="font-semibold text-gray-900">{{ method.name }}</p>
@@ -149,17 +175,17 @@
         </div>
 
         <div class="grid gap-6 xl:grid-cols-2">
-            <div class="db-card">
-                <div class="db-card-header">
+            <div class="db-card overflow-hidden border border-[#E7E8F2] shadow-[0_18px_40px_rgba(17,24,39,0.05)]">
+                <div class="db-card-header bg-gradient-to-r from-[#F8FAFF] to-white">
                     <div>
                         <h3 class="db-card-title">Wallet Transactions</h3>
                         <p class="text-sm text-gray-500">Credits, refunds, fees, hold releases, and payout movements.</p>
                     </div>
                 </div>
                 <div class="db-card-body overflow-x-auto">
-                    <table class="min-w-full text-left text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-200 text-gray-500">
+                    <table class="min-w-full overflow-hidden rounded-2xl text-left text-sm">
+                        <thead class="bg-[#FFF4F1]">
+                            <tr class="border-b border-[#FFD6CC] text-gray-600">
                                 <th class="px-4 py-3 font-semibold">Date</th>
                                 <th class="px-4 py-3 font-semibold">Type</th>
                                 <th class="px-4 py-3 font-semibold">Status</th>
@@ -171,7 +197,7 @@
                             <tr v-if="transactions.length === 0">
                                 <td colspan="5" class="px-4 py-8 text-center text-gray-500">No wallet transactions yet.</td>
                             </tr>
-                            <tr v-for="transaction in transactions" :key="transaction.id" class="border-b border-gray-100 last:border-b-0">
+                            <tr v-for="transaction in transactions" :key="transaction.id" class="border-b border-[#EFF0F6] bg-white last:border-b-0 hover:bg-[#FFFDFB]">
                                 <td class="px-4 py-4">{{ formatDate(transaction.created_at) }}</td>
                                 <td class="px-4 py-4">
                                     <p class="font-semibold text-gray-900">{{ formatLabel(transaction.type) }}</p>
@@ -192,17 +218,17 @@
                 </div>
             </div>
 
-            <div class="db-card">
-                <div class="db-card-header">
+            <div class="db-card overflow-hidden border border-[#E7E8F2] shadow-[0_18px_40px_rgba(17,24,39,0.05)]">
+                <div class="db-card-header bg-gradient-to-r from-[#F8FAFF] to-white">
                     <div>
                         <h3 class="db-card-title">Withdrawal Requests</h3>
                         <p class="text-sm text-gray-500">Track pending, approved, and rejected settlement requests.</p>
                     </div>
                 </div>
                 <div class="db-card-body overflow-x-auto">
-                    <table class="min-w-full text-left text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-200 text-gray-500">
+                    <table class="min-w-full overflow-hidden rounded-2xl text-left text-sm">
+                        <thead class="bg-[#FFF4F1]">
+                            <tr class="border-b border-[#FFD6CC] text-gray-600">
                                 <th class="px-4 py-3 font-semibold">Request</th>
                                 <th class="px-4 py-3 font-semibold">Method</th>
                                 <th class="px-4 py-3 font-semibold">Amount</th>
@@ -213,7 +239,7 @@
                             <tr v-if="withdrawals.length === 0">
                                 <td colspan="4" class="px-4 py-8 text-center text-gray-500">No withdrawal requests yet.</td>
                             </tr>
-                            <tr v-for="withdrawal in withdrawals" :key="withdrawal.id" class="border-b border-gray-100 last:border-b-0">
+                            <tr v-for="withdrawal in withdrawals" :key="withdrawal.id" class="border-b border-[#EFF0F6] bg-white last:border-b-0 hover:bg-[#FFFDFB]">
                                 <td class="px-4 py-4">
                                     <p class="font-semibold text-gray-900">{{ withdrawal.request_no }}</p>
                                     <p class="text-xs text-gray-500">{{ formatDate(withdrawal.requested_at) }}</p>
@@ -302,10 +328,38 @@ export default {
         },
         balanceCards() {
             return [
-                { label: "Available", value: this.wallet.available_balance, help: "Ready to withdraw" },
-                { label: "On Hold", value: this.wallet.holding_balance, help: "Pending settlement release" },
-                { label: "Pending Payout", value: this.wallet.pending_withdrawal_balance, help: "Requested, owner processing" },
-                { label: "Lifetime Earned", value: this.wallet.total_earned, help: "Net online payments credited" },
+                {
+                    label: "Available",
+                    value: this.wallet.available_balance,
+                    help: "Ready to withdraw",
+                    icon: "lab lab-line-account",
+                    iconClass: "bg-[#ECFDF3] text-[#047857]",
+                    shellClass: "border-[#BBF7D0]",
+                },
+                {
+                    label: "On Hold",
+                    value: this.wallet.holding_balance,
+                    help: "Pending settlement release",
+                    icon: "lab lab-line-order-setup",
+                    iconClass: "bg-[#FFF7ED] text-[#C2410C]",
+                    shellClass: "border-[#FED7AA]",
+                },
+                {
+                    label: "Pending Payout",
+                    value: this.wallet.pending_withdrawal_balance,
+                    help: "Requested, owner processing",
+                    icon: "lab lab-line-refresh",
+                    iconClass: "bg-[#EEF4FF] text-[#3B82F6]",
+                    shellClass: "border-[#BFDBFE]",
+                },
+                {
+                    label: "Lifetime Earned",
+                    value: this.wallet.total_earned,
+                    help: "Net online payments credited",
+                    icon: "lab lab-line-transactions",
+                    iconClass: "bg-[#FFF4F1] text-primary",
+                    shellClass: "border-[#FFD6CC]",
+                },
             ];
         },
     },
