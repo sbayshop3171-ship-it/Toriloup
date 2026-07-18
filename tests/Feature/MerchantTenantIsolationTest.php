@@ -213,7 +213,9 @@ class MerchantTenantIsolationTest extends TestCase
             ->assertJsonPath('data.metrics.total_orders', 0)
             ->assertJsonPath('data.metrics.total_products', 0)
             ->assertJsonPath('data.metrics.recent_orders', [])
-            ->assertJsonPath('data.metrics.fallback_domain.hostname', 'fresh-dashboard-store.company.com');
+            ->assertJsonPath('data.metrics.fallback_domain.hostname', 'fresh-dashboard-store.company.com')
+            ->assertJsonPath('data.metrics.storefront_hostname', 'fresh-dashboard-store.company.com')
+            ->assertJsonPath('data.metrics.storefront_url', 'https://fresh-dashboard-store.company.com');
 
         $firstProductStep = collect($freshResponse->json('data.checklist'))
             ->firstWhere('key', 'first_product');
@@ -303,6 +305,8 @@ class MerchantTenantIsolationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.metrics.fallback_domain.hostname', 'recovered-dashboard-store.company.com')
             ->assertJsonPath('data.metrics.primary_domain.hostname', 'recovered-dashboard-store.company.com')
+            ->assertJsonPath('data.metrics.storefront_hostname', 'recovered-dashboard-store.company.com')
+            ->assertJsonPath('data.metrics.storefront_url', 'https://recovered-dashboard-store.company.com')
             ->assertJsonCount(6, 'data.checklist');
 
         $this->assertDatabaseHas('tenant_domains', [

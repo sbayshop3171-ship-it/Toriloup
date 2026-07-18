@@ -170,18 +170,34 @@ export default {
             return this.metrics.recent_orders || [];
         },
         storefrontHost: function () {
-            return this.metrics.primary_domain?.hostname
-                || this.metrics.fallback_domain?.hostname
+            return this.cleanHost(this.metrics.storefront_hostname)
+                || this.cleanHost(this.metrics.primary_domain?.hostname)
+                || this.cleanHost(this.metrics.fallback_domain?.hostname)
                 || this.fallbackStorefrontHost;
         },
         storefrontUrl: function () {
-            return this.metrics.storefront_url || (this.storefrontHost ? "https://" + this.storefrontHost : "");
+            const url = String(this.metrics.storefront_url || "").trim();
+
+            if (url) {
+                return url;
+            }
+
+            return this.storefrontHost ? "https://" + this.storefrontHost : "";
         },
         fallbackStorefrontHost: function () {
-            const slug = this.setup?.tenant?.slug || "";
+            const slug = this.setup?.tenant?.slug
+                || this.authTenant?.tenant?.slug
+                || this.authTenant?.slug
+                || "";
             const suffix = ENV.STOREFRONT_SUFFIX || ENV.MARKETING_HOST || "toriloup.com";
 
             return slug ? `${slug}.${String(suffix).replace(/^\.+|\.+$/g, "")}` : "";
+        },
+        authInfo: function () {
+            return this.$store.getters.authInfo || {};
+        },
+        authTenant: function () {
+            return this.authInfo.current_tenant || this.authInfo.tenant || null;
         },
         setupIconMap: function () {
             return {
@@ -272,6 +288,12 @@ export default {
                 icon: "fa-solid fa-list-check",
                 bubble: "bg-primary/10 text-primary ring-primary/10",
             };
+        },
+        cleanHost(value) {
+            return String(value || "")
+                .replace(/^https?:\/\//, "")
+                .replace(/\/.*$/, "")
+                .trim();
         },
         copyStorefrontUrl() {
             if (!this.storefrontUrl) {

@@ -35,6 +35,7 @@ class MerchantDashboardController extends Controller
         $settings = $this->tenantSettingsService->mergedForTenant($tenant);
         $fallbackDomain = $this->fallbackDomain($tenant);
         $primaryDomain = $this->primaryDomain($tenant) ?? $fallbackDomain;
+        $storefrontHostname = $this->storefrontHostname($tenant, $primaryDomain, $fallbackDomain);
         $totalSales = $this->totalSales();
         $currentSubscription = $this->subscriptionManagerService->currentSubscription($tenant);
         $pendingSession = $this->subscriptionManagerService->pendingCheckoutSession($tenant);
@@ -49,8 +50,9 @@ class MerchantDashboardController extends Controller
             'recent_orders' => $this->recentOrders(),
             'fallback_domain' => $this->serializeDomain($fallbackDomain),
             'primary_domain' => $this->serializeDomain($primaryDomain),
+            'storefront_hostname' => $storefrontHostname,
             'custom_domain_count' => $tenant->domains()->where('domain_type', 'custom')->count(),
-            'storefront_url' => $primaryDomain?->hostname ? 'https://'.$primaryDomain->hostname : null,
+            'storefront_url' => $storefrontHostname ? 'https://'.$storefrontHostname : null,
         ];
 
         $checklist = $this->checklist($tenant, $settings, $fallbackDomain);
@@ -271,6 +273,21 @@ class MerchantDashboardController extends Controller
             ->where('is_primary', true)
             ->orderByDesc('is_fallback')
             ->first();
+    }
+
+    private function storefrontHostname(Tenant $tenant, ?TenantDomain $primaryDomain, ?TenantDomain $fallbackDomain): ?string
+    {
+        if (filled($primaryDomain?->hostname)) {
+            return $primaryDomain->hostname;
+        }
+
+        if (filled($fallbackDomain?->hostname)) {
+            return $fallbackDomain->hostname;
+        }
+
+        $suffix = trim((string) config('saas.fallback_subdomain_suffix', 'toriloup.com'), '.');
+
+        return filled($tenant->slug) && $suffix !== '' ? $tenant->slug.'.'.$suffix : null;
     }
 
     /**
