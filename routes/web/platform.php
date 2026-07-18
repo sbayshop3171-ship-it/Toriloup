@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Saas\HostedSaasBillingCheckoutController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +23,12 @@ foreach ($platformHosts as $index => $platformHost) {
 
             if ($index === 0) {
                 $route->name('platform.web.up');
+            }
+
+            $checkoutRoute = Route::get('/platform/billing/providers/{providerCode}/checkout/{sessionToken}', [HostedSaasBillingCheckoutController::class, 'show']);
+
+            if ($index === 0) {
+                $checkoutRoute->name('platform.billing.checkout');
             }
         });
 }

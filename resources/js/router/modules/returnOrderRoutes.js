@@ -14,7 +14,8 @@ export default [
             isFrontend:false,
             auth:true,
             permissionUrl: 'return-orders',
-            breadcrumb:'return_orders'
+            breadcrumb:'return_orders',
+            subscriptionFeature: 'returns'
         },
         children: [
             {
@@ -25,7 +26,8 @@ export default [
                     isFrontend:false,
                     auth:true,
                     permissionUrl: 'return-orders',
-                    breadcrumb: ''
+                    breadcrumb: '',
+                    subscriptionFeature: 'returns'
                 }
 
             },
@@ -37,7 +39,8 @@ export default [
                     isFrontend:false,
                     auth:true,
                     permissionUrl: 'return_order_create',
-                    breadcrumb: 'create'
+                    breadcrumb: 'create',
+                    subscriptionFeature: 'returns'
                 }
             },
             {
@@ -48,7 +51,8 @@ export default [
                     isFrontend:false,
                     auth:true,
                     permissionUrl: 'return_order_show',
-                    breadcrumb: 'view'
+                    breadcrumb: 'view',
+                    subscriptionFeature: 'returns'
                 }
             },
             {
@@ -59,7 +63,8 @@ export default [
                     isFrontend:false,
                     auth:true,
                     permissionUrl: 'return_order_edit',
-                    breadcrumb: 'edit'
+                    breadcrumb: 'edit',
+                    subscriptionFeature: 'returns'
                 }
             }
         ]

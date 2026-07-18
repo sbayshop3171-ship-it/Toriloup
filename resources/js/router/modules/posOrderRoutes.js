@@ -12,7 +12,8 @@ export default [
             isFrontend: false,
             auth: true,
             permissionUrl: 'pos-orders',
-            breadcrumb: 'pos_orders'
+            breadcrumb: 'pos_orders',
+            subscriptionFeature: 'pos'
         },
         children: [
             {
@@ -24,6 +25,7 @@ export default [
                     auth: true,
                     permissionUrl: "pos-orders",
                     breadcrumb: "",
+                    subscriptionFeature: "pos",
                 },
             },
             {
@@ -35,6 +37,7 @@ export default [
                     auth: true,
                     permissionUrl: "pos-orders",
                     breadcrumb: "view",
+                    subscriptionFeature: "pos",
                 },
             }
         ],

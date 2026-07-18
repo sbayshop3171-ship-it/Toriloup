@@ -558,6 +558,42 @@ class PlatformWorkspaceTest extends TestCase
         $platformToken = $this->platformToken($owner);
         $merchantToken = $this->merchantToken($merchantContext['user']);
 
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->putJson('http://owner.company.com/api/platform/plans/domain-access', [
+                'name' => 'Domain Access',
+                'status' => 'active',
+                'is_public' => false,
+                'currency_code' => 'USD',
+                'prices' => [
+                    'monthly' => 0,
+                    'semiannual' => 0,
+                    'yearly' => 0,
+                ],
+                'limits' => [
+                    ['key' => 'products', 'value' => 20, 'is_unlimited' => false],
+                    ['key' => 'custom_domains', 'value' => 1, 'is_unlimited' => false],
+                    ['key' => 'staff_members', 'value' => 1, 'is_unlimited' => false],
+                ],
+                'features' => [
+                    ['code' => 'custom_domain', 'label' => 'Custom domain', 'group' => 'Store & Branding', 'type' => 'boolean', 'value' => true],
+                ],
+            ])
+            ->assertOk();
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/tenants/{$merchantContext['tenant']->id}/subscription", [
+                'plan_code' => 'domain-access',
+                'billing_interval' => 'monthly',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active');
+
         $domainResponse = $this
             ->withToken($merchantToken)
             ->withHeader('x-api-key', 'testing-key')

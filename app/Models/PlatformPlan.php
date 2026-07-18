@@ -13,8 +13,13 @@ class PlatformPlan extends Model
     protected $fillable = [
         'code',
         'name',
+        'short_description',
         'description',
         'status',
+        'is_public',
+        'display_order',
+        'is_recommended',
+        'badge_label',
         'currency_code',
         'monthly_price',
         'yearly_price',
@@ -28,8 +33,13 @@ class PlatformPlan extends Model
         'id' => 'integer',
         'code' => 'string',
         'name' => 'string',
+        'short_description' => 'string',
         'description' => 'string',
         'status' => 'string',
+        'is_public' => 'boolean',
+        'display_order' => 'integer',
+        'is_recommended' => 'boolean',
+        'badge_label' => 'string',
         'currency_code' => 'string',
         'monthly_price' => 'decimal:2',
         'yearly_price' => 'decimal:2',
@@ -42,6 +52,16 @@ class PlatformPlan extends Model
     public function limits(): HasMany
     {
         return $this->hasMany(PlatformPlanLimit::class, 'plan_id');
+    }
+
+    public function prices(): HasMany
+    {
+        return $this->hasMany(PlatformPlanPrice::class, 'plan_id');
+    }
+
+    public function features(): HasMany
+    {
+        return $this->hasMany(PlatformPlanFeature::class, 'plan_id');
     }
 
     public function subscriptions(): HasMany

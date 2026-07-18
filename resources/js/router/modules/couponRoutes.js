@@ -13,6 +13,7 @@ export default [
             auth: true,
             permissionUrl: "coupons",
             breadcrumb: "coupons",
+            subscriptionFeature: "campaigns",
         },
         children: [
             {
@@ -24,6 +25,7 @@ export default [
                     auth: true,
                     permissionUrl: "coupons",
                     breadcrumb: "",
+                    subscriptionFeature: "campaigns",
                 },
             },
             {
@@ -35,6 +37,7 @@ export default [
                     auth: true,
                     permissionUrl: "coupons",
                     breadcrumb: "view",
+                    subscriptionFeature: "campaigns",
                 },
             },
         ],

@@ -24,6 +24,7 @@ class TenantSubscription extends Model
         'starts_at',
         'current_period_starts_at',
         'current_period_ends_at',
+        'grace_ends_at',
         'cancel_at_period_end',
         'ended_at',
         'activated_by_user_id',
@@ -44,6 +45,7 @@ class TenantSubscription extends Model
         'starts_at' => 'datetime',
         'current_period_starts_at' => 'datetime',
         'current_period_ends_at' => 'datetime',
+        'grace_ends_at' => 'datetime',
         'cancel_at_period_end' => 'boolean',
         'ended_at' => 'datetime',
         'activated_by_user_id' => 'integer',
@@ -63,5 +65,10 @@ class TenantSubscription extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(TenantSubscriptionInvoice::class, 'tenant_subscription_id');
+    }
+
+    public function checkoutSessions(): HasMany
+    {
+        return $this->hasMany(SubscriptionCheckoutSession::class, 'tenant_subscription_id');
     }
 }

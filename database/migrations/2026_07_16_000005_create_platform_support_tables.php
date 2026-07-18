@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('platform_providers', function (Blueprint $table) {
             $table->id();
-            $table->enum('provider_type', ['payment', 'sms', 'mail', 'push', 'analytics', 'domain']);
+            $table->enum('provider_type', ['payment', 'sms', 'mail', 'push', 'analytics', 'domain', 'saas_billing']);
             $table->string('provider_code', 60)->unique();
             $table->string('name', 120);
             $table->boolean('status')->default(true);

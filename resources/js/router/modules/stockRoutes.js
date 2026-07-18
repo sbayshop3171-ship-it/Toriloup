@@ -11,7 +11,8 @@ export default [
             isFrontend: false,
             auth: true,
             permissionUrl: 'stock',
-            breadcrumb: 'stock'
+            breadcrumb: 'stock',
+            subscriptionFeature: 'advanced_stock'
         },
         children: [
             {
@@ -22,7 +23,8 @@ export default [
                     isFrontend: false,
                     auth: true,
                     permissionUrl: 'stock',
-                    breadcrumb: ''
+                    breadcrumb: '',
+                    subscriptionFeature: 'advanced_stock'
                 },
             }
         ]

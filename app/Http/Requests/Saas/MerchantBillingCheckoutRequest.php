@@ -5,7 +5,7 @@ namespace App\Http\Requests\Saas;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class TenantSubscriptionAssignRequest extends FormRequest
+class MerchantBillingCheckoutRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,8 +16,7 @@ class TenantSubscriptionAssignRequest extends FormRequest
     {
         return [
             'plan_code' => ['required', 'string', 'max:60'],
-            'billing_interval' => ['sometimes', Rule::in(['monthly', 'semiannual', 'yearly'])],
-            'metadata_json' => ['nullable', 'array'],
+            'billing_interval' => ['required', Rule::in(['monthly', 'semiannual', 'yearly'])],
         ];
     }
 }

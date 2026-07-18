@@ -41,8 +41,8 @@ return new class extends Migration
             $table->foreignId('plan_id')->constrained('platform_plans')->cascadeOnDelete();
             $table->string('plan_code_snapshot', 60);
             $table->string('plan_name_snapshot', 120);
-            $table->enum('status', ['trialing', 'active', 'past_due', 'cancelled', 'expired'])->default('active');
-            $table->enum('billing_interval', ['monthly', 'yearly'])->default('monthly');
+            $table->enum('status', ['pending_activation', 'trialing', 'active', 'past_due', 'cancelled', 'expired'])->default('active');
+            $table->enum('billing_interval', ['monthly', 'semiannual', 'yearly'])->default('monthly');
             $table->string('currency_code', 10)->default('USD');
             $table->decimal('price_amount', 12, 2)->default(0);
             $table->timestamp('trial_ends_at')->nullable();

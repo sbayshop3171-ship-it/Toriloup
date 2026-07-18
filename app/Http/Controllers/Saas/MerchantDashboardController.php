@@ -13,6 +13,7 @@ use App\Models\Stock;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantPaymentMethod;
+use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Saas\TenantSettingsService;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +25,7 @@ class MerchantDashboardController extends Controller
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly TenantSettingsService $tenantSettingsService,
+        private readonly SubscriptionManagerService $subscriptionManagerService,
     ) {
     }
 
@@ -34,6 +36,8 @@ class MerchantDashboardController extends Controller
         $fallbackDomain = $this->fallbackDomain($tenant);
         $primaryDomain = $this->primaryDomain($tenant) ?? $fallbackDomain;
         $totalSales = $this->totalSales();
+        $currentSubscription = $this->subscriptionManagerService->currentSubscription($tenant);
+        $pendingSession = $this->subscriptionManagerService->pendingCheckoutSession($tenant);
 
         $metrics = [
             'total_sales' => AppLibrary::currencyAmountFormat($totalSales),
@@ -63,6 +67,12 @@ class MerchantDashboardController extends Controller
                     'company_logo_url' => $this->tenantLogoUrl($settings['company_logo'] ?? null),
                 ],
                 'metrics' => $metrics,
+                'billing' => [
+                    'subscription' => $currentSubscription ? $this->subscriptionManagerService->serializeSubscription($currentSubscription) : null,
+                    'usage' => $this->subscriptionManagerService->usageSummary($tenant),
+                    'features' => $this->subscriptionManagerService->featureSummary($tenant),
+                    'pending_upgrade' => $pendingSession ? $this->subscriptionManagerService->serializeCheckoutSession($pendingSession) : null,
+                ],
                 'checklist' => $checklist,
                 'progress' => [
                     'completed' => $completed,

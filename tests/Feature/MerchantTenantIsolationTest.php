@@ -22,6 +22,7 @@ use App\Models\Stock;
 use App\Models\Supplier;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
+use App\Models\TenantFeatureFlag;
 use App\Models\TenantMember;
 use App\Models\Unit;
 use App\Models\User;
@@ -684,6 +685,7 @@ class MerchantTenantIsolationTest extends TestCase
     public function test_merchant_stock_is_scoped_to_authenticated_tenant(): void
     {
         $context = $this->createMerchantContext('stock-store');
+        $this->unlockTenantFeatures($context['tenant'], ['advanced_stock']);
         $otherTenant = $this->createTenant('stock-other-store');
 
         $barcode = Barcode::query()->create(['name' => 'EAN 13']);
@@ -937,6 +939,7 @@ class MerchantTenantIsolationTest extends TestCase
     public function test_merchant_returns_are_scoped_to_authenticated_tenant(): void
     {
         $context = $this->createMerchantContext('return-store');
+        $this->unlockTenantFeatures($context['tenant'], ['returns']);
         $otherTenant = $this->createTenant('return-other-store');
         $returnReason = ReturnReason::query()->create([
             'title' => 'Damaged item',
@@ -1115,6 +1118,25 @@ class MerchantTenantIsolationTest extends TestCase
         ]);
 
         return $tenant;
+    }
+
+    /**
+     * @param  array<int, string>  $features
+     */
+    private function unlockTenantFeatures(Tenant $tenant, array $features): void
+    {
+        foreach ($features as $featureCode) {
+            TenantFeatureFlag::query()->updateOrCreate(
+                [
+                    'tenant_id' => $tenant->id,
+                    'feature_code' => $featureCode,
+                ],
+                [
+                    'status' => true,
+                    'source' => 'owner_override',
+                ]
+            );
+        }
     }
 
     private function seedLegacyRole(int $id, string $name): Role

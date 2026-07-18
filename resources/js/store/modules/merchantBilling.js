@@ -5,6 +5,8 @@ export const merchantBilling = {
     state: {
         summary: null,
         invoices: [],
+        plans: [],
+        checkoutResult: null,
     },
     getters: {
         summary: function (state) {
@@ -13,12 +15,28 @@ export const merchantBilling = {
         invoices: function (state) {
             return state.invoices;
         },
+        plans: function (state) {
+            return state.plans;
+        },
+        checkoutResult: function (state) {
+            return state.checkoutResult;
+        },
     },
     actions: {
         summary: function (context) {
             return new Promise((resolve, reject) => {
                 axios.get("merchant/billing/summary").then((res) => {
                     context.commit("summary", res.data);
+                    resolve(res);
+                }).catch((err) => {
+                    reject(err);
+                });
+            });
+        },
+        plans: function (context) {
+            return new Promise((resolve, reject) => {
+                axios.get("merchant/billing/plans").then((res) => {
+                    context.commit("plans", res.data.data);
                     resolve(res);
                 }).catch((err) => {
                     reject(err);
@@ -35,6 +53,16 @@ export const merchantBilling = {
                 });
             });
         },
+        checkout: function (context, payload) {
+            return new Promise((resolve, reject) => {
+                axios.post("merchant/billing/checkout", payload).then((res) => {
+                    context.commit("checkoutResult", res.data.data);
+                    resolve(res);
+                }).catch((err) => {
+                    reject(err);
+                });
+            });
+        },
     },
     mutations: {
         summary: function (state, payload) {
@@ -42,6 +70,12 @@ export const merchantBilling = {
         },
         invoices: function (state, payload) {
             state.invoices = payload;
+        },
+        plans: function (state, payload) {
+            state.plans = payload;
+        },
+        checkoutResult: function (state, payload) {
+            state.checkoutResult = payload;
         },
     },
 };

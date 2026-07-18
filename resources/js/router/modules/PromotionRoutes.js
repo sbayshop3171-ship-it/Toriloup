@@ -12,7 +12,8 @@ export default [
             isFrontend: false,
             auth: true,
             permissionUrl: 'promotions',
-            breadcrumb: 'promotions'
+            breadcrumb: 'promotions',
+            subscriptionFeature: 'campaigns'
         },
         children: [
             {
@@ -23,7 +24,8 @@ export default [
                     isFrontend: false,
                     auth: true,
                     permissionUrl: 'promotions',
-                    breadcrumb: ''
+                    breadcrumb: '',
+                    subscriptionFeature: 'campaigns'
                 },
             },
             {
@@ -35,6 +37,7 @@ export default [
                     auth: true,
                     permissionUrl: "promotions",
                     breadcrumb: "view",
+                    subscriptionFeature: "campaigns",
                 },
             },
         ]

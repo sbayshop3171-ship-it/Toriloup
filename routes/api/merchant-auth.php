@@ -26,7 +26,7 @@ Route::prefix('merchant/auth')
             Route::post('/verify-email', [AdminSurfacePasswordController::class, 'verifyEmail'])->defaults('surface', 'merchant')->name('verify-email');
             Route::post('/reset-password', [AdminSurfacePasswordController::class, 'resetPassword'])->defaults('surface', 'merchant')->name('reset-password');
         });
-        Route::middleware(['auth:sanctum', 'surfaceToken:merchant'])->group(function () {
+        Route::middleware(['auth:sanctum', 'surfaceToken:merchant', 'resolveTenantFromMerchantMembership', 'ensureTenantResolved', 'ensureTenantActive', 'setTenantContext'])->group(function () {
             Route::get('/me', [AdminSurfaceAuthController::class, 'me'])->defaults('surface', 'merchant')->name('me');
             Route::post('/logout', [AdminSurfaceAuthController::class, 'logout'])->name('logout');
         });

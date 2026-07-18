@@ -608,6 +608,7 @@ export default [
                     auth: true,
                     permissionUrl: "settings",
                     breadcrumb: "domains",
+                    subscriptionFeature: "custom_domain",
                 },
             },
             {
@@ -678,6 +679,7 @@ export default [
                     auth: true,
                     permissionUrl: "settings",
                     breadcrumb: "return_reasons",
+                    subscriptionFeature: "returns",
                 },
                 children: [
                     {

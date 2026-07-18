@@ -9,6 +9,7 @@ export default [
             isFrontend: false,
             auth: true,
             permissionUrl: "pos",
+            subscriptionFeature: "pos",
         },
     },
 ];

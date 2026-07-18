@@ -117,12 +117,12 @@ class BillingWorkspaceTest extends TestCase
         $assignResponse
             ->assertOk()
             ->assertJsonPath('data.plan.code', 'pro-lite')
-            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.status', 'pending_activation')
             ->assertJsonPath('data.invoices.0.status', 'open');
 
         $this->assertDatabaseHas('tenants', [
             'id' => $tenant->id,
-            'plan_code' => 'pro-lite',
+            'plan_code' => 'starter',
         ]);
 
         $markPaidResponse = $this
@@ -133,14 +133,21 @@ class BillingWorkspaceTest extends TestCase
 
         $markPaidResponse
             ->assertOk()
-            ->assertJsonPath('data.invoice.status', 'paid');
+            ->assertJsonPath('data.invoice.status', 'paid')
+            ->assertJsonPath('data.subscription.status', 'active')
+            ->assertJsonPath('data.subscription.plan.code', 'pro-lite');
 
         $this->assertDatabaseHas('tenant_subscription_invoices', [
             'id' => $invoiceId,
             'status' => 'paid',
         ]);
 
-        $this
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenant->id,
+            'plan_code' => 'pro-lite',
+        ]);
+
+        $assignResponse = $this
             ->withToken($platformToken)
             ->withHeader('x-api-key', 'testing-key')
             ->withHeader('x-localization', 'en')
@@ -149,13 +156,172 @@ class BillingWorkspaceTest extends TestCase
             ->assertJsonPath('data.0.plan.code', 'pro-lite');
     }
 
+    public function test_merchant_checkout_keeps_current_plan_until_payment_success(): void
+    {
+        $context = $this->createMerchantContext('checkout-store');
+        $merchantToken = $this->merchantToken($context['user']);
+
+        $plansResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/billing/plans');
+
+        $plansResponse
+            ->assertOk()
+            ->assertJsonFragment(['code' => 'starter'])
+            ->assertJsonFragment(['code' => 'basic']);
+
+        $checkoutResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->postJson('http://merchant.company.com/api/merchant/billing/checkout', [
+                'plan_code' => 'basic',
+                'billing_interval' => 'monthly',
+            ]);
+
+        $checkoutResponse
+            ->assertOk()
+            ->assertJsonPath('data.mode', 'checkout')
+            ->assertJsonPath('data.subscription.status', 'pending_activation')
+            ->assertJsonPath('data.checkout_session.status', 'pending');
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $context['tenant']->id,
+            'plan_code' => 'starter',
+        ]);
+
+        $cancelResponse = $this
+            ->postJson('http://owner.company.com/api/platform/billing/providers/manual/webhook', [
+                'session_token' => $checkoutResponse->json('data.checkout_session.session_token'),
+                'status' => 'failed',
+            ]);
+
+        $cancelResponse
+            ->assertOk()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.subscription.status', 'cancelled')
+            ->assertJsonPath('data.invoice.status', 'void');
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $context['tenant']->id,
+            'plan_code' => 'starter',
+        ]);
+
+        $paidCheckoutResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->postJson('http://merchant.company.com/api/merchant/billing/checkout', [
+                'plan_code' => 'basic',
+                'billing_interval' => 'monthly',
+            ]);
+
+        $paidCheckoutResponse
+            ->assertOk()
+            ->assertJsonPath('data.mode', 'checkout');
+
+        $paidResponse = $this
+            ->postJson('http://owner.company.com/api/platform/billing/providers/manual/webhook', [
+                'session_token' => $paidCheckoutResponse->json('data.checkout_session.session_token'),
+                'status' => 'paid',
+            ]);
+
+        $paidResponse
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.subscription.status', 'trialing')
+            ->assertJsonPath('data.subscription.plan.code', 'basic')
+            ->assertJsonPath('data.invoice.status', 'paid');
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $context['tenant']->id,
+            'plan_code' => 'basic',
+        ]);
+    }
+
+    public function test_default_plan_backfill_does_not_overwrite_owner_catalog_edits(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->putJson('http://owner.company.com/api/platform/plans/basic', [
+                'name' => 'Owner Basic',
+                'short_description' => 'Owner managed pricing',
+                'status' => 'active',
+                'is_public' => true,
+                'currency_code' => 'USD',
+                'prices' => [
+                    'monthly' => 77,
+                    'semiannual' => 420,
+                    'yearly' => 770,
+                ],
+                'limits' => [
+                    ['key' => 'products', 'value' => 77, 'is_unlimited' => false],
+                ],
+                'features' => [
+                    ['code' => 'report_exports', 'label' => 'Report exports', 'group' => 'Marketing & Growth', 'type' => 'boolean', 'value' => true],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Owner Basic')
+            ->assertJsonPath('data.prices.monthly', '77.00');
+
+        $context = $this->createMerchantContext('owner-catalog-preserve');
+        $merchantToken = $this->merchantToken($context['user']);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/billing/summary')
+            ->assertOk();
+
+        $plan = PlatformPlan::query()
+            ->with(['prices', 'limits', 'features'])
+            ->where('code', 'basic')
+            ->firstOrFail();
+
+        $this->assertSame('Owner Basic', $plan->name);
+        $this->assertSame('Owner managed pricing', $plan->short_description);
+        $this->assertSame('77.00', (string) $plan->monthly_price);
+        $this->assertSame('420.00', (string) $plan->prices->firstWhere('billing_interval', 'semiannual')->price_amount);
+        $this->assertSame(77, $plan->limits->firstWhere('limit_key', 'products')->limit_value);
+        $this->assertSame('1', $plan->features->firstWhere('feature_code', 'report_exports')->feature_value);
+    }
+
+    public function test_locked_feature_routes_return_upgrade_required(): void
+    {
+        $context = $this->createMerchantContext('locked-feature-store');
+        $merchantToken = $this->merchantToken($context['user']);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/return-orders')
+            ->assertStatus(402)
+            ->assertJsonPath('code', 'upgrade_required')
+            ->assertJsonPath('feature_code', 'returns');
+    }
+
     public function test_merchant_billing_summary_and_quota_limits_are_enforced(): void
     {
         $owner = $this->createPlatformOwner();
         $platformToken = $this->platformToken($owner);
         $context = $this->createMerchantContext('quota-store');
 
-        $this
+        $assignResponse = $this
             ->withToken($platformToken)
             ->withHeader('x-api-key', 'testing-key')
             ->withHeader('x-localization', 'en')
@@ -171,10 +337,13 @@ class BillingWorkspaceTest extends TestCase
                     ['key' => 'custom_domains', 'value' => 0, 'is_unlimited' => false],
                     ['key' => 'staff_members', 'value' => 2, 'is_unlimited' => false],
                 ],
+                'features' => [
+                    ['code' => 'custom_domain', 'label' => 'Custom domain', 'group' => 'Store & Branding', 'type' => 'boolean', 'value' => true],
+                ],
             ])
             ->assertOk();
 
-        $this
+        $assignResponse = $this
             ->withToken($platformToken)
             ->withHeader('x-api-key', 'testing-key')
             ->withHeader('x-localization', 'en')
@@ -182,7 +351,20 @@ class BillingWorkspaceTest extends TestCase
                 'plan_code' => 'micro',
                 'billing_interval' => 'monthly',
             ])
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending_activation')
+            ->assertJsonPath('data.invoices.0.status', 'open');
+
+        $subscriptionId = (int) $assignResponse->json('data.id');
+        $invoiceId = (int) $assignResponse->json('data.invoices.0.id');
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/subscriptions/{$subscriptionId}/invoices/{$invoiceId}/mark-paid")
+            ->assertOk()
+            ->assertJsonPath('data.subscription.status', 'active');
 
         $this->seedTenantCatalogProduct($context['tenant']);
         $merchantToken = $this->merchantToken($context['user']);

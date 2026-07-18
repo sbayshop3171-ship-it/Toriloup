@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Saas;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Saas\MerchantBillingCheckoutRequest;
+use App\Models\TenantSubscriptionInvoice;
 use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class MerchantBillingController extends Controller
 {
@@ -19,23 +22,67 @@ class MerchantBillingController extends Controller
     {
         $tenant = $this->tenantContext->current();
         $subscription = $tenant ? $this->subscriptionManagerService->currentSubscription($tenant) : null;
+        $pendingSession = $tenant ? $this->subscriptionManagerService->pendingCheckoutSession($tenant) : null;
+        $features = $tenant ? $this->subscriptionManagerService->featureSummary($tenant) : [];
 
         return response()->json([
             'status' => true,
             'tenant' => $tenant?->only(['id', 'name', 'slug', 'status', 'plan_code']),
             'subscription' => $subscription ? $this->subscriptionManagerService->serializeSubscription($subscription) : null,
             'usage' => $tenant ? $this->subscriptionManagerService->usageSummary($tenant) : [],
+            'features' => $features,
+            'pending_upgrade' => $pendingSession ? $this->subscriptionManagerService->serializeCheckoutSession($pendingSession) : null,
+            'catalog' => [
+                'has_public_paid_plans' => $this->subscriptionManagerService->hasPublicPaidPlans(),
+            ],
         ]);
     }
 
     public function invoices(): JsonResponse
     {
         $tenant = $this->tenantContext->current();
-        $subscription = $tenant ? $this->subscriptionManagerService->currentSubscription($tenant) : null;
+        $invoices = $tenant
+            ? TenantSubscriptionInvoice::query()
+                ->where('tenant_id', $tenant->id)
+                ->latest('id')
+                ->get()
+                ->map(fn (TenantSubscriptionInvoice $invoice) => $this->subscriptionManagerService->serializeInvoice($invoice))
+                ->values()
+            : collect();
 
         return response()->json([
             'status' => true,
-            'data' => $subscription ? $this->subscriptionManagerService->serializeSubscription($subscription)['invoices'] : [],
+            'data' => $invoices,
+        ]);
+    }
+
+    public function plans(): JsonResponse
+    {
+        $tenant = $this->tenantContext->current();
+
+        return response()->json([
+            'status' => true,
+            'data' => $tenant ? $this->subscriptionManagerService->merchantVisiblePlans($tenant) : [],
+        ]);
+    }
+
+    public function checkout(MerchantBillingCheckoutRequest $request): JsonResponse
+    {
+        $tenant = $this->tenantContext->current();
+
+        abort_if($tenant === null, 404, 'Tenant not resolved.');
+
+        $result = $this->subscriptionManagerService->beginMerchantCheckout(
+            $tenant,
+            (string) $request->input('plan_code'),
+            (string) $request->input('billing_interval'),
+            $request->user(),
+            ['origin' => 'merchant_billing_page']
+        );
+
+        return response()->json([
+            'status' => true,
+            'data' => $result,
         ]);
     }
 }

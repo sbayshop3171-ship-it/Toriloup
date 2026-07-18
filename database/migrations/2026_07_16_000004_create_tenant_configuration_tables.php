@@ -26,7 +26,7 @@ return new class extends Migration
             $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
             $table->string('feature_code', 80);
             $table->boolean('status')->default(false);
-            $table->enum('source', ['platform_default', 'owner_override', 'merchant_choice'])->default('platform_default');
+            $table->enum('source', ['platform_default', 'plan', 'owner_override', 'merchant_choice'])->default('platform_default');
             $table->foreignId('updated_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->unique(['tenant_id', 'feature_code']);

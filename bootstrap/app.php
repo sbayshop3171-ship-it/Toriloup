@@ -10,6 +10,7 @@ use App\Http\Middleware\EnsureLegacyAdminSurfaceAccess;
 use App\Http\Middleware\EnsurePlatformHost;
 use App\Http\Middleware\EnsureMerchantHost;
 use App\Http\Middleware\EnsureSurfaceTokenAbility;
+use App\Http\Middleware\EnsureTenantFeatureAccess;
 use App\Http\Middleware\IdentifyRequestSurface;
 use App\Http\Middleware\ResolveTenantFromMerchantMembership;
 use App\Http\Middleware\ResolveTenantFromHost;
@@ -82,6 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'resolveTenantFromHost' => ResolveTenantFromHost::class,
             'ensureTenantResolved' => EnsureTenantResolved::class,
             'ensureTenantActive' => EnsureTenantActive::class,
+            'tenantFeature' => EnsureTenantFeatureAccess::class,
             'setTenantContext' => SetTenantContext::class,
 
         ]);

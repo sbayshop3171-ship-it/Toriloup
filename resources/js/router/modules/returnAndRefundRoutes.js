@@ -12,7 +12,8 @@ export default [
             isFrontend: false,
             auth: true,
             permissionUrl: 'return-and-refunds',
-            breadcrumb: 'return_and_refunds'
+            breadcrumb: 'return_and_refunds',
+            subscriptionFeature: 'returns'
         },
         children: [
             {
@@ -23,7 +24,8 @@ export default [
                     isFrontend: false,
                     auth: true,
                     permissionUrl: 'return-and-refunds',
-                    breadcrumb: ''
+                    breadcrumb: '',
+                    subscriptionFeature: 'returns'
                 },
             },
             {
@@ -35,6 +37,7 @@ export default [
                     auth: true,
                     permissionUrl: "return-and-refunds",
                     breadcrumb: "view",
+                    subscriptionFeature: "returns",
                 },
             }
         ]

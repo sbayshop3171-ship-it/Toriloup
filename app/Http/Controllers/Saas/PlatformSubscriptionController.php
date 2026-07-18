@@ -25,7 +25,7 @@ class PlatformSubscriptionController extends Controller
         $this->subscriptionManagerService->ensureDefaultPlans();
 
         $subscriptions = TenantSubscription::query()
-            ->with(['plan.limits', 'tenant', 'invoices' => fn ($query) => $query->latest('id')])
+            ->with(['plan.limits', 'plan.prices', 'plan.features', 'tenant', 'invoices' => fn ($query) => $query->latest('id')])
             ->when($request->filled('tenant_id'), fn ($query) => $query->where('tenant_id', (int) $request->integer('tenant_id')))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->orderByDesc('id')
@@ -40,7 +40,7 @@ class PlatformSubscriptionController extends Controller
     public function show(int $subscriptionId): JsonResponse
     {
         $subscription = TenantSubscription::query()
-            ->with(['plan.limits', 'tenant', 'invoices' => fn ($query) => $query->latest('id')])
+            ->with(['plan.limits', 'plan.prices', 'plan.features', 'tenant', 'invoices' => fn ($query) => $query->latest('id')])
             ->findOrFail($subscriptionId);
 
         return response()->json([
@@ -79,7 +79,7 @@ class PlatformSubscriptionController extends Controller
 
     public function markInvoicePaid(Request $request, int $subscriptionId, int $invoiceId): JsonResponse
     {
-        $subscription = TenantSubscription::query()->findOrFail($subscriptionId);
+        $subscription = TenantSubscription::query()->with(['plan.limits', 'plan.prices', 'plan.features', 'tenant', 'invoices'])->findOrFail($subscriptionId);
         $invoice = TenantSubscriptionInvoice::query()
             ->where('tenant_subscription_id', $subscription->id)
             ->findOrFail($invoiceId);
@@ -109,7 +109,7 @@ class PlatformSubscriptionController extends Controller
                     'status' => $invoice->status,
                     'paid_at' => $invoice->paid_at,
                 ],
-                'subscription' => $this->subscriptionManagerService->serializeSubscription($subscription->fresh(['plan.limits', 'tenant', 'invoices' => fn ($query) => $query->latest('id')])),
+                'subscription' => $this->subscriptionManagerService->serializeSubscription($subscription->fresh(['plan.limits', 'plan.prices', 'plan.features', 'tenant', 'invoices' => fn ($query) => $query->latest('id')])),
             ],
         ]);
     }

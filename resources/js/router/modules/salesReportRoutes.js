@@ -11,6 +11,7 @@ export default [
             auth: true,
             permissionUrl: "sales-report",
             breadcrumb: "sales_report",
+            subscriptionFeature: "report_exports",
         },
         children: [
             {
@@ -22,6 +23,7 @@ export default [
                     auth: true,
                     permissionUrl: "sales-report",
                     breadcrumb: "",
+                    subscriptionFeature: "report_exports",
                 },
             },
         ],

@@ -149,8 +149,8 @@ Route::prefix('merchant')
 
                 Route::prefix('domains')->group(function () {
                     Route::get('/', [MerchantDomainController::class, 'index']);
-                    Route::post('/', [MerchantDomainController::class, 'store']);
-                    Route::post('/{domainId}/primary', [MerchantDomainController::class, 'setPrimary'])->whereNumber('domainId');
+                    Route::post('/', [MerchantDomainController::class, 'store'])->middleware('tenantFeature:custom_domain');
+                    Route::post('/{domainId}/primary', [MerchantDomainController::class, 'setPrimary'])->whereNumber('domainId')->middleware('tenantFeature:custom_domain');
                 });
 
                 Route::prefix('settings')->group(function () {
@@ -165,11 +165,13 @@ Route::prefix('merchant')
                 Route::prefix('billing')->group(function () {
                     Route::get('/summary', [MerchantBillingController::class, 'summary']);
                     Route::get('/invoices', [MerchantBillingController::class, 'invoices']);
+                    Route::get('/plans', [MerchantBillingController::class, 'plans']);
+                    Route::post('/checkout', [MerchantBillingController::class, 'checkout']);
                 });
 
-                Route::get('/stock', [MerchantStockController::class, 'index']);
+                Route::get('/stock', [MerchantStockController::class, 'index'])->middleware('tenantFeature:advanced_stock');
 
-                Route::prefix('pos')->group(function () {
+                Route::prefix('pos')->middleware('tenantFeature:pos')->group(function () {
                     Route::post('/customers', [MerchantPosController::class, 'storeCustomer']);
                     Route::post('/orders', [MerchantPosController::class, 'store']);
                     Route::get('/orders', [MerchantPosController::class, 'orders']);
@@ -179,7 +181,7 @@ Route::prefix('merchant')
                     Route::post('/orders/{orderId}/payment-status', [MerchantPosController::class, 'changePaymentStatus'])->whereNumber('orderId');
                 });
 
-                Route::prefix('return-orders')->group(function () {
+                Route::prefix('return-orders')->middleware('tenantFeature:returns')->group(function () {
                     Route::get('/', [MerchantReturnOrderController::class, 'index']);
                     Route::post('/', [MerchantReturnOrderController::class, 'store']);
                     Route::get('/{returnOrderId}', [MerchantReturnOrderController::class, 'show'])->whereNumber('returnOrderId');
@@ -188,7 +190,7 @@ Route::prefix('merchant')
                     Route::delete('/{returnOrderId}', [MerchantReturnOrderController::class, 'destroy'])->whereNumber('returnOrderId');
                 });
 
-                Route::prefix('returns')->group(function () {
+                Route::prefix('returns')->middleware('tenantFeature:returns')->group(function () {
                     Route::get('/', [MerchantReturnAndRefundController::class, 'index']);
                     Route::get('/{returnAndRefundId}', [MerchantReturnAndRefundController::class, 'show'])->whereNumber('returnAndRefundId');
                     Route::post('/{returnAndRefundId}/status', [MerchantReturnAndRefundController::class, 'changeStatus'])->whereNumber('returnAndRefundId');

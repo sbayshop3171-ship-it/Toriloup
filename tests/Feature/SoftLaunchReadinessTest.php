@@ -170,6 +170,42 @@ class SoftLaunchReadinessTest extends TestCase
             ->assertJsonPath('tenant.id', $tenantId)
             ->assertJsonPath('tenant.plan_code', 'starter');
 
+        $this
+            ->withToken($ownerToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->putJson('http://owner.company.com/api/platform/plans/soft-launch-domain', [
+                'name' => 'Soft Launch Domain',
+                'status' => 'active',
+                'is_public' => false,
+                'currency_code' => 'USD',
+                'prices' => [
+                    'monthly' => 0,
+                    'semiannual' => 0,
+                    'yearly' => 0,
+                ],
+                'limits' => [
+                    ['key' => 'products', 'value' => 20, 'is_unlimited' => false],
+                    ['key' => 'custom_domains', 'value' => 1, 'is_unlimited' => false],
+                    ['key' => 'staff_members', 'value' => 1, 'is_unlimited' => false],
+                ],
+                'features' => [
+                    ['code' => 'custom_domain', 'label' => 'Custom domain', 'group' => 'Store & Branding', 'type' => 'boolean', 'value' => true],
+                ],
+            ])
+            ->assertOk();
+
+        $this
+            ->withToken($ownerToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/tenants/{$tenantId}/subscription", [
+                'plan_code' => 'soft-launch-domain',
+                'billing_interval' => 'monthly',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active');
+
         $domainResponse = $this
             ->withToken($merchantToken)
             ->withHeader('x-api-key', 'testing-key')

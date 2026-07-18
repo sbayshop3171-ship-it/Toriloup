@@ -52,52 +52,243 @@
             </div>
         </section>
 
-        <section v-else-if="page.key === 'billing'" class="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
-            <article class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <h2 class="text-lg font-semibold">Plan Catalog</h2>
-                <p class="text-sm text-[#6B7280]">Owner-managed packages and limits.</p>
-                <div class="mt-5 space-y-3">
-                    <div v-for="plan in plans" :key="plan.id" class="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <p class="font-semibold text-[#111827]">{{ plan.name }}</p>
-                                <p class="text-xs uppercase tracking-[0.14em] text-[#6B7280]">{{ plan.code }}</p>
-                            </div>
-                            <span class="rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-semibold text-[#1D4ED8]">
-                                {{ money(plan.monthly_price, plan.currency_code) }}/mo
-                            </span>
+        <section v-else-if="page.key === 'billing'" class="space-y-6">
+            <div class="grid gap-6 xl:grid-cols-[360px_1fr]">
+                <article class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-semibold">Plan Catalog</h2>
+                            <p class="text-sm text-[#6B7280]">Publishable plans, cycle pricing, limits, and feature unlocks.</p>
                         </div>
-                        <p class="mt-2 text-sm text-[#6B7280]">{{ plan.description || "No description yet." }}</p>
+                        <button
+                            type="button"
+                            class="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
+                            @click="createPlan">
+                            New Plan
+                        </button>
                     </div>
-                </div>
-            </article>
+
+                    <div class="mt-5 space-y-3">
+                        <button
+                            v-for="plan in plans"
+                            :key="plan.code"
+                            type="button"
+                            class="w-full rounded-xl border p-4 text-left transition"
+                            :class="selectedPlanCode === plan.code ? 'border-primary bg-[#FFF6F3]' : 'border-[#E5E7EB] bg-[#F9FAFB] hover:border-primary/40'"
+                            @click="selectPlan(plan)">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold text-[#111827]">{{ plan.name }}</p>
+                                    <p class="text-xs uppercase tracking-[0.14em] text-[#6B7280]">{{ plan.code }}</p>
+                                </div>
+                                <div class="flex flex-col items-end gap-2">
+                                    <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="plan.is_public ? 'bg-[#ECFDF3] text-[#047857]' : 'bg-[#F3F4F6] text-[#6B7280]'">
+                                        {{ plan.is_public ? "Public" : "Hidden" }}
+                                    </span>
+                                    <span v-if="plan.recommended || plan.badge_label" class="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-semibold text-[#4338CA]">
+                                        {{ plan.badge_label || "Recommended" }}
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="mt-2 text-sm text-[#6B7280]">{{ plan.short_description || plan.description || "No description yet." }}</p>
+                            <div class="mt-3 flex items-center justify-between text-sm">
+                                <span class="font-semibold text-[#111827]">{{ money(plan.prices?.monthly || plan.monthly_price, plan.currency_code) }}/mo</span>
+                                <span class="text-[#6B7280]">{{ plan.subscribers_count }} subscribers</span>
+                            </div>
+                        </button>
+                    </div>
+                </article>
+
+                <article class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                    <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <h2 class="text-lg font-semibold">Plan Editor</h2>
+                            <p class="text-sm text-[#6B7280]">Edit plan basics, prices, quotas, and the merchant compare table.</p>
+                        </div>
+                        <div v-if="planForm.code" class="rounded-full bg-[#F9FAFB] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
+                            {{ planForm.code }}
+                        </div>
+                    </div>
+
+                    <div class="mt-6 grid gap-6">
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <label class="grid gap-2 text-sm">
+                                <span class="font-medium text-[#374151]">Plan Code</span>
+                                <input v-model.trim="planForm.code" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="starter" />
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span class="font-medium text-[#374151]">Plan Name</span>
+                                <input v-model.trim="planForm.name" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="Free" />
+                            </label>
+                            <label class="grid gap-2 text-sm md:col-span-2">
+                                <span class="font-medium text-[#374151]">Short Description</span>
+                                <input v-model.trim="planForm.short_description" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="Start selling today." />
+                            </label>
+                            <label class="grid gap-2 text-sm md:col-span-2">
+                                <span class="font-medium text-[#374151]">Long Description</span>
+                                <textarea v-model="planForm.description" rows="3" class="rounded-xl border border-[#D1D5DB] px-4 py-3 outline-none transition focus:border-primary"></textarea>
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span class="font-medium text-[#374151]">Status</span>
+                                <select v-model="planForm.status" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary">
+                                    <option value="draft">Draft</option>
+                                    <option value="active">Active</option>
+                                    <option value="archived">Archived</option>
+                                </select>
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span class="font-medium text-[#374151]">Badge Label</span>
+                                <input v-model.trim="planForm.badge_label" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="Most Popular" />
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span class="font-medium text-[#374151]">Currency</span>
+                                <input v-model.trim="planForm.currency_code" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 uppercase outline-none transition focus:border-primary" maxlength="10" />
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span class="font-medium text-[#374151]">Trial Days</span>
+                                <input v-model.number="planForm.trial_days" type="number" min="0" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" />
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span class="font-medium text-[#374151]">Display Order</span>
+                                <input v-model.number="planForm.display_order" type="number" min="0" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" />
+                            </label>
+                            <div class="grid gap-3 text-sm">
+                                <span class="font-medium text-[#374151]">Visibility</span>
+                                <label class="inline-flex items-center gap-2 text-[#374151]">
+                                    <input v-model="planForm.is_public" type="checkbox" />
+                                    Public for merchants
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-[#374151]">
+                                    <input v-model="planForm.is_recommended" type="checkbox" />
+                                    Recommended plan
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="mb-3 flex items-center justify-between">
+                                <h3 class="text-base font-semibold text-[#111827]">Prices</h3>
+                                <p class="text-xs text-[#6B7280]">Monthly, 6 months, and yearly billing cycles.</p>
+                            </div>
+                            <div class="grid gap-4 md:grid-cols-3">
+                                <label class="grid gap-2 text-sm">
+                                    <span class="font-medium text-[#374151]">Monthly</span>
+                                    <input v-model.number="planForm.prices.monthly" type="number" min="0" step="0.01" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" />
+                                </label>
+                                <label class="grid gap-2 text-sm">
+                                    <span class="font-medium text-[#374151]">6 Months</span>
+                                    <input v-model.number="planForm.prices.semiannual" type="number" min="0" step="0.01" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" />
+                                </label>
+                                <label class="grid gap-2 text-sm">
+                                    <span class="font-medium text-[#374151]">Yearly</span>
+                                    <input v-model.number="planForm.prices.yearly" type="number" min="0" step="0.01" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" />
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="mb-3 flex items-center justify-between">
+                                <h3 class="text-base font-semibold text-[#111827]">Limits</h3>
+                                <button type="button" class="text-sm font-semibold text-primary" @click="addLimitRow">Add limit</button>
+                            </div>
+                            <div class="space-y-3">
+                                <div v-for="(limit, index) in planForm.limits" :key="'limit-' + index" class="grid gap-3 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 md:grid-cols-[1.1fr_0.9fr_auto_auto]">
+                                    <input v-model.trim="limit.key" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="products" />
+                                    <input v-model.number="limit.value" :disabled="limit.is_unlimited" type="number" min="0" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary disabled:bg-[#F3F4F6]" placeholder="0" />
+                                    <label class="inline-flex items-center gap-2 text-sm text-[#374151]">
+                                        <input v-model="limit.is_unlimited" type="checkbox" />
+                                        Unlimited
+                                    </label>
+                                    <button type="button" class="text-sm font-semibold text-[#B91C1C]" @click="removeLimitRow(index)">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="mb-3 flex items-center justify-between">
+                                <h3 class="text-base font-semibold text-[#111827]">Feature Matrix</h3>
+                                <button type="button" class="text-sm font-semibold text-primary" @click="addFeatureRow">Add feature</button>
+                            </div>
+                            <div class="space-y-3">
+                                <div v-for="(feature, index) in planForm.features" :key="'feature-' + index" class="grid gap-3 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 md:grid-cols-6">
+                                    <input v-model.trim="feature.code" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="custom_domain" />
+                                    <input v-model.trim="feature.label" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="Custom domain" />
+                                    <input v-model.trim="feature.group" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="Store & Branding" />
+                                    <select v-model="feature.type" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary">
+                                        <option value="boolean">Boolean</option>
+                                        <option value="text">Text</option>
+                                        <option value="integer">Integer</option>
+                                        <option value="percent">Percent</option>
+                                    </select>
+                                    <input v-model="feature.value" type="text" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="true / 500 / Unlimited" />
+                                    <div class="flex items-center gap-3">
+                                        <input v-model.number="feature.sort_order" type="number" min="0" class="h-11 w-full rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary" placeholder="10" />
+                                        <button type="button" class="text-sm font-semibold text-[#B91C1C]" @click="removeFeatureRow(index)">Remove</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-end gap-3">
+                            <button type="button" class="inline-flex h-11 items-center justify-center rounded-xl border border-[#D1D5DB] px-5 text-sm font-semibold text-[#374151]" @click="resetPlanForm">
+                                Reset
+                            </button>
+                            <button type="button" class="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white transition hover:opacity-90" @click="savePlan">
+                                {{ savingPlan ? "Saving..." : "Save Plan" }}
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            </div>
 
             <article class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
                 <h2 class="text-lg font-semibold">Subscription Oversight</h2>
-                <p class="text-sm text-[#6B7280]">Tenant billing state, renewal windows, and invoice health.</p>
+                <p class="text-sm text-[#6B7280]">Pending activations, active subscriptions, invoice state, and owner-paid overrides.</p>
                 <div class="mt-5 overflow-x-auto">
                     <table class="min-w-full text-left text-sm">
                         <thead>
                             <tr class="border-b border-[#E5E7EB] text-[#6B7280]">
                                 <th class="px-4 py-3 font-semibold">Tenant</th>
                                 <th class="px-4 py-3 font-semibold">Plan</th>
+                                <th class="px-4 py-3 font-semibold">Cycle</th>
                                 <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold">Invoice</th>
                                 <th class="px-4 py-3 font-semibold">Period End</th>
+                                <th class="px-4 py-3 font-semibold">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="subscriptions.length === 0">
-                                <td colspan="4" class="px-4 py-10 text-center text-[#6B7280]">No subscriptions yet.</td>
+                                <td colspan="7" class="px-4 py-10 text-center text-[#6B7280]">No subscriptions yet.</td>
                             </tr>
                             <tr v-for="subscription in subscriptions" :key="subscription.id" class="border-b border-[#F3F4F6] last:border-b-0">
-                                <td class="px-4 py-4 align-top">{{ subscription.tenant?.name || "Unknown tenant" }}</td>
-                                <td class="px-4 py-4 align-top">{{ subscription.plan_code_snapshot || subscription.plan?.code || "starter" }}</td>
+                                <td class="px-4 py-4 align-top">
+                                    <p class="font-medium text-[#111827]">{{ subscription.tenant?.name || "Unknown tenant" }}</p>
+                                    <p class="text-xs text-[#6B7280]">{{ subscription.tenant?.slug || "" }}</p>
+                                </td>
+                                <td class="px-4 py-4 align-top">{{ subscription.plan?.name || subscription.plan_code_snapshot || "starter" }}</td>
+                                <td class="px-4 py-4 align-top capitalize">{{ subscription.billing_interval }}</td>
                                 <td class="px-4 py-4 align-top">
                                     <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize" :class="statusClass(subscription.status)">
                                         {{ subscription.status }}
                                     </span>
                                 </td>
+                                <td class="px-4 py-4 align-top">
+                                    <p class="font-medium text-[#111827]">{{ subscription.invoices?.[0]?.invoice_no || "-" }}</p>
+                                    <p class="text-xs capitalize text-[#6B7280]">{{ subscription.invoices?.[0]?.status || "no invoice" }}</p>
+                                </td>
                                 <td class="px-4 py-4 align-top text-[#6B7280]">{{ shortDate(subscription.current_period_ends_at) }}</td>
+                                <td class="px-4 py-4 align-top">
+                                    <button
+                                        v-if="subscription.invoices?.[0]?.status === 'open'"
+                                        type="button"
+                                        class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-white transition hover:opacity-90"
+                                        @click="markInvoicePaid(subscription)"
+                                    >
+                                        {{ payingSubscriptionId === subscription.id ? "Marking..." : "Mark Paid" }}
+                                    </button>
+                                    <span v-else class="text-xs text-[#6B7280]">No action</span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -115,7 +306,7 @@
                     <option value="">All provider types</option>
                     <option value="payment">Payment</option>
                     <option value="sms">SMS</option>
-                    <option value="email">Email</option>
+                    <option value="mail">Mail</option>
                     <option value="push">Push</option>
                 </select>
             </div>
@@ -225,6 +416,29 @@ export default {
             subscriptions: [],
             providers: [],
             auditLogs: [],
+            selectedPlanCode: null,
+            planForm: {
+                code: "",
+                name: "",
+                short_description: "",
+                description: "",
+                status: "draft",
+                is_public: true,
+                display_order: 0,
+                is_recommended: false,
+                badge_label: "",
+                currency_code: "USD",
+                trial_days: 0,
+                prices: {
+                    monthly: 0,
+                    semiannual: 0,
+                    yearly: 0,
+                },
+                limits: [],
+                features: [],
+            },
+            savingPlan: false,
+            payingSubscriptionId: null,
             filters: {
                 q: "",
                 providerType: "",
@@ -283,6 +497,7 @@ export default {
                 ]).then(([plans, subscriptions]) => {
                     this.plans = Array.isArray(plans?.data?.data) ? plans.data.data : [];
                     this.subscriptions = Array.isArray(subscriptions?.data?.data) ? subscriptions.data.data : [];
+                    this.retainSelectedPlan();
                 });
             } else if (section === "providers") {
                 request = axios.get("platform/providers").then((res) => {
@@ -329,6 +544,180 @@ export default {
         },
         money: function (amount, currency = "USD") {
             return `${currency || "USD"} ${Number(amount || 0).toFixed(2)}`;
+        },
+        createPlan: function () {
+            const code = window.prompt("Enter a new plan code");
+
+            if (!code) {
+                return;
+            }
+
+            const normalizedCode = String(code).trim().toLowerCase().replace(/\s+/g, "-");
+            this.selectedPlanCode = normalizedCode;
+            this.planForm = this.emptyPlanForm(normalizedCode);
+        },
+        emptyPlanForm: function (code = "") {
+            return {
+                code,
+                name: "",
+                short_description: "",
+                description: "",
+                status: "draft",
+                is_public: true,
+                display_order: this.plans.length + 1,
+                is_recommended: false,
+                badge_label: "",
+                currency_code: "USD",
+                trial_days: 0,
+                prices: {
+                    monthly: 0,
+                    semiannual: 0,
+                    yearly: 0,
+                },
+                limits: [
+                    { key: "products", value: 0, is_unlimited: false },
+                    { key: "custom_domains", value: 0, is_unlimited: false },
+                    { key: "staff_members", value: 0, is_unlimited: false },
+                ],
+                features: [],
+            };
+        },
+        selectPlan: function (plan) {
+            this.selectedPlanCode = plan.code;
+            this.planForm = this.hydratePlanForm(plan);
+        },
+        hydratePlanForm: function (plan) {
+            return {
+                code: plan.code || "",
+                name: plan.name || "",
+                short_description: plan.short_description || "",
+                description: plan.description || "",
+                status: plan.status || "draft",
+                is_public: plan.is_public !== false,
+                display_order: Number(plan.display_order || 0),
+                is_recommended: plan.recommended === true,
+                badge_label: plan.badge_label || "",
+                currency_code: plan.currency_code || "USD",
+                trial_days: Number(plan.trial_days || 0),
+                prices: {
+                    monthly: Number(plan?.prices?.monthly || plan.monthly_price || 0),
+                    semiannual: Number(plan?.prices?.semiannual || 0),
+                    yearly: Number(plan?.prices?.yearly || plan.yearly_price || 0),
+                },
+                limits: Array.isArray(plan.limits) && plan.limits.length > 0
+                    ? plan.limits.map((limit) => ({
+                        key: limit.key,
+                        value: limit.value,
+                        is_unlimited: limit.is_unlimited,
+                    }))
+                    : this.emptyPlanForm().limits,
+                features: Array.isArray(plan.features)
+                    ? plan.features.map((feature) => ({
+                        code: feature.code,
+                        label: feature.label,
+                        group: feature.group,
+                        type: feature.type,
+                        value: feature.type === "boolean" ? (feature.enabled ? "true" : "false") : feature.value,
+                        sort_order: Number(feature.sort_order || 0),
+                    }))
+                    : [],
+            };
+        },
+        retainSelectedPlan: function () {
+            if (this.plans.length === 0) {
+                this.planForm = this.emptyPlanForm();
+                return;
+            }
+
+            const plan = this.plans.find((item) => item.code === this.selectedPlanCode) || this.plans[0];
+            this.selectPlan(plan);
+        },
+        addLimitRow: function () {
+            this.planForm.limits.push({ key: "", value: 0, is_unlimited: false });
+        },
+        removeLimitRow: function (index) {
+            this.planForm.limits.splice(index, 1);
+        },
+        addFeatureRow: function () {
+            this.planForm.features.push({
+                code: "",
+                label: "",
+                group: "Operations",
+                type: "boolean",
+                value: "false",
+                sort_order: (this.planForm.features.length + 1) * 10,
+            });
+        },
+        removeFeatureRow: function (index) {
+            this.planForm.features.splice(index, 1);
+        },
+        resetPlanForm: function () {
+            const plan = this.plans.find((item) => item.code === this.selectedPlanCode);
+            this.planForm = plan ? this.hydratePlanForm(plan) : this.emptyPlanForm(this.selectedPlanCode || "");
+        },
+        savePlan: function () {
+            if (!this.planForm.code || !this.planForm.name) {
+                return;
+            }
+
+            this.savingPlan = true;
+
+            axios.put(`platform/plans/${this.planForm.code}`, {
+                name: this.planForm.name,
+                short_description: this.planForm.short_description,
+                description: this.planForm.description,
+                status: this.planForm.status,
+                is_public: this.planForm.is_public,
+                display_order: this.planForm.display_order,
+                is_recommended: this.planForm.is_recommended,
+                badge_label: this.planForm.badge_label || null,
+                currency_code: this.planForm.currency_code,
+                trial_days: this.planForm.trial_days,
+                prices: {
+                    monthly: Number(this.planForm.prices.monthly || 0),
+                    semiannual: Number(this.planForm.prices.semiannual || 0),
+                    yearly: Number(this.planForm.prices.yearly || 0),
+                },
+                limits: this.planForm.limits.filter((limit) => limit.key).map((limit) => ({
+                    key: limit.key,
+                    value: limit.is_unlimited ? null : Number(limit.value || 0),
+                    is_unlimited: !!limit.is_unlimited,
+                })),
+                features: this.planForm.features.filter((feature) => feature.code && feature.label).map((feature) => ({
+                    code: feature.code,
+                    label: feature.label,
+                    group: feature.group || "Operations",
+                    type: feature.type || "boolean",
+                    value: feature.value,
+                    sort_order: Number(feature.sort_order || 0),
+                })),
+            }).then(() => {
+                return Promise.all([
+                    axios.get("platform/plans"),
+                    axios.get("platform/subscriptions"),
+                ]);
+            }).then(([plans, subscriptions]) => {
+                this.plans = Array.isArray(plans?.data?.data) ? plans.data.data : [];
+                this.subscriptions = Array.isArray(subscriptions?.data?.data) ? subscriptions.data.data : [];
+                this.retainSelectedPlan();
+            }).finally(() => {
+                this.savingPlan = false;
+            });
+        },
+        markInvoicePaid: function (subscription) {
+            const invoice = subscription?.invoices?.[0];
+
+            if (!invoice) {
+                return;
+            }
+
+            this.payingSubscriptionId = subscription.id;
+
+            axios.post(`platform/subscriptions/${subscription.id}/invoices/${invoice.id}/mark-paid`).then(() => {
+                this.fetchPageData();
+            }).finally(() => {
+                this.payingSubscriptionId = null;
+            });
         },
         shortDate: function (value) {
             if (!value) {

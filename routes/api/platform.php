@@ -1,8 +1,9 @@
 <?php
 
-use App\Http\Controllers\Saas\PlatformDashboardController;
 use App\Http\Controllers\Saas\PlatformAuditController;
+use App\Http\Controllers\Saas\PlatformBillingProviderCallbackController;
 use App\Http\Controllers\Saas\PlatformCustomerController;
+use App\Http\Controllers\Saas\PlatformDashboardController;
 use App\Http\Controllers\Saas\PlatformDomainController;
 use App\Http\Controllers\Saas\PlatformPlanController;
 use App\Http\Controllers\Saas\PlatformProviderController;
@@ -10,6 +11,14 @@ use App\Http\Controllers\Saas\PlatformSubscriptionController;
 use App\Http\Controllers\Saas\PlatformTenantController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('platform/billing/providers')
+    ->name('platform.billing.providers.')
+    ->middleware(['installed', 'identifySurface', 'ensurePlatformHost'])
+    ->group(function () {
+        Route::post('/{providerCode}/webhook', [PlatformBillingProviderCallbackController::class, 'webhook'])->name('webhook');
+        Route::match(['get', 'post'], '/{providerCode}/return', [PlatformBillingProviderCallbackController::class, 'handleReturn'])->name('return');
+    });
 
 Route::prefix('platform')
     ->name('platform.')
