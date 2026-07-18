@@ -16,7 +16,6 @@ concurrency:
 jobs:
   deploy:
     name: Deploy To Toriloup Server
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
 
     env:
