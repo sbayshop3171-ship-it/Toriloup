@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\Role as LegacyRole;
 use App\Models\Barcode;
 use App\Models\PlatformPlan;
+use App\Models\PlatformProvider;
 use App\Models\PlatformRole;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -15,8 +16,11 @@ use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionInvoice;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Saas\SubscriptionManagerService;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use PDOException;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -69,6 +73,34 @@ class BillingWorkspaceTest extends TestCase
             'tenant_id' => $tenantId,
             'status' => 'paid',
         ]);
+    }
+
+    public function test_default_billing_provider_falls_back_when_live_provider_enum_is_legacy(): void
+    {
+        PlatformProvider::creating(function (PlatformProvider $provider): void {
+            if ($provider->provider_type !== 'saas_billing') {
+                return;
+            }
+
+            throw new QueryException(
+                'mysql',
+                'insert into `platform_providers` (`provider_type`) values (?)',
+                ['saas_billing'],
+                new PDOException("SQLSTATE[01000]: Warning: 1265 Data truncated for column 'provider_type' at row 1")
+            );
+        });
+
+        try {
+            /** @var SubscriptionManagerService $service */
+            $service = app(SubscriptionManagerService::class);
+            $provider = $service->ensureDefaultBillingProvider();
+
+            $this->assertSame('manual', $provider->provider_code);
+            $this->assertSame('payment', $provider->provider_type);
+            $this->assertSame($provider->id, $service->activeBillingProvider()?->id);
+        } finally {
+            PlatformProvider::flushEventListeners();
+        }
     }
 
     public function test_owner_can_manage_plan_catalog_and_assign_subscriptions(): void

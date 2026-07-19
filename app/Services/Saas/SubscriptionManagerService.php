@@ -16,6 +16,7 @@ use App\Models\TenantMember;
 use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionInvoice;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -337,20 +338,33 @@ class SubscriptionManagerService
 
     public function ensureDefaultBillingProvider(): PlatformProvider
     {
-        return PlatformProvider::query()->firstOrCreate(
+        try {
+            return PlatformProvider::query()->firstOrCreate(
+                [
+                    'provider_type' => 'saas_billing',
+                    'provider_code' => 'manual',
+                ],
+                $this->defaultBillingProviderAttributes()
+            );
+        } catch (QueryException $exception) {
+            if (!$this->isUnsupportedSaasBillingProviderType($exception)) {
+                throw $exception;
+            }
+        }
+
+        $provider = PlatformProvider::query()->where('provider_code', 'manual')->first();
+
+        if ($provider instanceof PlatformProvider) {
+            return $provider;
+        }
+
+        return PlatformProvider::query()->create(array_merge(
             [
-                'provider_type' => 'saas_billing',
+                'provider_type' => 'payment',
                 'provider_code' => 'manual',
             ],
-            [
-                'name' => 'Manual SaaS Billing',
-                'status' => true,
-                'config_json' => [
-                    'checkout_mode' => 'hosted_manual',
-                    'managed_by' => 'platform',
-                ],
-            ]
-        );
+            $this->defaultBillingProviderAttributes()
+        ));
     }
 
     /**
@@ -994,10 +1008,40 @@ class SubscriptionManagerService
         $this->ensureDefaultBillingProvider();
 
         return PlatformProvider::query()
-            ->where('provider_type', 'saas_billing')
+            ->where(function ($query): void {
+                $query->where('provider_type', 'saas_billing')
+                    ->orWhere(function ($legacyQuery): void {
+                        $legacyQuery
+                            ->where('provider_code', 'manual')
+                            ->where('name', 'Manual SaaS Billing');
+                    });
+            })
             ->where('status', true)
             ->orderBy('name')
             ->first();
+    }
+
+    /**
+     * @return array{name: string, status: bool, config_json: array<string, string>}
+     */
+    private function defaultBillingProviderAttributes(): array
+    {
+        return [
+            'name' => 'Manual SaaS Billing',
+            'status' => true,
+            'config_json' => [
+                'checkout_mode' => 'hosted_manual',
+                'managed_by' => 'platform',
+            ],
+        ];
+    }
+
+    private function isUnsupportedSaasBillingProviderType(QueryException $exception): bool
+    {
+        $message = $exception->getMessage();
+
+        return str_contains($message, 'provider_type')
+            && (str_contains($message, 'Data truncated') || str_contains($message, '1265'));
     }
 
     public function hostedCheckoutUrl(string $providerCode, SubscriptionCheckoutSession $session): string
