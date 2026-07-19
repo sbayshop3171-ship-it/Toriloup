@@ -14,14 +14,26 @@
                 :modules="modules"
                 class="banner-swiper"
             >
-                <SwiperSlide v-for="slider in visibleSliders" :key="slider.id">
+                <SwiperSlide v-for="(slider, index) in visibleSliders" :key="slider.id">
                     <div v-if="slider.link">
-                        <a :href="slider.link">
-                            <img class="w-full rounded-2xl" :src="slider.image" alt="banner" >
+                        <a :href="slider.link" @click="openSliderLink($event, slider.link)">
+                            <img
+                                class="w-full rounded-2xl"
+                                :src="slider.image"
+                                alt="banner"
+                                decoding="async"
+                                :loading="index === 0 ? 'eager' : 'lazy'"
+                                :fetchpriority="index === 0 ? 'high' : 'auto'">
                         </a>
                     </div>
                     <div v-else>
-                        <img class="w-full rounded-2xl" :src="slider.image" alt="banner" >
+                        <img
+                            class="w-full rounded-2xl"
+                            :src="slider.image"
+                            alt="banner"
+                            decoding="async"
+                            :loading="index === 0 ? 'eager' : 'lazy'"
+                            :fetchpriority="index === 0 ? 'high' : 'auto'">
                     </div>
                 </SwiperSlide>
             </Swiper>
@@ -78,6 +90,29 @@ export default {
         }).catch((err) => {
             this.loading.isActive = false;
         });
+    },
+    methods: {
+        openSliderLink: function (event, link) {
+            if (!link) {
+                return;
+            }
+
+            try {
+                const url = new URL(link, window.location.href);
+
+                if (url.origin === window.location.origin) {
+                    const target = `${url.pathname}${url.search}${url.hash}`;
+                    const resolved = this.$router.resolve(target);
+
+                    if (!resolved?.matched?.some((record) => record?.meta?.isFrontend === true) || resolved.name === "route.notFound") {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    this.$router.push(target);
+                }
+            } catch (error) {}
+        }
     }
 }
 </script>

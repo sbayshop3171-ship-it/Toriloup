@@ -21,13 +21,23 @@
                         <SwiperSlide v-for="(image, index) in images" :key="index"
                             class="w-full cursor-pointer rounded-lg border border-gray-200 transition-all duration-500">
                             <img class="w-full rounded-lg border-2 border-gray-200 transition-all duration-500"
-                                :src="image" alt="gallery" />
+                                :src="image"
+                                alt="gallery"
+                                decoding="async"
+                                :loading="index < 4 ? 'eager' : 'lazy'"
+                                :fetchpriority="index === 0 ? 'high' : 'auto'" />
                         </SwiperSlide>
                     </Swiper>
                 </div>
 
                 <div v-else class="col-12 sm:col-6 lg:col-5">
-                    <img :src="product.image" alt="products" class="w-full rounded-2xl">
+                    <img
+                        :src="product.image"
+                        alt="products"
+                        class="w-full rounded-2xl"
+                        loading="eager"
+                        decoding="async"
+                        fetchpriority="high">
                 </div>
 
                 <div class="col-12 sm:col-6 lg:col-7 lg:pl-10">
@@ -223,6 +233,8 @@
 
                                 <div class="flex flex-wrap gap-4" v-if="review.images.length > 0">
                                     <img v-for="reviewImage in review.images" :src="reviewImage" alt="image"
+                                        loading="lazy"
+                                        decoding="async"
                                         class="w-20 rounded-lg" @click="previewImage(reviewImage)">
                                 </div>
                             </div>

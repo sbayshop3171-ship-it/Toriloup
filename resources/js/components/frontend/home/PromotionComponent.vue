@@ -4,9 +4,15 @@
     <section v-if="promotions.length > 0" class="mb-10 sm:mb-20">
         <div class="container">
             <Swiper dir="ltr" :speed="1000" class="ad-swiper" :breakpoints="breakpoints">
-                <SwiperSlide v-for="promotion in promotions" class="mobile:!w-52">
+                <SwiperSlide v-for="(promotion, index) in promotions" :key="promotion.id" class="mobile:!w-52">
                     <router-link :to="{name: 'frontend.promotion.products', params: { slug: promotion.slug }}" class=" w-full">
-                        <img class="w-full block rounded-2xl" :src="promotion.cover" alt="promotion">
+                        <img
+                            class="w-full block rounded-2xl"
+                            :src="promotion.cover"
+                            alt="promotion"
+                            decoding="async"
+                            :loading="index < 2 ? 'eager' : 'lazy'"
+                            :fetchpriority="index < 2 ? 'high' : 'auto'">
                     </router-link>
                 </SwiperSlide>
             </Swiper>

@@ -34,7 +34,7 @@ export default {
                 if (this.props?.isActive) {
                     this.isActive = true;
                 }
-            }, 140);
+            }, 220);
         }
     },
     watch: {

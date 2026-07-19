@@ -2,9 +2,15 @@
     <div class="row">
         <div class="col-12 lg:col-8">
             <ul v-if="carts.length > 0" class="p-4 mb-11 rounded-2xl shadow-card">
-                <li v-for="(cart, index) in carts"
+                <li v-for="(cart, index) in carts" :key="cart.id || cart.product_id || cart.sku || index"
                     class="flex items-start gap-3 pb-4 mb-4 border-b last:mb-0 last:pb-0 last:border-none border-gray-100">
-                    <img :src="cart.image" alt="products" class="w-28 rounded-lg flex-shrink-0" />
+                    <img
+                        :src="cart.image"
+                        alt="products"
+                        class="w-28 rounded-lg flex-shrink-0"
+                        decoding="async"
+                        :loading="index < 3 ? 'eager' : 'lazy'"
+                        :fetchpriority="index < 3 ? 'high' : 'auto'" />
 
                     <div class="relative w-full overflow-hidden">
                         <h4 class="font-semibold capitalize whitespace-nowrap overflow-hidden text-ellipsis mb-1">

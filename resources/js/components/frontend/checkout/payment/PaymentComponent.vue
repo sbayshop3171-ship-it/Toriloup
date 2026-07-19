@@ -13,7 +13,7 @@
                         @click.prevent="selectPaymentMethod(cashOnDelivery)"
                         :class="Object.keys(paymentMethod).length > 0 && cashOnDelivery.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
-                        <img class="h-6" :src="cashOnDelivery.image" alt="payment" />
+                        <img class="h-6" :src="cashOnDelivery.image" alt="payment" loading="eager" decoding="async" fetchpriority="high" />
                         <span class="text-xs font-medium">{{ cashOnDelivery.name }}</span>
                     </div>
 
@@ -22,16 +22,22 @@
                         @click.prevent="selectPaymentMethod(credit)"
                         :class="Object.keys(paymentMethod).length > 0 && credit.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
-                        <img class="h-6" :src="credit.image" alt="payment" />
+                        <img class="h-6" :src="credit.image" alt="payment" loading="eager" decoding="async" fetchpriority="high" />
                         <span class="text-xs font-medium">{{ credit.name }} ({{ profile.balance }})</span>
                     </div>
 
-                    <div v-for="paymentGateway in paymentGateways"
+                    <div v-for="(paymentGateway, index) in paymentGateways"
                         :key="paymentGateway.id"
                         @click.prevent="selectPaymentMethod(paymentGateway)"
                         :class="Object.keys(paymentMethod).length > 0 && paymentGateway.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
-                        <img class="h-6" :src="paymentGateway.image" alt="payment"  />
+                        <img
+                            class="h-6"
+                            :src="paymentGateway.image"
+                            alt="payment"
+                            decoding="async"
+                            :loading="index < 4 ? 'eager' : 'lazy'"
+                            :fetchpriority="index < 4 ? 'high' : 'auto'" />
                         <span class="text-xs font-medium">{{ paymentGateway.name }}</span>
                     </div>
                 </div>

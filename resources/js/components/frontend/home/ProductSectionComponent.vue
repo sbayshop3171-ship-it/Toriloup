@@ -2,7 +2,7 @@
     <LoadingComponent :props="loading" />
 
     <div class="p-0 m-0" v-if="productSections.length > 0 && promotions.length > 0"
-        v-for="(productSection, key) in productSections">
+        v-for="(productSection, key) in productSections" :key="productSection.id">
         <section class="mb-10 sm:mb-20" v-if="productSection.products.length > 0">
             <div class="container">
                 <div class="flex items-center justify-between gap-4 mb-5 sm:mb-7">
@@ -22,18 +22,24 @@
             </div>
         </section>
 
-        <div v-for="(promotion, promotionKey) in promotions" class="p-0 m-0">
+        <div v-for="(promotion, promotionKey) in promotions" :key="promotion.id" class="p-0 m-0">
             <section v-if="key === promotionKey" class="mb-10 sm:mb-20">
                 <div class="container">
                     <router-link :to="{ name: 'frontend.promotion.products', params: { slug: promotion.slug } }">
-                        <img class="w-full rounded-3xl" :src="promotion.preview" alt="promotion">
+                        <img
+                            class="w-full rounded-3xl"
+                            :src="promotion.preview"
+                            alt="promotion"
+                            decoding="async"
+                            :loading="key < 1 ? 'eager' : 'lazy'"
+                            :fetchpriority="key < 1 ? 'high' : 'auto'">
                     </router-link>
                 </div>
             </section>
         </div>
     </div>
 
-    <div class="p-0 m-0" v-else-if="productSections.length > 0" v-for="productSection in productSections">
+    <div class="p-0 m-0" v-else-if="productSections.length > 0" v-for="productSection in productSections" :key="productSection.id">
         <section class="mb-10 sm:mb-20" v-if="productSection.products.length > 0">
             <div class="container">
                 <div class="flex items-center justify-between gap-4 mb-5 sm:mb-7">
@@ -55,10 +61,16 @@
     </div>
 
     <div class="p-0 m-0" v-else-if="promotions.length > 0">
-        <section v-for="promotion in promotions" class="mb-10 sm:mb-20">
+        <section v-for="(promotion, index) in promotions" :key="promotion.id" class="mb-10 sm:mb-20">
             <div class="container">
                 <router-link :to="{ name: 'frontend.promotion.products', params: { slug: promotion.slug } }">
-                    <img class="w-full rounded-3xl" :src="promotion.preview" alt="promotion">
+                    <img
+                        class="w-full rounded-3xl"
+                        :src="promotion.preview"
+                        alt="promotion"
+                        decoding="async"
+                        :loading="index < 1 ? 'eager' : 'lazy'"
+                        :fetchpriority="index < 1 ? 'high' : 'auto'">
                 </router-link>
             </div>
         </section>

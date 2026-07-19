@@ -3,11 +3,14 @@ import appService from "./appService";
 import cacheService from "./storefrontCacheService";
 import statusEnum from "../enums/modules/statusEnum";
 import askEnum from "../enums/modules/askEnum";
+import promotionTypeEnum from "../enums/modules/promotionTypeEnum";
 
 const prefetchedRoutes = new Set();
 const prefetchedImages = new Set();
+const preloadedImageLinks = new Set();
 const loadedRouteComponents = new WeakSet();
 let installed = false;
+let imageInterceptorInstalled = false;
 let observer = null;
 let mutationObserver = null;
 let scanTimer = null;
@@ -16,7 +19,7 @@ const HOME_PREFETCHES = [
     () => axios.get("frontend/slider" + appService.requestHandler({
         paginate: 0,
         order_column: "id",
-        order_type: "asc",
+        order_type: "desc",
         status: statusEnum.ACTIVE,
     })),
     () => axios.get("frontend/product-category" + appService.requestHandler({
@@ -30,22 +33,24 @@ const HOME_PREFETCHES = [
         paginate: 0,
         order_column: "id",
         order_type: "asc",
+        type: promotionTypeEnum.SMALL,
+        status: statusEnum.ACTIVE,
+    })),
+    () => axios.get("frontend/promotion" + appService.requestHandler({
+        paginate: 0,
+        order_column: "id",
+        order_type: "asc",
+        type: promotionTypeEnum.BIG,
         status: statusEnum.ACTIVE,
     })),
     () => axios.get("frontend/product-section"),
     () => axios.get("frontend/product/popular-products" + appService.requestHandler({
-        paginate: 1,
-        page: 1,
-        per_page: 8,
-        order_column: "name",
-        order_type: "asc",
+        paginate: 0,
+        rand: 8,
     })),
     () => axios.get("frontend/product/flash-sale-products" + appService.requestHandler({
-        paginate: 1,
-        page: 1,
-        per_page: 8,
-        order_column: "name",
-        order_type: "asc",
+        paginate: 0,
+        rand: 8,
     })),
     () => axios.get("frontend/product-brand" + appService.requestHandler({
         paginate: 0,
@@ -119,7 +124,7 @@ function runQuietly(task) {
     return Promise.resolve()
         .then(task)
         .then((response) => {
-            preloadImagesFromData(response?.data);
+            preloadImagesFromData(response?.data, 32, 4);
             return response;
         })
         .catch(() => null);
@@ -398,8 +403,33 @@ function preloadImage(src) {
     image.src = src;
 }
 
-function preloadImagesFromData(data, limit = 24) {
-    collectImageUrls(data, limit).forEach(preloadImage);
+function preloadImageLink(src, fetchPriority = "high") {
+    if (!src || preloadedImageLinks.has(src) || typeof document === "undefined") {
+        return;
+    }
+
+    preloadedImageLinks.add(src);
+
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = src;
+
+    if ("fetchPriority" in link) {
+        link.fetchPriority = fetchPriority;
+    }
+
+    document.head.appendChild(link);
+}
+
+function preloadImagesFromData(data, limit = 24, criticalLimit = 2) {
+    collectImageUrls(data, limit).forEach((src, index) => {
+        if (index < criticalLimit) {
+            preloadImageLink(src, "high");
+        }
+
+        preloadImage(src);
+    });
 }
 
 function tuneImageElement(image) {
@@ -413,8 +443,12 @@ function tuneImageElement(image) {
     const rect = image.getBoundingClientRect();
     const nearViewport = rect.top < window.innerHeight * 1.5;
 
-    if (nearViewport && "fetchPriority" in image) {
-        image.fetchPriority = "high";
+    if (nearViewport) {
+        image.loading = "eager";
+
+        if ("fetchPriority" in image) {
+            image.fetchPriority = "high";
+        }
     }
 
     if (!nearViewport) {
@@ -484,6 +518,37 @@ function handleIntent(router, store, event) {
     }
 }
 
+function shouldPreloadResponseImages(config) {
+    if (!config) {
+        return false;
+    }
+
+    const url = cacheService.requestUrl(config).replace(/^\//, "");
+
+    if (!url.startsWith("frontend/") || url.startsWith("frontend/setting")) {
+        return false;
+    }
+
+    return /^frontend\/(slider|product-category|promotion|product-section|product-brand|benefit|payment-gateway|order-area|outlet|page\/show)(\/|\?|$)/.test(url) ||
+        /^frontend\/product(\/|\?|$)/.test(url);
+}
+
+function installAxiosImagePreload(axiosInstance) {
+    if (imageInterceptorInstalled || !axiosInstance?.interceptors?.response) {
+        return;
+    }
+
+    imageInterceptorInstalled = true;
+
+    axiosInstance.interceptors.response.use((response) => {
+        if (shouldPreloadResponseImages(response?.config)) {
+            preloadImagesFromData(response?.data, 40, 5);
+        }
+
+        return response;
+    }, (error) => Promise.reject(error));
+}
+
 function install(router, store) {
     if (installed || typeof window === "undefined" || typeof document === "undefined") {
         return;
@@ -506,20 +571,22 @@ function install(router, store) {
 
     router.afterEach((to) => {
         scheduleScan(router, store);
-        idle(() => prefetchRoute(router, store, to));
+        prefetchRoute(router, store, to);
     });
 
     router.isReady().then(() => {
         scheduleScan(router, store);
-        idle(() => prefetchRoute(router, store, router.currentRoute.value));
+        prefetchRoute(router, store, router.currentRoute.value);
     });
 }
 
 export default {
     collectImageUrls,
     install,
+    installAxiosImagePreload,
     prefetchRoute,
     preloadImage,
+    preloadImageLink,
     preloadImagesFromData,
     tuneImages,
 };

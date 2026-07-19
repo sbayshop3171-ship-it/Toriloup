@@ -93,6 +93,7 @@ import router from "../../../../router";
 import alertService from "../../../../services/alertService";
 import LoadingComponent from "../../components/LoadingComponent.vue";
 import statusEnum from "../../../../enums/modules/statusEnum";
+import storefrontInstantService from "../../../../services/storefrontInstantService";
 
 
 export default {
@@ -130,6 +131,8 @@ export default {
         }
     },
     mounted() {
+        this.warmPaymentPage();
+
         this.loading.isActive = true;
         this.$store.dispatch('frontendOrderArea/lists').then(res => {
             this.loading.isActive = false;
@@ -164,6 +167,11 @@ export default {
                 this.$store.dispatch('frontendCart/outletAddress', this.modelOutlet).then().catch();
             }, 100);
         },
+        warmPaymentPage: function () {
+            storefrontInstantService.prefetchRoute(this.$router, this.$store, {
+                name: "frontend.checkout.payment",
+            });
+        },
         checkBillingCheckBox: function (e) {
             if (e.target.checked) {
                 this.billingStatus           = false;
@@ -175,6 +183,8 @@ export default {
             }
         },
         selectAddress: function () {
+            this.warmPaymentPage();
+
             if (this.orderType === orderTypeEnum.DELIVERY) {
                 if (Object.keys(this.getShippingAddress).length === 0 || Object.keys(this.getBillingAddress).length === 0) {
                     alertService.error(this.$t("message.shipping_and_billing_address"));
@@ -188,4 +198,3 @@ export default {
     }
 }
 </script>
-

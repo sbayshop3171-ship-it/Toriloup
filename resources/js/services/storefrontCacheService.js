@@ -6,6 +6,10 @@ const PRODUCT_TTL = 180000;
 const cache = new Map();
 const inflight = new Map();
 const MAX_CACHE_ITEMS = 250;
+const PERSIST_PREFIX = "toriloup:storefront-cache:";
+const PERSIST_INDEX_KEY = `${PERSIST_PREFIX}index`;
+const MAX_PERSISTED_ITEMS = 80;
+const MAX_PERSISTED_BYTES = 220000;
 
 function safeJsonParse(value, fallback = null) {
     try {
@@ -27,6 +31,181 @@ function clone(value) {
     }
 
     return safeJsonParse(JSON.stringify(value), value);
+}
+
+function browserStorage() {
+    if (typeof window === "undefined" || !window.localStorage) {
+        return null;
+    }
+
+    try {
+        const key = `${PERSIST_PREFIX}probe`;
+        window.localStorage.setItem(key, "1");
+        window.localStorage.removeItem(key);
+        return window.localStorage;
+    } catch (error) {
+        return null;
+    }
+}
+
+function hashKey(value) {
+    let hash = 0;
+
+    for (let index = 0; index < value.length; index++) {
+        hash = ((hash << 5) - hash) + value.charCodeAt(index);
+        hash |= 0;
+    }
+
+    return Math.abs(hash).toString(36);
+}
+
+function persistedItemKey(key) {
+    return `${PERSIST_PREFIX}${hashKey(key)}`;
+}
+
+function readPersistIndex() {
+    const storage = browserStorage();
+
+    if (!storage) {
+        return [];
+    }
+
+    const index = safeJsonParse(storage.getItem(PERSIST_INDEX_KEY), []);
+    return Array.isArray(index) ? index : [];
+}
+
+function writePersistIndex(index) {
+    const storage = browserStorage();
+
+    if (!storage) {
+        return;
+    }
+
+    try {
+        storage.setItem(PERSIST_INDEX_KEY, JSON.stringify(index.slice(0, MAX_PERSISTED_ITEMS)));
+    } catch (error) {}
+}
+
+function removePersistedItem(storageKey, index = null) {
+    const storage = browserStorage();
+
+    if (!storage) {
+        return;
+    }
+
+    storage.removeItem(storageKey);
+
+    if (Array.isArray(index)) {
+        writePersistIndex(index.filter((item) => item !== storageKey));
+    }
+}
+
+function cacheUrlFromKey(key) {
+    const meta = safeJsonParse(key, {});
+    return String(meta?.url || "").replace(/^\//, "");
+}
+
+function isPersistentUrl(url) {
+    const normalizedUrl = String(url || "").replace(/^\//, "");
+
+    return /^frontend\/(slider|product-category|promotion|product-section|product-brand|benefit|payment-gateway|order-area|outlet)(\/|\?|$)/.test(normalizedUrl) ||
+        /^frontend\/product(\/|\?|$)/.test(normalizedUrl) ||
+        /^frontend\/page\/show(\/|\?|$)/.test(normalizedUrl);
+}
+
+function shouldPersist(key, config = null) {
+    const url = config ? requestUrl(config) : cacheUrlFromKey(key);
+
+    return isPersistentUrl(url);
+}
+
+function prunePersistedCache(index = readPersistIndex()) {
+    const storage = browserStorage();
+
+    if (!storage) {
+        return;
+    }
+
+    const now = Date.now();
+    const nextIndex = [];
+
+    index.forEach((storageKey) => {
+        const item = safeJsonParse(storage.getItem(storageKey), null);
+
+        if (!item || item.expiresAt <= now) {
+            storage.removeItem(storageKey);
+            return;
+        }
+
+        if (nextIndex.length < MAX_PERSISTED_ITEMS) {
+            nextIndex.push(storageKey);
+            return;
+        }
+
+        storage.removeItem(storageKey);
+    });
+
+    writePersistIndex(nextIndex);
+}
+
+function persistentGet(key) {
+    if (!shouldPersist(key)) {
+        return null;
+    }
+
+    const storage = browserStorage();
+
+    if (!storage) {
+        return null;
+    }
+
+    const storageKey = persistedItemKey(key);
+    const item = safeJsonParse(storage.getItem(storageKey), null);
+
+    if (!item || item.key !== key || item.expiresAt <= Date.now()) {
+        removePersistedItem(storageKey, readPersistIndex());
+        return null;
+    }
+
+    return {
+        expiresAt: item.expiresAt,
+        response: clone(item.response),
+    };
+}
+
+function persistentSet(key, response, ttl, config = null) {
+    if (!shouldPersist(key, config)) {
+        return;
+    }
+
+    const storage = browserStorage();
+
+    if (!storage) {
+        return;
+    }
+
+    const storageKey = persistedItemKey(key);
+    const item = {
+        key,
+        expiresAt: Date.now() + ttl,
+        response: clone(response),
+    };
+    const serialized = JSON.stringify(item);
+
+    if (serialized.length > MAX_PERSISTED_BYTES) {
+        removePersistedItem(storageKey, readPersistIndex());
+        return;
+    }
+
+    try {
+        storage.setItem(storageKey, serialized);
+        const index = readPersistIndex().filter((itemKey) => itemKey !== storageKey);
+        index.unshift(storageKey);
+        writePersistIndex(index);
+        prunePersistedCache(index);
+    } catch (error) {
+        prunePersistedCache();
+    }
 }
 
 function normalize(value) {
@@ -158,7 +337,18 @@ function get(key) {
     const entry = cache.get(key);
 
     if (!entry) {
-        return null;
+        const persisted = persistentGet(key);
+
+        if (!persisted) {
+            return null;
+        }
+
+        cache.set(key, {
+            expiresAt: persisted.expiresAt,
+            response: clone(persisted.response),
+        });
+
+        return clone(persisted.response);
     }
 
     if (entry.expiresAt <= Date.now()) {
@@ -169,11 +359,13 @@ function get(key) {
     return clone(entry.response);
 }
 
-function set(key, response, ttl = DEFAULT_TTL) {
+function set(key, response, ttl = DEFAULT_TTL, config = null) {
     cache.set(key, {
         expiresAt: Date.now() + ttl,
         response: clone(response),
     });
+
+    persistentSet(key, response, ttl, config);
 
     while (cache.size > MAX_CACHE_ITEMS) {
         cache.delete(cache.keys().next().value);
@@ -213,6 +405,23 @@ function clearCurrentScope() {
             cache.delete(key);
         }
     });
+
+    const storage = browserStorage();
+    const index = readPersistIndex();
+    const nextIndex = [];
+
+    index.forEach((storageKey) => {
+        const item = storage ? safeJsonParse(storage.getItem(storageKey), null) : null;
+
+        if (!item || item.key?.includes(`"scope":"${scope}`)) {
+            storage?.removeItem(storageKey);
+            return;
+        }
+
+        nextIndex.push(storageKey);
+    });
+
+    writePersistIndex(nextIndex);
 }
 
 function shouldInvalidate(config) {
@@ -267,7 +476,7 @@ function installAxiosCache(axios) {
                                 headers: response.headers,
                             };
 
-                            set(key, cachedResponse, ttlFor(adapterConfig));
+                            set(key, cachedResponse, ttlFor(adapterConfig), adapterConfig);
 
                             return cachedResponse;
                         })
@@ -316,7 +525,7 @@ function installAxiosCache(axios) {
                 status: response.status,
                 statusText: response.statusText,
                 headers: response.headers,
-            }, ttlFor(response.config));
+            }, ttlFor(response.config), response.config);
         } else if (shouldInvalidate(response?.config)) {
             clearCurrentScope();
         }

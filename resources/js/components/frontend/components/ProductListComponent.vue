@@ -1,5 +1,5 @@
 <template>
-    <div v-if="products.length > 0" v-for="product in products"
+    <div v-if="products.length > 0" v-for="(product, index) in products" :key="product.id || product.slug"
         class="sm:p-2 miron rounded-2xl sm:shadow-card transition-all duration-300 sm:hover:shadow-hover group">
         <div class="relative overflow-hidden rounded-xl isolate">
             <label
@@ -13,7 +13,12 @@
 
             <router-link class="overflow-hidden rounded-xl w-full"
                 :to="{ name: 'frontend.product.details', params: { slug: product.slug } }">
-                <img :src="product.cover" alt="product"
+                <img
+                    :src="product.cover"
+                    alt="product"
+                    decoding="async"
+                    :loading="index < priorityLimit ? 'eager' : 'lazy'"
+                    :fetchpriority="index < priorityLimit ? 'high' : 'auto'"
                     class="w-full rounded-xl transition-all duration-300 group-hover:scale-105 group-hover:rotate-3">
             </router-link>
         </div>
@@ -70,7 +75,14 @@ export default {
         starRating
     },
     props: {
-        "products": "object",
+        products: {
+            type: [Array, Object],
+            default: () => [],
+        },
+        priorityLimit: {
+            type: Number,
+            default: 4,
+        },
     },
     data() {
         return {

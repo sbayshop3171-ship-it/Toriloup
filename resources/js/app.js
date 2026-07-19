@@ -99,6 +99,7 @@ axios.interceptors.response.use(
 );
 
 storefrontCacheService.installAxiosCache(axios);
+storefrontInstantService.installAxiosImagePreload(axios);
 storefrontInstantService.install(router, store);
 
 const app = createApp(DefaultComponent);
