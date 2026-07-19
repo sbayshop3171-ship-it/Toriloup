@@ -81,7 +81,6 @@ import LoadingComponent from "../../components/LoadingComponent.vue";
 import _ from "lodash";
 import alertService from "../../../../services/alertService";
 import sourceEnum from "../../../../enums/modules/sourceEnum";
-import ENV from "../../../../config/env";
 
 export default {
     name: "PaymentComponent",
@@ -230,7 +229,10 @@ export default {
                 this.loading.isActive = false;
                 let paymentSlug = Object.keys(this.paymentMethod).length > 0 ? this.paymentMethod.slug : '';
                 if (paymentSlug) {
-                    window.location.href = ENV.API_URL + "/payment/" + paymentSlug + "/pay/" + orderResponse.data.data.id;
+                    window.location.href = new URL(
+                        "/payment/" + paymentSlug + "/pay/" + orderResponse.data.data.id,
+                        window.location.origin
+                    ).toString();
                 } else {
                     alertService.error(this.$t('message.payment_method_required'));
                     this.resetConfirmButton(button);

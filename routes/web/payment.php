@@ -1,11 +1,16 @@
 <?php
 
-/*
-|--------------------------------------------------------------------------
-| Payment Route Scaffold
-|--------------------------------------------------------------------------
-|
-| Phase 1 placeholder. Existing payment routes remain in routes/web.php until
-| tenant-aware payment redirects are extracted cleanly from the legacy file.
-|
-*/
+use App\Http\Controllers\Frontend\PaymentController;
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('payment')
+    ->name('payment.')
+    ->middleware(['installed', 'identifySurface', 'resolveTenantFromHost', 'ensureTenantActive', 'setTenantContext'])
+    ->group(function () {
+        Route::get('/{paymentGateway}/pay/{order}', [PaymentController::class, 'index'])->name('index');
+        Route::post('/{order}/pay', [PaymentController::class, 'payment'])->name('store');
+        Route::match(['get', 'post'], '/{paymentGateway}/{order}/success', [PaymentController::class, 'success'])->name('success');
+        Route::match(['get', 'post'], '/{paymentGateway}/{order}/fail', [PaymentController::class, 'fail'])->name('fail');
+        Route::match(['get', 'post'], '/{paymentGateway}/{order}/cancel', [PaymentController::class, 'cancel'])->name('cancel');
+        Route::get('/successful/{order}', [PaymentController::class, 'successful'])->name('successful');
+    });

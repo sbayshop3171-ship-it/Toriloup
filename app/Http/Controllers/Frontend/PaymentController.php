@@ -18,6 +18,7 @@ use App\Models\Currency;
 use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\TenantPaymentMethod;
+use App\Models\Transaction;
 use App\Models\ThemeSetting;
 use App\Services\PaymentAttemptService;
 use App\Services\PaymentManagerService;
@@ -171,15 +172,17 @@ class PaymentController extends Controller
             return redirect('/checkout/payment')->with('error', trans('all.message.something_wrong'));
         }
 
-        try {
-            SendOrderMail::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
-            SendOrderSms::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
-            SendOrderPush::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
+        if (!$this->hasPaymentTransaction($order)) {
+            try {
+                SendOrderMail::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
+                SendOrderSms::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
+                SendOrderPush::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
 
-            SendOrderGotMail::dispatch(['order_id' => $order->id]);
-            SendOrderGotSms::dispatch(['order_id' => $order->id]);
-            SendOrderGotPush::dispatch(['order_id' => $order->id]);
-        } catch (\Exception $e) {
+                SendOrderGotMail::dispatch(['order_id' => $order->id]);
+                SendOrderGotSms::dispatch(['order_id' => $order->id]);
+                SendOrderGotPush::dispatch(['order_id' => $order->id]);
+            } catch (\Exception $e) {
+            }
         }
 
         return redirect('/account/order-success/' . $order->id);
@@ -241,6 +244,15 @@ class PaymentController extends Controller
             $this->tenantPaymentMethodCatalogService->activeGatewaySlugsForTenant($order->tenant),
             true
         );
+    }
+
+    private function hasPaymentTransaction(Order $order): bool
+    {
+        return Transaction::withoutGlobalScopes()
+            ->where('order_id', $order->id)
+            ->where('type', 'payment')
+            ->where('sign', '+')
+            ->exists();
     }
 
     private function paymentGatewaysForOrder(Order $order)

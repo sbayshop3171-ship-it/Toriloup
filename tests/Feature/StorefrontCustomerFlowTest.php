@@ -4,17 +4,28 @@ namespace Tests\Feature;
 
 use App\Enums\Activity;
 use App\Enums\Ask;
+use App\Enums\InputType;
 use App\Enums\OrderStatus;
 use App\Enums\OrderType;
+use App\Enums\PaymentAttemptStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\Role as LegacyRole;
 use App\Enums\Source;
 use App\Enums\Status;
+use App\Events\SendOrderGotMail;
+use App\Events\SendOrderGotPush;
+use App\Events\SendOrderGotSms;
+use App\Events\SendOrderMail;
+use App\Events\SendOrderPush;
+use App\Events\SendOrderSms;
 use App\Models\Barcode;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\MerchantWallet;
+use App\Models\MerchantWalletTransaction;
 use App\Models\Order;
+use App\Models\PaymentAttempt;
 use App\Models\PaymentGateway;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -24,9 +35,12 @@ use App\Models\TenantDomain;
 use App\Models\TenantPaymentMethod;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\PaymentAttemptService;
+use App\Services\Saas\MerchantWalletService;
 use Dipokhalder\Settings\Facades\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -470,6 +484,107 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertRedirect('/checkout/payment');
     }
 
+    public function test_storefront_stripe_payment_page_follows_owner_and_merchant_status(): void
+    {
+        $tenant = $this->createTenant('stripe-payment-store');
+        $customer = $this->createCustomerUser('stripe-payment-customer@test.com');
+        $this->preparePaymentPageSettings($tenant, 'Stripe Payment Store');
+        $stripe = $this->createStripeGateway();
+
+        $method = $this->createTenantGatewayMethod($tenant, 'stripe', true, 'Card');
+        $order = $this->createPaymentOrder($tenant, $customer, $stripe, 225, 'STRIPE-PAGE-1');
+
+        $this
+            ->get("http://{$tenant->slug}.company.com/payment/stripe/pay/{$order->id}")
+            ->assertOk()
+            ->assertSee('paymentForm', false)
+            ->assertSee('pk_test_storefront', false);
+
+        $method->update(['status' => false]);
+
+        $this
+            ->get("http://{$tenant->slug}.company.com/payment/stripe/pay/{$order->id}")
+            ->assertRedirect('/checkout/payment');
+
+        $method->update(['status' => true]);
+        $stripe->update(['status' => Activity::DISABLE]);
+
+        $this
+            ->get("http://{$tenant->slug}.company.com/payment/stripe/pay/{$order->id}")
+            ->assertRedirect('/checkout/payment');
+    }
+
+    public function test_storefront_stripe_success_settles_merchant_wallet_and_keeps_notifications_single(): void
+    {
+        config(['saas.wallet.holding_days' => 0]);
+
+        $tenant = $this->createTenant('stripe-success-store');
+        $customer = $this->createCustomerUser('stripe-success-customer@test.com');
+        $this->preparePaymentPageSettings($tenant, 'Stripe Success Store');
+        $stripe = $this->createStripeGateway();
+        $this->createTenantGatewayMethod($tenant, 'stripe');
+        $order = $this->createPaymentOrder($tenant, $customer, $stripe, 310, 'STRIPE-SUCCESS-1');
+
+        app(PaymentAttemptService::class)->prepare($order, 'stripe', 'stripe-success-attempt');
+
+        DB::table('capture_payment_notifications')->insert([
+            'order_id' => $order->id,
+            'token' => 'bt_test_storefront_123',
+            'created_at' => now(),
+        ]);
+
+        Event::fake([
+            SendOrderMail::class,
+            SendOrderSms::class,
+            SendOrderPush::class,
+            SendOrderGotMail::class,
+            SendOrderGotSms::class,
+            SendOrderGotPush::class,
+        ]);
+
+        $this
+            ->get("http://{$tenant->slug}.company.com/payment/stripe/{$order->id}/success?token=bt_test_storefront_123")
+            ->assertRedirect(route('payment.successful', ['order' => $order->id], false));
+
+        $this
+            ->get("http://{$tenant->slug}.company.com/payment/successful/{$order->id}")
+            ->assertRedirect("/account/order-success/{$order->id}");
+
+        $order->refresh();
+
+        $this->assertSame(Ask::YES, (int) $order->active);
+        $this->assertSame(PaymentStatus::PAID, (int) $order->payment_status);
+        $this->assertDatabaseHas('transactions', [
+            'tenant_id' => $tenant->id,
+            'order_id' => $order->id,
+            'transaction_no' => 'bt_test_storefront_123',
+            'payment_method' => 'stripe',
+            'type' => 'payment',
+            'sign' => '+',
+        ]);
+
+        $wallet = MerchantWallet::withoutGlobalScopes()->where('tenant_id', $tenant->id)->firstOrFail();
+        $this->assertEquals(310.0, (float) $wallet->available_balance);
+        $this->assertEquals(310.0, (float) $wallet->total_earned);
+        $this->assertSame(1, MerchantWalletTransaction::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('order_id', $order->id)
+            ->where('type', MerchantWalletService::TYPE_ORDER_PAYMENT)
+            ->count());
+
+        $attempt = PaymentAttempt::withoutGlobalScopes()->where('order_id', $order->id)->firstOrFail();
+        $this->assertSame(PaymentAttemptStatus::SUCCEEDED, $attempt->status);
+        $this->assertSame('bt_test_storefront_123', $attempt->provider_transaction_id);
+        $this->assertTrue($attempt->backend_validation_passed);
+
+        Event::assertDispatchedTimes(SendOrderMail::class, 1);
+        Event::assertDispatchedTimes(SendOrderSms::class, 1);
+        Event::assertDispatchedTimes(SendOrderPush::class, 1);
+        Event::assertDispatchedTimes(SendOrderGotMail::class, 1);
+        Event::assertDispatchedTimes(SendOrderGotSms::class, 1);
+        Event::assertDispatchedTimes(SendOrderGotPush::class, 1);
+    }
+
     public function test_storefront_customer_can_create_address_place_order_and_complete_cod_checkout(): void
     {
         $tenant = $this->createTenant('checkout-store');
@@ -749,6 +864,106 @@ class StorefrontCustomerFlowTest extends TestCase
             'shipping_type' => Activity::DISABLE,
             'shipping_cost' => 0,
             'is_product_quantity_multiply' => Ask::NO,
+        ]);
+    }
+
+    private function preparePaymentPageSettings(Tenant $tenant, string $companyName): Currency
+    {
+        $currency = Currency::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Dollars',
+            'symbol' => '$',
+            'code' => 'USD',
+            'is_cryptocurrency' => 0,
+            'exchange_rate' => 1,
+        ]);
+
+        Settings::group('company')->set([
+            'company_name' => $companyName,
+        ]);
+        Settings::group('site')->set([
+            'site_default_currency' => $currency->id,
+            'site_cash_on_delivery' => Activity::ENABLE,
+            'site_online_payment_gateway' => Activity::ENABLE,
+        ]);
+
+        foreach (['theme_logo', 'theme_favicon_logo'] as $key) {
+            DB::table('settings')->updateOrInsert(
+                ['group' => 'theme', 'key' => $key],
+                [
+                    'payload' => json_encode(null),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+        }
+
+        return $currency;
+    }
+
+    private function createStripeGateway(int $status = Activity::ENABLE): PaymentGateway
+    {
+        $gateway = PaymentGateway::query()->create([
+            'name' => 'Stripe',
+            'slug' => 'stripe',
+            'misc' => json_encode([
+                'input' => ['stripe.stripeInput.blade.php'],
+                'js' => ['stripe.stripeJs.blade.php'],
+                'onClick' => false,
+                'submit' => true,
+            ]),
+            'status' => $status,
+        ]);
+
+        $gateway->gatewayOptions()->create([
+            'option' => 'stripe_key',
+            'value' => 'pk_test_storefront',
+            'type' => InputType::TEXT,
+            'activities' => '',
+        ]);
+        $gateway->gatewayOptions()->create([
+            'option' => 'stripe_secret',
+            'value' => 'sk_test_storefront',
+            'type' => InputType::TEXT,
+            'activities' => '',
+        ]);
+
+        return $gateway->fresh('gatewayOptions');
+    }
+
+    private function createTenantGatewayMethod(Tenant $tenant, string $providerCode, bool $status = true, ?string $displayName = null): TenantPaymentMethod
+    {
+        return TenantPaymentMethod::query()->create([
+            'tenant_id' => $tenant->id,
+            'provider_code' => $providerCode,
+            'display_name' => $displayName ?: Str::headline($providerCode),
+            'status' => $status,
+            'checkout_label' => 'Pay with '.($displayName ?: Str::headline($providerCode)),
+            'fee_type' => 'none',
+            'fee_value' => 0,
+            'sort_order' => 1,
+            'config_json' => ['managed_by' => 'owner'],
+        ]);
+    }
+
+    private function createPaymentOrder(Tenant $tenant, User $customer, PaymentGateway $gateway, float $total, string $serial): Order
+    {
+        return Order::withoutGlobalScope('tenant')->create([
+            'tenant_id' => $tenant->id,
+            'order_serial_no' => $serial,
+            'user_id' => $customer->id,
+            'subtotal' => $total,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => $total,
+            'order_type' => OrderType::DELIVERY,
+            'order_datetime' => now(),
+            'payment_method' => $gateway->id,
+            'payment_status' => PaymentStatus::UNPAID,
+            'status' => OrderStatus::PENDING,
+            'source' => Source::WEB,
+            'active' => Ask::NO,
         ]);
     }
 }

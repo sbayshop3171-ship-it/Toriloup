@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Frontend\PaymentController;
 use App\Http\Controllers\Frontend\RootController;
 use App\Http\Controllers\Installer\InstallerController;
 use Illuminate\Support\Facades\Route;
@@ -44,13 +43,5 @@ Route::prefix('install')->name('installer.')->middleware(['web'])->group(functio
 });
 
 Route::get('/', [RootController::class, 'index'])->middleware(['installed'])->name('home');
-Route::prefix('payment')->name('payment.')->middleware(['installed', 'identifySurface', 'resolveTenantFromHost', 'ensureTenantActive', 'setTenantContext'])->group(function () {
-    Route::get('/{paymentGateway}/pay/{order}', [PaymentController::class, 'index'])->name('index');
-    Route::post('/{order}/pay', [PaymentController::class, 'payment'])->name('store');
-    Route::match(['get', 'post'], '/{paymentGateway}/{order}/success', [PaymentController::class, 'success'])->name('success');
-    Route::match(['get', 'post'], '/{paymentGateway}/{order}/fail', [PaymentController::class, 'fail'])->name('fail');
-    Route::match(['get', 'post'], '/{paymentGateway}/{order}/cancel', [PaymentController::class, 'cancel'])->name('cancel');
-    Route::get('/successful/{order}', [PaymentController::class, 'successful'])->name('successful');
-});
 
 Route::get('/{any}', [RootController::class, 'index'])->middleware(['installed'])->where(['any' => '.*']);
