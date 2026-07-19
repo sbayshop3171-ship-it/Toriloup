@@ -108,7 +108,7 @@ function cacheUrlFromKey(key) {
 function isPersistentUrl(url) {
     const normalizedUrl = String(url || "").replace(/^\//, "");
 
-    return /^frontend\/(slider|product-category|promotion|product-section|product-brand|benefit|payment-gateway|order-area|outlet)(\/|\?|$)/.test(normalizedUrl) ||
+    return /^frontend\/(product-category|promotion|product-section|product-brand|benefit|payment-gateway|order-area|outlet)(\/|\?|$)/.test(normalizedUrl) ||
         /^frontend\/product(\/|\?|$)/.test(normalizedUrl) ||
         /^frontend\/page\/show(\/|\?|$)/.test(normalizedUrl);
 }
@@ -292,7 +292,7 @@ function isCacheable(config) {
         return false;
     }
 
-    if (url.startsWith("frontend/setting")) {
+    if (url.startsWith("frontend/setting") || url.startsWith("frontend/slider")) {
         return false;
     }
 

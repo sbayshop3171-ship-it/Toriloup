@@ -158,6 +158,23 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
+    public function test_storefront_sliders_do_not_fallback_to_owner_defaults_without_a_resolved_tenant(): void
+    {
+        Slider::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'title' => 'Global Hero',
+            'link' => 'https://owner.example.test/default',
+            'description' => 'Shared owner banner',
+            'status' => Status::ACTIVE,
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson('http://unknown.company.com/api/frontend/slider?paginate=0&status='.Status::ACTIVE)
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_storefront_customer_endpoints_require_a_storefront_surface_token(): void
     {
         $tenant = $this->createTenant('surface-store');

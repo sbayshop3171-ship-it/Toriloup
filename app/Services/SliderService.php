@@ -43,7 +43,7 @@ class SliderService
     public function storefrontList(PaginateRequest $request)
     {
         try {
-            return $this->runListQuery($this->scopedQuery($request), $request);
+            return $this->runListQuery($this->storefrontQuery($request), $request);
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -120,6 +120,18 @@ class SliderService
             : $query->where($query->getModel()->qualifyColumn('tenant_id'), $tenantId);
 
         return $query;
+    }
+
+    private function storefrontQuery(PaginateRequest $request): Builder
+    {
+        $query = Slider::withoutGlobalScope('tenant')->with('media');
+        $tenantId = app(TenantContext::class)->currentId($request);
+
+        if ($tenantId === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where($query->getModel()->qualifyColumn('tenant_id'), $tenantId);
     }
 
     private function findScoped(Slider|int|string $slider): Slider
