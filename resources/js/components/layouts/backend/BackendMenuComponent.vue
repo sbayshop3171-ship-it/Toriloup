@@ -23,13 +23,13 @@
                         <i class="text-sm" :class="menu.icon"></i>
                         <span class="text-base flex-auto">{{ $t('menu.' + menu.language) }}</span>
                         <span
-                            v-if="isOnlineOrderMenu(menu.url) && unreadOrderNotificationCount > 0"
-                            class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-white bg-[#FF3B30]">
-                            {{ unreadOrderNotificationBadge }}
+                            v-if="unreadMenuNotificationCount(menu.url) > 0"
+                            class="inline-flex !flex-none flex-shrink-0 items-center justify-center min-w-5 h-5 px-1.5 rounded-full !text-[10px] leading-none font-semibold text-white bg-[#FF3B30]">
+                            {{ unreadMenuNotificationBadge(menu.url) }}
                         </span>
                         <span
                             v-if="isFeatureLocked(menu)"
-                            class="inline-flex items-center justify-center h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-primary bg-[#FFF4F1]">
+                            class="inline-flex !flex-none flex-shrink-0 items-center justify-center h-5 px-1.5 rounded-full !text-[10px] leading-none font-semibold text-primary bg-[#FFF4F1]">
                             Lock
                         </span>
                     </router-link>
@@ -40,13 +40,13 @@
                         <i class="text-sm" :class="children.icon"></i>
                         <span class="text-base flex-auto">{{ $t('menu.' + children.language) }}</span>
                         <span
-                            v-if="isOnlineOrderMenu(children.url) && unreadOrderNotificationCount > 0"
-                            class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-white bg-[#FF3B30]">
-                            {{ unreadOrderNotificationBadge }}
+                            v-if="unreadMenuNotificationCount(children.url) > 0"
+                            class="inline-flex !flex-none flex-shrink-0 items-center justify-center min-w-5 h-5 px-1.5 rounded-full !text-[10px] leading-none font-semibold text-white bg-[#FF3B30]">
+                            {{ unreadMenuNotificationBadge(children.url) }}
                         </span>
                         <span
                             v-if="isFeatureLocked(children)"
-                            class="inline-flex items-center justify-center h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-primary bg-[#FFF4F1]">
+                            class="inline-flex !flex-none flex-shrink-0 items-center justify-center h-5 px-1.5 rounded-full !text-[10px] leading-none font-semibold text-primary bg-[#FFF4F1]">
                             Lock
                         </span>
                     </router-link>
@@ -58,6 +58,7 @@
 
 <script>
 import appService from "../../../services/appService";
+import backendNotificationService from "../../../services/backendNotificationService";
 import { isMerchantHost, isPlatformHost, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
 
 const ownerMenus = [
@@ -198,10 +199,10 @@ export default {
         return {
             activeParentId: 1,
             activeChildId: 0,
-            notificationStorageKey: "shopking_admin_notifications",
-            notificationSyncEventName: "shopking-admin-notification-updated",
+            notificationStorageKey: backendNotificationService.storageKey,
+            notificationSyncEventName: backendNotificationService.syncEventName,
             notificationItems: [],
-            maxNotificationItems: 20
+            maxNotificationItems: backendNotificationService.maxItems
         }
     },
     computed: {
@@ -234,15 +235,6 @@ export default {
         },
         workspaceHomeRoute: function () {
             return resolveWorkspaceDashboardRoute(this.$store.getters.authInfo?.surface);
-        },
-        unreadOrderNotificationCount: function () {
-            return this.notificationItems.filter((item) => !item.read && this.isOrderNotificationItem(item)).length;
-        },
-        unreadOrderNotificationBadge: function () {
-            if (this.unreadOrderNotificationCount > 99) {
-                return "99+";
-            }
-            return this.unreadOrderNotificationCount;
         }
     },
 
@@ -250,7 +242,7 @@ export default {
         this.defaultSidebarActive();
         this.loadMerchantBranding();
         this.loadNotificationItems();
-        this.markOnlineOrderNotificationsAsReadByRoute(this.$route.path);
+        this.markNotificationsAsReadByRoute(this.$route.path);
         window.addEventListener('storage', this.handleNotificationStorageEvent);
         window.addEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
     },
@@ -287,12 +279,6 @@ export default {
 
             this.$store.dispatch("merchantDashboard/setup").catch(() => {});
         },
-        normalizeMenuUrl: function (url) {
-            return String(url || '').replace(/^\/+|\/+$/g, '');
-        },
-        isOnlineOrderMenu: function (url) {
-            return this.normalizeMenuUrl(url) === 'online-orders';
-        },
         menuRoute: function (menu) {
             return '/admin/' + menu.url;
         },
@@ -309,83 +295,39 @@ export default {
 
             return feature?.status !== true;
         },
-        isOnOnlineOrderRoute: function (path) {
-            return String(path || '').startsWith('/admin/online-orders');
-        },
-        isOrderNotificationItem: function (item) {
-            const type = String(item?.type || '').toLowerCase();
-            if (type === 'order') {
-                return true;
-            }
-
-            const routeUrl = this.normalizeMenuUrl(item?.routeUrl || '');
-            if (routeUrl === 'online-orders') {
-                return true;
-            }
-
-            const title = String(item?.title || '').toLowerCase();
-            const body = String(item?.body || '').toLowerCase();
-            return title.includes('order') || body.includes('order');
-        },
         handleNotificationStorageEvent: function (event) {
             if (event?.key && event.key !== this.notificationStorageKey) {
                 return;
             }
             this.loadNotificationItems();
-            this.markOnlineOrderNotificationsAsReadByRoute(this.$route.path);
+            this.markNotificationsAsReadByRoute(this.$route.path);
         },
         handleNotificationSyncEvent: function () {
             this.loadNotificationItems();
-            this.markOnlineOrderNotificationsAsReadByRoute(this.$route.path);
-        },
-        emitNotificationSyncEvent: function () {
-            window.dispatchEvent(new CustomEvent(this.notificationSyncEventName));
+            this.markNotificationsAsReadByRoute(this.$route.path);
         },
         loadNotificationItems: function () {
-            try {
-                const rawData = localStorage.getItem(this.notificationStorageKey);
-                if (!rawData) {
-                    this.notificationItems = [];
-                    return;
-                }
-
-                const parsedItems = JSON.parse(rawData);
-                if (Array.isArray(parsedItems)) {
-                    this.notificationItems = parsedItems.slice(0, this.maxNotificationItems);
-                } else {
-                    this.notificationItems = [];
-                }
-            } catch (error) {
-                this.notificationItems = [];
-            }
+            this.notificationItems = backendNotificationService.loadItems();
         },
         persistNotificationItems: function () {
-            try {
-                localStorage.setItem(this.notificationStorageKey, JSON.stringify(this.notificationItems.slice(0, this.maxNotificationItems)));
-                this.emitNotificationSyncEvent();
-            } catch (error) {
-                // Ignore storage write errors.
-            }
+            backendNotificationService.persistItems(this.notificationItems);
         },
-        markOrderNotificationsAsRead: function () {
-            const hasUnreadOrderNotification = this.notificationItems.some((item) => !item.read && this.isOrderNotificationItem(item));
-            if (!hasUnreadOrderNotification) {
-                return;
-            }
-
-            this.notificationItems = this.notificationItems.map((item) => {
-                if (this.isOrderNotificationItem(item)) {
-                    return { ...item, read: true };
-                }
-                return item;
-            });
-            this.persistNotificationItems();
+        unreadMenuNotificationCount: function (url) {
+            return backendNotificationService.unreadCountForMenu(this.notificationItems, url);
         },
-        markOnlineOrderNotificationsAsReadByRoute: function (path) {
-            if (!this.isOnOnlineOrderRoute(path)) {
-                return;
+        unreadMenuNotificationBadge: function (url) {
+            const count = this.unreadMenuNotificationCount(url);
+            if (count > 99) {
+                return "99+";
             }
-            this.markOrderNotificationsAsRead();
+            return count;
+        },
+        markNotificationsAsReadByRoute: function (path) {
+            const result = backendNotificationService.markItemsAsReadByRoute(this.notificationItems, path);
+            this.notificationItems = result.items;
+            if (result.changed) {
+                this.persistNotificationItems();
+            }
         },
         closeSidebarIfMobile: function () {
             if (appService.isMobileSidebarBreakpoint()) {
@@ -395,7 +337,7 @@ export default {
     },
     watch: {
         $route(to) {
-            this.markOnlineOrderNotificationsAsReadByRoute(to.path);
+            this.markNotificationsAsReadByRoute(to.path);
             this.closeSidebarIfMobile();
         }
     }

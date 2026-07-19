@@ -58,6 +58,7 @@
                     <div class="flex items-center justify-between px-4 py-3 border-b border-[#EFF0F6]">
                         <h3 class="text-sm font-semibold capitalize">{{ $t('label.notification') }}</h3>
                         <button
+                            v-if="notificationItems.length > 0"
                             @click="clearNotificationItems"
                             class="text-xs font-medium text-primary hover:underline"
                             type="button">
@@ -72,10 +73,23 @@
                             @click="openNotification(item)"
                             type="button"
                             class="w-full text-left px-4 py-3 border-b border-[#EFF0F6] last:border-b-0 hover:bg-primary/5 transition"
-                            :class="item.read ? 'opacity-70' : 'bg-primary/5'">
-                            <p class="text-sm font-medium text-heading">{{ item.title }}</p>
-                            <p class="text-xs text-paragraph mt-1 line-clamp-2">{{ item.body }}</p>
-                            <p class="text-[11px] text-[#6E7191] mt-1">{{ formatNotificationTime(item.createdAt) }}</p>
+                            :class="item.read ? 'opacity-75' : 'bg-primary/5'">
+                            <div class="flex gap-3">
+                                <span
+                                    class="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full"
+                                    :class="item.read ? 'bg-[#D9DBE9]' : 'bg-primary'">
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <p class="min-w-0 text-sm font-medium text-heading line-clamp-1">{{ item.title }}</p>
+                                        <span class="flex-shrink-0 rounded-full bg-[#FFF4F1] px-2 py-0.5 text-[10px] font-semibold leading-4 text-primary">
+                                            {{ notificationSectionLabel(item) }}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-paragraph mt-1 line-clamp-2">{{ item.body }}</p>
+                                    <p class="text-[11px] text-[#6E7191] mt-1">{{ formatNotificationTime(item.createdAt) }}</p>
+                                </div>
+                            </div>
                         </button>
 
                         <p
@@ -179,6 +193,7 @@ import _ from "lodash";
 import alertService from "../../../services/alertService";
 import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
+import backendNotificationService from "../../../services/backendNotificationService";
 import { isMerchantHost, resolveGuestHomeRoute, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -213,9 +228,9 @@ export default {
             },
             notificationDropdownStatus: false,
             notificationItems: [],
-            notificationStorageKey: "shopking_admin_notifications",
-            notificationSyncEventName: "shopking-admin-notification-updated",
-            maxNotificationItems: 20,
+            notificationStorageKey: backendNotificationService.storageKey,
+            notificationSyncEventName: backendNotificationService.syncEventName,
+            maxNotificationItems: backendNotificationService.maxItems,
         }
     },
     computed: {
@@ -251,7 +266,7 @@ export default {
             return this.setting?.theme_logo || "";
         },
         unreadNotificationCount: function () {
-            return this.notificationItems.filter((item) => !item.read).length;
+            return backendNotificationService.unreadCount(this.notificationItems);
         },
         unreadNotificationBadge: function () {
             if (this.unreadNotificationCount > 99) {
@@ -379,9 +394,6 @@ export default {
         },
         toggleNotificationDropdown: function () {
             this.notificationDropdownStatus = !this.notificationDropdownStatus;
-            if (this.notificationDropdownStatus) {
-                this.markAllNotificationsAsRead();
-            }
         },
         handleNotificationStorageEvent: function (event) {
             if (event?.key && event.key !== this.notificationStorageKey) {
@@ -392,43 +404,14 @@ export default {
         handleNotificationSyncEvent: function () {
             this.loadNotificationItems();
         },
-        emitNotificationSyncEvent: function () {
-            window.dispatchEvent(new CustomEvent(this.notificationSyncEventName));
-        },
         loadNotificationItems: function () {
-            try {
-                const rawData = localStorage.getItem(this.notificationStorageKey);
-                if (!rawData) {
-                    this.notificationItems = [];
-                    return;
-                }
-
-                const parsedItems = JSON.parse(rawData);
-                if (Array.isArray(parsedItems)) {
-                    this.notificationItems = parsedItems.slice(0, this.maxNotificationItems);
-                } else {
-                    this.notificationItems = [];
-                }
-            } catch (error) {
-                this.notificationItems = [];
-            }
+            this.notificationItems = backendNotificationService.loadItems();
         },
         persistNotificationItems: function () {
-            try {
-                localStorage.setItem(this.notificationStorageKey, JSON.stringify(this.notificationItems.slice(0, this.maxNotificationItems)));
-                this.emitNotificationSyncEvent();
-            } catch (error) {
-                // Ignore storage write errors.
-            }
+            backendNotificationService.persistItems(this.notificationItems);
         },
         clearNotificationItems: function () {
             this.notificationItems = [];
-            this.persistNotificationItems();
-        },
-        markAllNotificationsAsRead: function () {
-            this.notificationItems = this.notificationItems.map((item) => {
-                return { ...item, read: true };
-            });
             this.persistNotificationItems();
         },
         formatNotificationTime: function (dateTime) {
@@ -442,55 +425,41 @@ export default {
             return date.toLocaleString();
         },
         notificationType: function (payload) {
-            const topicName = (payload?.data?.topicName || '').toLowerCase();
-            const title = (payload?.notification?.title || '').toLowerCase();
-            const content = topicName + ' ' + title;
-
-            if (topicName === 'new-order-found' || content.includes('order')) {
-                return 'order';
-            }
-
-            if (content.includes('error') || content.includes('failed')) {
-                return 'error';
-            }
-
-            return 'message';
+            return backendNotificationService.resolveCategory(payload);
         },
         isOrderNotification: function (payload) {
             return this.notificationType(payload) === 'order';
         },
         pushNotificationItem: function (payload) {
-            const type = this.notificationType(payload);
-            const title = payload?.notification?.title || this.$t('label.notification');
-            const body = payload?.notification?.body || '';
-            const routeUrl = type === 'order' && this.orderNotification.permission ? this.orderNotification.url : '';
-
-            const notificationItem = {
-                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-                title: title,
-                body: body,
-                type: type,
-                routeUrl: routeUrl,
-                read: false,
-                createdAt: new Date().toISOString()
-            };
+            const notificationItem = backendNotificationService.createItemFromPayload(payload, {
+                fallbackTitle: this.$t('label.notification'),
+                permissions: this.permissions,
+            });
 
             this.notificationItems = [notificationItem, ...this.notificationItems].slice(0, this.maxNotificationItems);
             this.persistNotificationItems();
         },
         openNotification: function (item) {
-            this.notificationItems = this.notificationItems.map((notificationItem) => {
-                if (notificationItem.id === item.id) {
-                    return { ...notificationItem, read: true };
-                }
-                return notificationItem;
-            });
-            this.persistNotificationItems();
+            const result = backendNotificationService.markItemAsRead(this.notificationItems, item.id);
+            this.notificationItems = result.items;
+            if (result.changed) {
+                this.persistNotificationItems();
+            }
             this.notificationDropdownStatus = false;
 
-            if (item.routeUrl) {
-                this.$router.push({ path: this.adminRoute(item.routeUrl) });
+            const routeUrl = backendNotificationService.notificationItemRouteUrl(item);
+            if (routeUrl) {
+                this.$router.push({ path: this.adminRoute(routeUrl) });
             }
+        },
+        notificationSectionLabel: function (item) {
+            const menuLanguage = backendNotificationService.notificationItemMenuLanguage(item);
+            if (menuLanguage) {
+                return this.$t('menu.' + menuLanguage);
+            }
+
+            const labelLanguage = backendNotificationService.notificationItemLabelLanguage(item);
+            return labelLanguage ? this.$t('label.' + labelLanguage) : this.$t('label.notification');
         },
         textShortener: function (text, number = 30) {
             return appService.textShortener(text, number);
