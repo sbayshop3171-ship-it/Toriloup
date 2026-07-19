@@ -139,7 +139,7 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label for="site_default_currency" class="db-field-title required">
-                            {{ $t("label.default_currency") }}
+                            Store Base Currency
                         </label>
 
                         <vue-select class="db-field-control f-b-custom-select" id="site_default_currency"

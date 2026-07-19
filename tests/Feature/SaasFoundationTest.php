@@ -64,6 +64,35 @@ class SaasFoundationTest extends TestCase
         ]);
     }
 
+    public function test_merchant_register_detects_store_currency_from_country_header(): void
+    {
+        $response = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('CF-IPCountry', 'BD')
+            ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                'owner_name' => 'Bangladesh Merchant',
+                'store_name' => 'Bangladesh Store',
+                'email' => 'bangladesh-merchant@example.com',
+                'password' => 'password',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('tenant.slug', 'bangladesh-store');
+
+        $tenant = Tenant::query()->where('slug', 'bangladesh-store')->firstOrFail();
+
+        $this->assertSame('BD', $tenant->country_code);
+        $this->assertSame('BDT', $tenant->primary_currency_code);
+        $this->assertDatabaseHas('tenant_settings', [
+            'tenant_id' => $tenant->id,
+            'group_key' => 'site',
+            'setting_key' => 'site_default_currency_code',
+            'setting_value' => 'BDT',
+        ]);
+    }
+
     public function test_merchant_register_generates_unique_store_slug_from_store_name(): void
     {
         $firstResponse = $this

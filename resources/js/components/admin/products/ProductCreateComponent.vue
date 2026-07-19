@@ -55,20 +55,22 @@
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
-                        <label for="buying_price" class="db-field-title required">{{ $t("label.buying_price") }}</label>
+                        <label for="buying_price" class="db-field-title required">
+                            {{ priceLabel($t("label.buying_price")) }}
+                        </label>
                         <input v-on:keypress="floatNumber($event)" v-model="props.form.buying_price"
                             v-bind:class="errors.buying_price ? 'invalid' : ''" type="text" id="buying_price"
-                            class="db-field-control">
+                            class="db-field-control" :placeholder="baseCurrencyCode">
                         <small class="db-field-alert" v-if="errors.buying_price">{{ errors.buying_price[0] }}</small>
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
                         <label for="selling_price" class="db-field-title required">
-                            {{ $t("label.selling_price") }}
+                            {{ priceLabel($t("label.selling_price")) }}
                         </label>
                         <input v-on:keypress="floatNumber($event)" v-model="props.form.selling_price"
                             v-bind:class="errors.selling_price ? 'invalid' : ''" type="text" id="selling_price"
-                            class="db-field-control">
+                            class="db-field-control" :placeholder="baseCurrencyCode">
                         <small class="db-field-alert" v-if="errors.selling_price">{{ errors.selling_price[0] }}</small>
                         <small class="db-field-alert m-0 !text-green-600" v-if="hasPriceDifference && priceDifference >= 0">
                             {{ $t("label.price_difference") }}: +{{ formattedPriceDifference }}
@@ -284,6 +286,7 @@ export default {
     mounted() {
         this.loading.isActive = true;
         this.getSku();
+        this.$store.dispatch('site/lists').then().catch(() => {});
 
         this.$store.dispatch('productCategory/depthTrees', {
         }).then((res) => {
@@ -367,10 +370,19 @@ export default {
             return !isNaN(buyingPrice) && !isNaN(sellingPrice);
         },
         formattedPriceDifference: function () {
-            return Math.abs(this.priceDifference).toFixed(2);
+            return this.formatBasePrice(Math.abs(this.priceDifference));
         },
         formattedNegativePriceDifference: function () {
-            return Math.abs(this.priceDifference).toFixed(2);
+            return this.formatBasePrice(Math.abs(this.priceDifference));
+        },
+        siteSetting: function () {
+            return this.$store.getters['site/lists'] || {};
+        },
+        baseCurrencyCode: function () {
+            return this.siteSetting.site_default_currency_code || "";
+        },
+        baseCurrencySymbol: function () {
+            return this.siteSetting.site_default_currency_symbol || this.baseCurrencyCode;
         }
     },
     methods: {
@@ -379,6 +391,19 @@ export default {
         },
         onlyNumber(e) {
             return appService.onlyNumber(e);
+        },
+        priceLabel: function (label) {
+            return this.baseCurrencyCode ? `${label} (${this.baseCurrencyCode})` : label;
+        },
+        formatBasePrice: function (amount) {
+            const numeric = Number(String(amount ?? 0).replace(/,/g, ""));
+
+            return appService.currencyFormat(
+                Number.isNaN(numeric) ? 0 : numeric,
+                this.siteSetting.site_digit_after_decimal_point ?? 2,
+                this.baseCurrencySymbol,
+                this.siteSetting.site_currency_position || 5
+            );
         },
         reset: function () {
             useCanvas().closeCanvas('sidebar');

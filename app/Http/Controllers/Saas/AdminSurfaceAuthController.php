@@ -63,13 +63,38 @@ class AdminSurfaceAuthController extends Controller
 
     public function merchantRegister(MerchantRegisterRequest $request): JsonResponse
     {
-        $result = $this->tenantProvisioningService->registerMerchant($request->validated());
+        $payload = $request->validated();
+
+        if (blank($payload['primary_currency_code'] ?? null) && blank($payload['country_code'] ?? null)) {
+            $payload['_detected_country_code'] = $this->detectedCountryCode($request);
+        }
+
+        $result = $this->tenantProvisioningService->registerMerchant($payload);
 
         return response()->json($this->adminSurfacePayloadService->payloadFor($result['user'], 'merchant', [
             'tenant' => $this->adminSurfacePayloadService->serializeTenant($result['tenant']),
             'domain' => $result['domain']->only(['hostname', 'domain_type', 'is_primary', 'is_fallback', 'verification_status']),
             'auto_live_checks' => $result['checks'],
         ]), 201);
+    }
+
+    private function detectedCountryCode(Request $request): ?string
+    {
+        foreach (['CF-IPCountry', 'CloudFront-Viewer-Country', 'X-Country-Code', 'X-App-Country'] as $header) {
+            $countryCode = strtoupper((string) $request->headers->get($header, ''));
+
+            if (preg_match('/^[A-Z]{2}$/', $countryCode) && $countryCode !== 'XX') {
+                return $countryCode;
+            }
+        }
+
+        $locale = strtoupper((string) $request->headers->get('Accept-Language', ''));
+
+        if (preg_match('/(?:^|[-_,;])([A-Z]{2})(?:[,;]|$)/', $locale, $matches)) {
+            return strtoupper($matches[1]);
+        }
+
+        return null;
     }
 
     public function merchantImpersonate(Request $request): JsonResponse

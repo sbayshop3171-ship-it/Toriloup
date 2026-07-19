@@ -44,10 +44,10 @@
                         </div>
                         <div class="form-col-12 sm:form-col-6">
                             <div class="form-col-12">
-                                <label for="price" class="db-field-title required">{{ $t("label.price") }}</label>
+                                <label for="price" class="db-field-title required">{{ priceLabel($t("label.price")) }}</label>
                                 <input v-on:keypress="numberOnly($event)" v-model="attributeProps.price"
                                     v-bind:class="errors.price ? 'invalid' : ''" type="text" id="price"
-                                    class="db-field-control" />
+                                    class="db-field-control" :placeholder="baseCurrencyCode" />
                             </div>
 
                             <div class="form-col-12">
@@ -110,6 +110,12 @@ export default {
         },
         addButton: function () {
               return {title: this.$t("button.add_variation")}
+        },
+        siteSetting: function () {
+            return this.$store.getters['site/lists'] || {};
+        },
+        baseCurrencyCode: function () {
+            return this.siteSetting.site_default_currency_code || "";
         }
     },
     mounted() {
@@ -120,6 +126,9 @@ export default {
     methods: {
         numberOnly: function (e) {
             return appService.floatNumber(e);
+        },
+        priceLabel: function (label) {
+            return this.baseCurrencyCode ? `${label} (${this.baseCurrencyCode})` : label;
         },
         add: function () {
             appService.modalShow('#variationModal');

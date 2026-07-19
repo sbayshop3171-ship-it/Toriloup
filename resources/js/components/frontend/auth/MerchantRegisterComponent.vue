@@ -87,7 +87,7 @@ export default {
                 email: "",
                 password: "",
                 primary_locale: "en",
-                primary_currency_code: "USD",
+                primary_currency_code: "",
                 timezone: "UTC",
                 plan_code: "starter",
             },

@@ -69,6 +69,7 @@ class TenantProvisioningService
             $storeSlug = $this->resolveStoreSlug($payload);
             $billingEnforced = $this->subscriptionManagerService->billingCatalogEnforced();
             $primaryCurrencyCode = $this->resolvePrimaryCurrencyCode($payload);
+            $tenantCountryCode = $payload['country_code'] ?? $payload['_detected_country_code'] ?? null;
             $registrationPlanCode = $billingEnforced
                 ? $this->subscriptionManagerService->defaultFreePlanCode($payload['plan_code'] ?? 'starter')
                 : null;
@@ -100,7 +101,7 @@ class TenantProvisioningService
                 'primary_locale' => $payload['primary_locale'] ?? 'en',
                 'primary_currency_code' => $primaryCurrencyCode,
                 'timezone' => $payload['timezone'] ?? 'UTC',
-                'country_code' => $payload['country_code'] ?? null,
+                'country_code' => $tenantCountryCode,
                 'contact_email' => $payload['email'] ?? null,
                 'contact_phone' => $payload['phone'] ?? null,
                 'created_by_user_id' => $user->id,
@@ -134,7 +135,7 @@ class TenantProvisioningService
                 'company_email' => $tenant->contact_email,
                 'company_phone' => $tenant->contact_phone,
                 'company_calling_code' => $payload['country_code'] ?? null,
-                'company_country_code' => $payload['country_code'] ?? null,
+                'company_country_code' => $tenantCountryCode,
                 'site_default_currency' => $tenantCurrency?->id ?? 1,
                 'site_default_currency_code' => $primaryCurrencyCode,
                 'site_default_currency_symbol' => $tenantCurrency?->symbol ?? '$',
@@ -280,7 +281,7 @@ class TenantProvisioningService
             return strtoupper((string) $payload['primary_currency_code']);
         }
 
-        $countryCode = (string) ($payload['country_code'] ?? '');
+        $countryCode = (string) ($payload['country_code'] ?? $payload['_detected_country_code'] ?? '');
 
         if (preg_match('/^[A-Za-z]{2}$/', $countryCode)) {
             $currencyCode = $this->countryMetadataService->byCountryCode($countryCode)['currency_code'] ?? null;

@@ -115,15 +115,15 @@
 
                         <div class="col-12 sm:col-6 !py-1.5">
                             <div class="db-list-item p-0">
-                                <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.buying_price") }}</span>
-                                <span class="db-list-item-text w-full sm:w-1/2">{{ product.flat_buying_price }}</span>
+                                <span class="db-list-item-title w-full sm:w-1/2">{{ priceLabel($t("label.buying_price")) }}</span>
+                                <span class="db-list-item-text w-full sm:w-1/2">{{ formatBasePrice(product.flat_buying_price) }}</span>
                             </div>
                         </div>
 
                         <div class="col-12 sm:col-6 !py-1.5">
                             <div class="db-list-item p-0">
-                                <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.selling_price") }}</span>
-                                <span class="db-list-item-text w-full sm:w-1/2">{{ product.flat_selling_price }}</span>
+                                <span class="db-list-item-title w-full sm:w-1/2">{{ priceLabel($t("label.selling_price")) }}</span>
+                                <span class="db-list-item-text w-full sm:w-1/2">{{ formatBasePrice(product.flat_selling_price) }}</span>
                             </div>
                         </div>
 
@@ -373,7 +373,7 @@
 
                             <div class="form-col-12 sm:form-col-6"
                                 v-if="shippingAndReturnForm.shipping_type === enums.shippingTypeEnum.FLAT_RATE">
-                                <label for="shipping_cost" class="db-field-title required">{{ $t("label.shipping_cost")
+                                <label for="shipping_cost" class="db-field-title required">{{ priceLabel($t("label.shipping_cost"))
                                     }}</label>
                                 <input v-on:keypress="floatNumber($event)" v-model="shippingAndReturnForm.shipping_cost"
                                     v-bind:class="shippingError.shipping_cost ? 'invalid' : ''" type="text"
@@ -524,7 +524,15 @@ export default {
         product: function () {
             return this.$store.getters["product/show"];
         },
-
+        siteSetting: function () {
+            return this.$store.getters['site/lists'] || {};
+        },
+        baseCurrencyCode: function () {
+            return this.siteSetting.site_default_currency_code || "";
+        },
+        baseCurrencySymbol: function () {
+            return this.siteSetting.site_default_currency_symbol || this.baseCurrencyCode;
+        },
     },
     mounted() {
         const mainContainer = document.querySelector('.db-main');
@@ -533,6 +541,7 @@ export default {
         }
 
         this.loading.isActive = true;
+        this.$store.dispatch('site/lists').then().catch(() => {});
         this.show();
     },
     methods: {
@@ -541,6 +550,19 @@ export default {
         },
         floatNumber(e) {
             return appService.floatNumber(e);
+        },
+        priceLabel: function (label) {
+            return this.baseCurrencyCode ? `${label} (${this.baseCurrencyCode})` : label;
+        },
+        formatBasePrice: function (amount) {
+            const numeric = Number(String(amount ?? 0).replace(/,/g, ""));
+
+            return appService.currencyFormat(
+                Number.isNaN(numeric) ? 0 : numeric,
+                this.siteSetting.site_digit_after_decimal_point ?? 2,
+                this.baseCurrencySymbol,
+                this.siteSetting.site_currency_position || 5
+            );
         },
         switchImage: function (link, index) {
             this.livePreview = link;

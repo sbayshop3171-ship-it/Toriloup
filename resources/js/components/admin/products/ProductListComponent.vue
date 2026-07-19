@@ -3,7 +3,12 @@
     <div class="col-12">
         <div class="db-card">
             <div class="db-card-header border-none">
-                <h3 class="db-card-title">{{ $t('menu.products') }}</h3>
+                <div>
+                    <h3 class="db-card-title">{{ $t('menu.products') }}</h3>
+                    <p v-if="baseCurrencyCode" class="text-xs font-medium text-paragraph mt-1">
+                        Base Currency: <span class="text-heading">{{ baseCurrencyLabel }}</span>
+                    </p>
+                </div>
                 <div class="db-card-filter">
                     <TableLimitComponent :method="list" :search="props.search" :page="paginationPage" />
                     <FilterComponent @click.prevent="handleSlide('product-filter')" />
@@ -44,7 +49,7 @@
 
                         <div class="col-12 sm:col-6 md:col-4 xl:col-3">
                             <label for="searchBuyingPrice" class="db-field-title after:hidden">
-                                {{ $t("label.buying_price") }}
+                                {{ priceLabel($t("label.buying_price")) }}
                             </label>
                             <input id="searchBuyingPrice" v-on:keypress="numberOnly($event)"
                                 v-model="props.search.buying_price" type="text" class="db-field-control" />
@@ -52,7 +57,7 @@
 
                         <div class="col-12 sm:col-6 md:col-4 xl:col-3">
                             <label for="searchSellingPrice" class="db-field-title after:hidden">
-                                {{ $t("label.selling_price") }}
+                                {{ priceLabel($t("label.selling_price")) }}
                             </label>
                             <input id="searchSellingPrice" v-on:keypress="numberOnly($event)"
                                 v-model="props.search.selling_price" type="text" class="db-field-control" />
@@ -161,10 +166,10 @@
                                 {{ $t('label.category') }}
                             </th>
                             <th class="db-table-head-th">
-                                {{ $t('label.buying_price') }}
+                                {{ priceLabel($t('label.buying_price')) }}
                             </th>
                             <th class="db-table-head-th">
-                                {{ $t('label.selling_price') }}
+                                {{ priceLabel($t('label.selling_price')) }}
                             </th>
                             <th class="db-table-head-th">
                                 {{ $t('label.status') }}
@@ -181,8 +186,8 @@
                                 {{ textShortener(product.name, 40) }}
                             </td>
                             <td class="db-table-body-td">{{ product.category_name }}</td>
-                            <td class="db-table-body-td">{{ product.flat_buying_price }}</td>
-                            <td class="db-table-body-td">{{ product.flat_selling_price }}</td>
+                            <td class="db-table-body-td">{{ formatBasePrice(product.flat_buying_price) }}</td>
+                            <td class="db-table-body-td">{{ formatBasePrice(product.flat_selling_price) }}</td>
                             <td class="db-table-body-td">
                                 <span :class="statusClass(product.status)">
                                     {{ enums.statusEnumArray[product.status] }}
@@ -366,10 +371,25 @@ export default {
         },
         barcodes: function () {
             return this.$store.getters['barcode/lists'];
+        },
+        siteSetting: function () {
+            return this.$store.getters['site/lists'] || {};
+        },
+        baseCurrencyCode: function () {
+            return this.siteSetting.site_default_currency_code || "";
+        },
+        baseCurrencySymbol: function () {
+            return this.siteSetting.site_default_currency_symbol || this.baseCurrencyCode;
+        },
+        baseCurrencyLabel: function () {
+            return this.baseCurrencySymbol && this.baseCurrencySymbol !== this.baseCurrencyCode
+                ? `${this.baseCurrencyCode} (${this.baseCurrencySymbol})`
+                : this.baseCurrencyCode;
         }
     },
     mounted() {
         this.list();
+        this.$store.dispatch('site/lists').then().catch(() => {});
         this.$store.dispatch('productCategory/depthTrees').then((res) => {
             this.productCategories = res.data.data;
             this.loading.isActive = false;
@@ -396,6 +416,19 @@ export default {
         },
         numberOnly: function (e) {
             return appService.floatNumber(e);
+        },
+        priceLabel: function (label) {
+            return this.baseCurrencyCode ? `${label} (${this.baseCurrencyCode})` : label;
+        },
+        formatBasePrice: function (amount) {
+            const numeric = Number(String(amount ?? 0).replace(/,/g, ""));
+
+            return appService.currencyFormat(
+                Number.isNaN(numeric) ? 0 : numeric,
+                this.siteSetting.site_digit_after_decimal_point ?? 2,
+                this.baseCurrencySymbol,
+                this.siteSetting.site_currency_position || 5
+            );
         },
         search: function () {
             this.list();

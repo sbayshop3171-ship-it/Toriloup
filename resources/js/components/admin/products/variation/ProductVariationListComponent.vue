@@ -16,7 +16,7 @@
                     </span>
                     <span
                         class="text-base font-medium capitalize tracking-wide whitespace-nowrap after:content-['\e037'] rtl:after:rotate-180 after:font-icon after:font-bold after:text-sm after:ml-1.5">
-                        {{ $t('label.price') }} :: {{ floatFormat(variation.price) }}
+                        {{ priceLabel($t('label.price')) }} :: {{ formatBasePrice(variation.price) }}
                     </span>
                     <div class="flex-auto flex sm:justify-end gap-2">
                         <button type="button" @click="showVariationBarcode(variation)" class="db-table-action">
@@ -69,8 +69,14 @@ export default {
         variations: function () {
             return this.$store.getters['productVariation/singleTree'];
         },
-        setting: function() {
-            return this.$store.getters['frontendSetting/lists']
+        siteSetting: function() {
+            return this.$store.getters['site/lists'] || {};
+        },
+        baseCurrencyCode: function () {
+            return this.siteSetting.site_default_currency_code || "";
+        },
+        baseCurrencySymbol: function () {
+            return this.siteSetting.site_default_currency_symbol || this.baseCurrencyCode;
         }
     },
     mounted() {
@@ -144,8 +150,18 @@ export default {
                 });
             }
         },
-        floatFormat: function (num) {
-            return appService.floatFormat(num, this.setting.site_digit_after_decimal_point);
+        priceLabel: function (label) {
+            return this.baseCurrencyCode ? `${label} (${this.baseCurrencyCode})` : label;
+        },
+        formatBasePrice: function (amount) {
+            const numeric = Number(String(amount ?? 0).replace(/,/g, ""));
+
+            return appService.currencyFormat(
+                Number.isNaN(numeric) ? 0 : numeric,
+                this.siteSetting.site_digit_after_decimal_point ?? 2,
+                this.baseCurrencySymbol,
+                this.siteSetting.site_currency_position || 5
+            );
         },
     }
 }
