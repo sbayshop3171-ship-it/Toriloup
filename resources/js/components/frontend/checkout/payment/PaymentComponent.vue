@@ -10,8 +10,8 @@
                 <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 p-4">
                     <div v-if="Object.keys(cashOnDelivery).length > 0"
                         :key="cashOnDelivery.id"
-                        @click.prevent="selectPaymentMethod(cashOnDelivery)"
-                        :class="Object.keys(paymentMethod).length > 0 && cashOnDelivery.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
+                        @click.prevent="selectPaymentMethod(cashOnDelivery, true, $event)"
+                        :class="paymentMethodCardClass(cashOnDelivery)"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img class="h-6" :src="cashOnDelivery.image" alt="payment" loading="eager" decoding="async" fetchpriority="high" />
                         <span class="text-xs font-medium">{{ cashOnDelivery.name }}</span>
@@ -19,8 +19,8 @@
 
                     <div v-if="Object.keys(credit).length > 0 && profile.balance >= total"
                         :key="credit.id"
-                        @click.prevent="selectPaymentMethod(credit)"
-                        :class="Object.keys(paymentMethod).length > 0 && credit.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
+                        @click.prevent="selectPaymentMethod(credit, true, $event)"
+                        :class="paymentMethodCardClass(credit)"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img class="h-6" :src="credit.image" alt="payment" loading="eager" decoding="async" fetchpriority="high" />
                         <span class="text-xs font-medium">{{ credit.name }} ({{ profile.balance }})</span>
@@ -28,8 +28,8 @@
 
                     <div v-for="(paymentGateway, index) in paymentGateways"
                         :key="paymentGateway.id"
-                        @click.prevent="selectPaymentMethod(paymentGateway)"
-                        :class="Object.keys(paymentMethod).length > 0 && paymentGateway.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
+                        @click.prevent="selectPaymentMethod(paymentGateway, true, $event)"
+                        :class="paymentMethodCardClass(paymentGateway)"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img
                             class="h-6"
@@ -49,7 +49,10 @@
                     {{ $t('button.back_to_checkout') }}
                 </router-link>
 
-                <button @click.prevent="confirmOrder" class="field-button w-fit font-semibold tracking-wide normal-case">
+                <button @click.prevent="confirmOrder($event)"
+                    :disabled="isSubmitting"
+                    :class="{ 'opacity-60 cursor-not-allowed': isSubmitting }"
+                    class="field-button w-fit font-semibold tracking-wide normal-case">
                     {{ $t('button.confirm_order') }}
                 </button>
             </div>
@@ -65,7 +68,10 @@
                     {{ $t('button.back_to_checkout') }}
                 </router-link>
 
-                <button @click.prevent="confirmOrder($event)" class="field-button font-semibold tracking-wide normal-case">
+                <button @click.prevent="confirmOrder($event)"
+                    :disabled="isSubmitting"
+                    :class="{ 'opacity-60 cursor-not-allowed': isSubmitting }"
+                    class="field-button font-semibold tracking-wide normal-case">
                     {{ $t('button.confirm_order') }}
                 </button>
             </div>
@@ -96,7 +102,8 @@ export default {
             cashOnDelivery: {},
             statusEnum: statusEnum,
             sourceEnum: sourceEnum,
-            form: {}
+            form: {},
+            isSubmitting: false
         }
     },
     computed: {
@@ -164,8 +171,25 @@ export default {
         });
     },
     methods: {
-        selectPaymentMethod: function (paymentMethod) {
+        selectPaymentMethod: function (paymentMethod, autoConfirm = false, event = null) {
+            if (this.isSubmitting) {
+                return;
+            }
+
             this.$store.dispatch("frontendCart/paymentMethod", paymentMethod);
+
+            if (autoConfirm) {
+                this.$nextTick(() => this.confirmOrder(event));
+            }
+        },
+        paymentMethodCardClass: function (paymentMethod) {
+            return [
+                this.isSelectedPaymentMethod(paymentMethod) ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white',
+                this.isSubmitting ? 'pointer-events-none opacity-60' : ''
+            ];
+        },
+        isSelectedPaymentMethod: function (paymentMethod) {
+            return Object.keys(this.paymentMethod).length > 0 && paymentMethod?.id === this.paymentMethod.id;
         },
         availablePaymentMethods: function () {
             const methods = [];
@@ -198,9 +222,52 @@ export default {
                 button.disabled = false;
             }
 
+            this.isSubmitting = false;
             this.loading.isActive = false;
         },
-        confirmOrder: function (e) {
+        buildOrderForm: function (paymentMethod) {
+            return {
+                subtotal: this.subtotal,
+                discount: this.discount,
+                tax: this.totalTax,
+                shipping_charge: this.shippingCharge,
+                total: this.total,
+                order_type: this.orderType,
+                shipping_id: Object.keys(this.getShippingAddress).length > 0 ? this.getShippingAddress.id : 0,
+                billing_id: Object.keys(this.getBillingAddress).length > 0 ? this.getBillingAddress.id : 0,
+                outlet_id: Object.keys(this.getOutletAddress).length > 0 ? this.getOutletAddress.id : 0,
+                coupon_id: Object.keys(this.cartCoupon).length > 0 ? this.cartCoupon.id : 0,
+                source: sourceEnum.WEB,
+                payment_method: paymentMethod?.id || 0,
+                products: JSON.stringify(this.products)
+            };
+        },
+        reportConfirmError: function (err) {
+            const errors = err?.response?.data?.errors;
+
+            if (Array.isArray(errors)) {
+                _.forEach(errors, (error) => alertService.error(error));
+                return;
+            }
+
+            if (errors && typeof errors === 'object') {
+                _.forEach(errors, (error) => {
+                    if (Array.isArray(error)) {
+                        _.forEach(error, (message) => alertService.error(message));
+                    } else if (typeof error === 'string') {
+                        alertService.error(error);
+                    }
+                });
+                return;
+            }
+
+            alertService.error(err?.response?.data?.message || err?.message || this.$t('message.something_wrong'));
+        },
+        confirmOrder: async function (e) {
+            if (this.isSubmitting) {
+                return;
+            }
+
             const button = e?.currentTarget || e?.target;
             if (button) {
                 button.disabled = true;
@@ -219,58 +286,46 @@ export default {
                 return;
             }
 
+            this.isSubmitting = true;
             this.loading.isActive = true;
-            this.$store.dispatch("frontendCart/reprice", { setting: this.setting }).then(() => {
-                this.form = {
-                subtotal: this.subtotal,
-                discount: this.discount,
-                tax: this.totalTax,
-                shipping_charge: this.shippingCharge,
-                total: this.total,
-                order_type: this.orderType,
-                shipping_id: Object.keys(this.getShippingAddress).length > 0 ? this.getShippingAddress.id : 0,
-                billing_id: Object.keys(this.getBillingAddress).length > 0 ? this.getBillingAddress.id : 0,
-                outlet_id: Object.keys(this.getOutletAddress).length > 0 ? this.getOutletAddress.id : 0,
-                coupon_id: Object.keys(this.cartCoupon).length > 0 ? this.cartCoupon.id : 0,
-                source: sourceEnum.WEB,
-                payment_method: Object.keys(this.paymentMethod).length > 0 ? this.paymentMethod.id : 0,
-                products: JSON.stringify(this.products)
+            let isRedirecting = false;
+
+            try {
+                await this.$store.dispatch("frontendCart/reprice", { setting: this.setting });
+
+                const selectedPaymentMethod = this.paymentMethod;
+                this.form = this.buildOrderForm(selectedPaymentMethod);
+
+                const orderResponse = await this.$store.dispatch('frontendOrder/save', this.form);
+                const orderId = orderResponse?.data?.data?.id;
+                const paymentSlug = selectedPaymentMethod?.slug;
+
+                if (!paymentSlug || !orderId) {
+                    throw new Error(this.$t('message.something_wrong'));
                 }
 
-                this.$store.dispatch('frontendOrder/save', this.form).then(orderResponse => {
-                    this.loading.isActive = false;
-                    let paymentSlug = Object.keys(this.paymentMethod).length > 0 ? this.paymentMethod.slug : '';
-                    if (paymentSlug) {
-                        window.location.href = new URL(
-                            "/payment/" + paymentSlug + "/pay/" + orderResponse.data.data.id,
-                            window.location.origin
-                        ).toString();
-                    } else {
-                        alertService.error(this.$t('message.payment_method_required'));
-                        this.resetConfirmButton(button);
-                    }
-                }).catch((err) => {
+                isRedirecting = true;
+                window.location.assign(new URL(
+                    "/payment/" + paymentSlug + "/pay/" + orderId,
+                    window.location.origin
+                ).toString());
+            } catch (err) {
+                this.reportConfirmError(err);
+            } finally {
+                if (!isRedirecting) {
                     this.resetConfirmButton(button);
-                    const errors = err?.response?.data?.errors;
-                    if (typeof errors === 'object') {
-                        _.forEach(errors, (error) => {
-                            alertService.error(error[0]);
-                        });
-                    } else {
-                        alertService.error(err?.response?.data?.message || this.$t('message.something_wrong'));
-                    }
-                });
-            }).catch(() => {
-                this.resetConfirmButton(button);
-            });
+                }
+            }
         },
         hasRequiredCheckoutAddress: function () {
-            if (this.orderType === orderTypeEnum.DELIVERY) {
+            const orderType = Number(this.orderType);
+
+            if (orderType === orderTypeEnum.DELIVERY) {
                 return this.hasObject(this.getShippingAddress)
                     && this.hasObject(this.getBillingAddress);
             }
 
-            if (this.orderType === orderTypeEnum.PICK_UP) {
+            if (orderType === orderTypeEnum.PICK_UP) {
                 return this.hasObject(this.getOutletAddress);
             }
 
