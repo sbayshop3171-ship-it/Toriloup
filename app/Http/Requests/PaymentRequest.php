@@ -26,6 +26,7 @@ class PaymentRequest extends FormRequest
     {
         return [
             'paymentMethod'   => ['required', 'string', 'max:190'],
+            'paymentAttemptKey' => ['nullable', 'string', 'max:120'],
         ];
     }
 }

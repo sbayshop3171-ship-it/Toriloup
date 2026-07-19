@@ -62,6 +62,11 @@ class Order extends Model
         return $this->hasOne(Transaction::class);
     }
 
+    public function paymentAttempts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PaymentAttempt::class);
+    }
+
     public function orderProducts(): \Illuminate\Database\Eloquent\Relations\morphMany
     {
         return $this->morphMany(Stock::class, 'model');

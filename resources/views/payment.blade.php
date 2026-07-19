@@ -45,6 +45,7 @@
 
     <form id="paymentForm" class="w-full" method="POST" action="{{ route('payment.store', ['order' => $order]) }}">
         @csrf
+        <input type="hidden" name="paymentAttemptKey" value="{{ $paymentAttempt->idempotency_key ?? '' }}">
         <fieldset class="payment-fieldset hidden">
             @if (!blank($paymentGateways))
                 @foreach ($paymentGateways as $paymentGateway)

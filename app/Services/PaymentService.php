@@ -34,9 +34,21 @@ class PaymentService
     {
         try {
             DB::transaction(function () use ($order, $gatewaySlug, $transactionNo) {
-                $transaction = Transaction::where(['order_id' => $order->id])->first();
+                $order = Order::withoutGlobalScopes()
+                    ->with(['tenant', 'paymentMethod'])
+                    ->whereKey($order->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $alreadyCompleted = (int) $order->active === Ask::YES
+                    && (int) $order->payment_status === PaymentStatus::PAID;
+                $transaction = Transaction::withoutGlobalScopes()
+                    ->where('order_id', $order->id)
+                    ->where('type', 'payment')
+                    ->where('sign', '+')
+                    ->first();
+
                 if (!$transaction) {
-                    $transaction = Transaction::create([
+                    $transaction = Transaction::withoutGlobalScopes()->create([
                         'tenant_id'      => $order->tenant_id,
                         'order_id'       => $order->id,
                         'transaction_no' => $transactionNo,
@@ -46,21 +58,25 @@ class PaymentService
                         'type'           => 'payment'
                     ]);
                 }
-                $this->transaction     = $transaction;
-                $order->active         = Ask::YES;
-                $order->payment_status = PaymentStatus::PAID;
-                $order->save();
-                Stock::where(['model_id' => $order->id, 'model_type' => Order::class, 'status' => Status::INACTIVE])?->update(['status' => Status::ACTIVE]);
+                $this->transaction = $transaction;
 
-                SendOrderMail::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
-                SendOrderSms::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
-                SendOrderPush::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
+                if (!$alreadyCompleted) {
+                    $order->active         = Ask::YES;
+                    $order->payment_status = PaymentStatus::PAID;
+                    $order->save();
+                    Stock::where(['model_id' => $order->id, 'model_type' => Order::class, 'status' => Status::INACTIVE])?->update(['status' => Status::ACTIVE]);
 
-                SendOrderGotMail::dispatch(['order_id' => $order->id]);
-                SendOrderGotSms::dispatch(['order_id' => $order->id]);
-                SendOrderGotPush::dispatch(['order_id' => $order->id]);
+                    SendOrderMail::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
+                    SendOrderSms::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
+                    SendOrderPush::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
+
+                    SendOrderGotMail::dispatch(['order_id' => $order->id]);
+                    SendOrderGotSms::dispatch(['order_id' => $order->id]);
+                    SendOrderGotPush::dispatch(['order_id' => $order->id]);
+                }
 
                 app(MerchantWalletService::class)->creditOrderPayment($order, $transaction, $gatewaySlug);
+                app(PaymentAttemptService::class)->markSucceeded($order, $gatewaySlug, $transactionNo);
             });
             return $this->transaction;
         } catch (Exception $exception) {
@@ -72,9 +88,19 @@ class PaymentService
 
     public function cashBack($order, $gatewaySlug, $transactionNo)
     {
-        $transaction = Transaction::where(['order_id' => $order->id])->first();
-        if ($transaction) {
-            $transaction = Transaction::create([
+        $paymentTransaction = Transaction::withoutGlobalScopes()
+            ->where('order_id', $order->id)
+            ->where('type', 'payment')
+            ->where('sign', '+')
+            ->first();
+        $transaction = Transaction::withoutGlobalScopes()
+            ->where('order_id', $order->id)
+            ->where('type', 'cash_back')
+            ->where('sign', '-')
+            ->first();
+
+        if ($paymentTransaction && !$transaction) {
+            $transaction = Transaction::withoutGlobalScopes()->create([
                 'tenant_id'      => $order->tenant_id,
                 'order_id'       => $order->id,
                 'transaction_no' => $transactionNo,
@@ -89,6 +115,8 @@ class PaymentService
                 $user->balance = ($user->balance + $order->total);
                 $user->save();
             }
+
+            app(MerchantWalletService::class)->reverseOrderPayment($order, (float) $order->total, 'order_status_reversal');
         }
 
         return $transaction;

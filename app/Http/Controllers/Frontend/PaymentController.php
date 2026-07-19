@@ -19,6 +19,7 @@ use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\TenantPaymentMethod;
 use App\Models\ThemeSetting;
+use App\Services\PaymentAttemptService;
 use App\Services\PaymentManagerService;
 use App\Services\Saas\TenantPaymentMethodCatalogService;
 use App\Services\Tenancy\TenantContext;
@@ -34,6 +35,7 @@ class PaymentController extends Controller
         PaymentManagerService $paymentManagerService,
         private readonly TenantPaymentMethodCatalogService $tenantPaymentMethodCatalogService,
         private readonly TenantContext $tenantContext,
+        private readonly PaymentAttemptService $paymentAttemptService,
     ) {
         $this->paymentManagerService = $paymentManagerService;
     }
@@ -68,6 +70,8 @@ class PaymentController extends Controller
         }
 
         if (blank($order->transaction) && $order->payment_status === PaymentStatus::UNPAID) {
+            $paymentAttempt = $this->paymentAttemptService->prepare($order, $paymentGateway->slug);
+
             return view('payment', [
                 'company'         => $company,
                 'logo'            => $logo,
@@ -78,6 +82,7 @@ class PaymentController extends Controller
                 'creditAmount'    => AppLibrary::currencyAmountFormat($order->user?->balance),
                 'credit'          => $credit,
                 'cashOnDelivery'  => $cashOnDelivery,
+                'paymentAttempt'  => $paymentAttempt,
                 'paymentMethod'   => $paymentGateway
             ]);
         }
@@ -100,6 +105,12 @@ class PaymentController extends Controller
         }
 
         if ($this->paymentManagerService->gateway($request->paymentMethod)->status()) {
+            $this->paymentAttemptService->start(
+                $order,
+                $request->paymentMethod,
+                $request->input('paymentAttemptKey') ?: $request->header('Idempotency-Key')
+            );
+
             $className = 'App\\Http\\PaymentGateways\\PaymentRequests\\' . ucfirst($request->paymentMethod);
             $gateway   = new $className;
             $request->validate($gateway->rules());
@@ -133,6 +144,8 @@ class PaymentController extends Controller
             return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
         }
 
+        $this->paymentAttemptService->markFailed($order, $paymentGateway->slug, 'Gateway returned failure.');
+
         return $this->paymentManagerService->gateway($paymentGateway->slug)->fail($order, $request);
     }
 
@@ -144,6 +157,8 @@ class PaymentController extends Controller
         if (!$paymentGateway instanceof PaymentGateway || !$order instanceof Order || !$this->orderUsesGateway($order, $paymentGateway->slug)) {
             return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
         }
+
+        $this->paymentAttemptService->markCanceled($order, $paymentGateway->slug, 'Customer or gateway canceled payment.');
 
         return $this->paymentManagerService->gateway($paymentGateway->slug)->cancel($order, $request);
     }

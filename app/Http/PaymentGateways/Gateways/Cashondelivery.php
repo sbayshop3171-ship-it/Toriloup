@@ -11,6 +11,7 @@ use App\Enums\Activity;
 use App\Models\PaymentGateway;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
+use App\Services\PaymentAttemptService;
 use App\Services\Saas\TenantPaymentMethodCatalogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -89,6 +90,7 @@ class Cashondelivery extends PaymentAbstract
         try {
             DB::transaction(function () use ($order, $request) {
                 if ($request->token) {
+                    $paymentAttemptService = app(PaymentAttemptService::class);
                     $capturePaymentNotification = DB::table('capture_payment_notifications')->where([
                         ['token', $request->token]
                     ]);
@@ -98,7 +100,10 @@ class Cashondelivery extends PaymentAbstract
                         $order->active = Ask::YES;
                         $order->save();
                         Stock::where(['model_id' => $order->id, 'model_type' => Order::class, 'status' => Status::INACTIVE])?->update(['status' => Status::ACTIVE]);
+                        $paymentAttemptService->markSucceeded($order, 'cashondelivery', (string) $request->token);
                         $capturePaymentNotification->delete();
+                        $this->response = true;
+                    } elseif ($order->active == Ask::YES && $paymentAttemptService->succeededProviderTransactionExists($order, 'cashondelivery', (string) $request->token)) {
                         $this->response = true;
                     }
                 }

@@ -47,7 +47,16 @@ class PlatformOrderController extends Controller
     public function show(int $orderId): JsonResponse
     {
         $order = Order::withoutGlobalScope('tenant')
-            ->with(['tenant', 'user', 'paymentMethod', 'transaction', 'orderProducts', 'address', 'outletAddress'])
+            ->with([
+                'tenant',
+                'user',
+                'paymentMethod',
+                'transaction',
+                'orderProducts',
+                'address',
+                'outletAddress',
+                'paymentAttempts' => fn ($query) => $query->latest('id'),
+            ])
             ->findOrFail($orderId);
 
         return response()->json([
@@ -129,6 +138,56 @@ class PlatformOrderController extends Controller
         $payload['transaction'] = $order->transaction?->only(['id', 'transaction_no', 'amount', 'payment_method', 'type', 'created_at']);
         $payload['order_products_count'] = $order->orderProducts->count();
         $payload['order_address_count'] = $order->address->count();
+        $payload['items'] = $order->orderProducts
+            ->map(fn ($stock): array => [
+                'id' => $stock->id,
+                'product_id' => $stock->product_id,
+                'sku' => $stock->sku,
+                'variation_names' => $stock->variation_names,
+                'quantity' => abs((float) $stock->quantity),
+                'price' => (float) $stock->price,
+                'price_display' => AppLibrary::currencyAmountFormat((float) $stock->price),
+                'subtotal' => (float) $stock->subtotal,
+                'subtotal_display' => AppLibrary::currencyAmountFormat((float) $stock->subtotal),
+                'total' => (float) $stock->total,
+                'total_display' => AppLibrary::currencyAmountFormat((float) $stock->total),
+                'status' => (int) $stock->status,
+            ])
+            ->values();
+        $payload['addresses'] = $order->address
+            ->map(fn ($address): array => $address->only([
+                'id',
+                'address_type',
+                'full_name',
+                'email',
+                'country_code',
+                'phone',
+                'country',
+                'state',
+                'city',
+                'zip_code',
+                'address',
+            ]))
+            ->values();
+        $payload['outlet_address'] = $order->outletAddress?->only(['id', 'name', 'email', 'phone', 'city', 'state', 'zip_code', 'address']);
+        $payload['payment_attempts'] = $order->paymentAttempts
+            ->map(fn ($attempt): array => [
+                'id' => $attempt->id,
+                'gateway_slug' => $attempt->gateway_slug,
+                'status' => $attempt->status,
+                'idempotency_key' => $attempt->idempotency_key,
+                'provider_transaction_id' => $attempt->provider_transaction_id,
+                'amount' => (float) $attempt->amount,
+                'amount_verified' => $attempt->amount_verified === null ? null : (float) $attempt->amount_verified,
+                'currency_code' => $attempt->currency_code,
+                'currency_verified' => $attempt->currency_verified,
+                'backend_validation_passed' => (bool) $attempt->backend_validation_passed,
+                'failure_reason' => $attempt->failure_reason,
+                'started_at' => $attempt->started_at?->toDateTimeString(),
+                'verified_at' => $attempt->verified_at?->toDateTimeString(),
+                'finished_at' => $attempt->finished_at?->toDateTimeString(),
+            ])
+            ->values();
 
         return $payload;
     }

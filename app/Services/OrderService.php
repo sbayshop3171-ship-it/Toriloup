@@ -289,13 +289,16 @@ class OrderService
     public function changeStatus(Order $order, OrderStatusRequest $request, $auth = false): Order|array
     {
         try {
+            $targetStatus = (int) $request->status;
+            $this->assertOrderStatusTransitionAllowed($order, $targetStatus);
+
             if ($auth) {
                 if ($order->user_id == Auth::user()->id) {
                     if ($request->reason) {
                         $order->reason = $request->reason;
                     }
 
-                    if ($request->status == OrderStatus::REJECTED || $request->status == OrderStatus::CANCELED) {
+                    if ($targetStatus == OrderStatus::REJECTED || $targetStatus == OrderStatus::CANCELED) {
                         if ($order->transaction) {
                             app(PaymentService::class)->cashBack(
                                 $order,
@@ -303,15 +306,16 @@ class OrderService
                                 rand(111111111111111, 99999999999999)
                             );
                         }
+                        $this->releaseOrderStocks($order);
                     }
-                    SendOrderMail::dispatch(['order_id' => $order->id, 'status' => $request->status]);
-                    SendOrderSms::dispatch(['order_id' => $order->id, 'status' => $request->status]);
-                    SendOrderPush::dispatch(['order_id' => $order->id, 'status' => $request->status]);
-                    $order->status = $request->status;
+                    SendOrderMail::dispatch(['order_id' => $order->id, 'status' => $targetStatus]);
+                    SendOrderSms::dispatch(['order_id' => $order->id, 'status' => $targetStatus]);
+                    SendOrderPush::dispatch(['order_id' => $order->id, 'status' => $targetStatus]);
+                    $order->status = $targetStatus;
                     $order->save();
                 }
             } else {
-                if ($request->status == OrderStatus::REJECTED || $request->status == OrderStatus::CANCELED) {
+                if ($targetStatus == OrderStatus::REJECTED || $targetStatus == OrderStatus::CANCELED) {
                     $request->validate([
                         'reason' => 'required|max:700',
                     ]);
@@ -327,11 +331,12 @@ class OrderService
                             rand(111111111111111, 99999999999999)
                         );
                     }
+                    $this->releaseOrderStocks($order);
                 }
-                SendOrderMail::dispatch(['order_id' => $order->id, 'status' => $request->status]);
-                SendOrderSms::dispatch(['order_id' => $order->id, 'status' => $request->status]);
-                SendOrderPush::dispatch(['order_id' => $order->id, 'status' => $request->status]);
-                $order->status = $request->status;
+                SendOrderMail::dispatch(['order_id' => $order->id, 'status' => $targetStatus]);
+                SendOrderSms::dispatch(['order_id' => $order->id, 'status' => $targetStatus]);
+                SendOrderPush::dispatch(['order_id' => $order->id, 'status' => $targetStatus]);
+                $order->status = $targetStatus;
                 $order->save();
             }
             return $order;
@@ -347,16 +352,19 @@ class OrderService
     public function changePaymentStatus(Order $order, PaymentStatusRequest $request, $auth = false): Order|array
     {
         try {
+            $targetStatus = (int) $request->payment_status;
+            $this->assertPaymentStatusTransitionAllowed($order, $targetStatus);
+
             if ($auth) {
                 if ($order->user_id == Auth::user()->id) {
-                    $order->payment_status = $request->payment_status;
+                    $order->payment_status = $targetStatus;
                     $order->save();
                     return $order;
                 } else {
                     return [];
                 }
             } else {
-                $order->payment_status = $request->payment_status;
+                $order->payment_status = $targetStatus;
                 $order->save();
                 return $order;
             }
@@ -364,6 +372,81 @@ class OrderService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function assertOrderStatusTransitionAllowed(Order $order, int $targetStatus): void
+    {
+        $currentStatus = (int) $order->status;
+        $validStatuses = [
+            OrderStatus::PENDING,
+            OrderStatus::CONFIRMED,
+            OrderStatus::ON_THE_WAY,
+            OrderStatus::DELIVERED,
+            OrderStatus::CANCELED,
+            OrderStatus::REJECTED,
+        ];
+
+        if (!in_array($targetStatus, $validStatuses, true)) {
+            throw new Exception('Unknown order status.', 422);
+        }
+
+        if ($currentStatus === $targetStatus) {
+            return;
+        }
+
+        $allowedTransitions = [
+            OrderStatus::PENDING => [OrderStatus::CONFIRMED, OrderStatus::CANCELED, OrderStatus::REJECTED],
+            OrderStatus::CONFIRMED => [OrderStatus::ON_THE_WAY, OrderStatus::CANCELED],
+            OrderStatus::ON_THE_WAY => [OrderStatus::DELIVERED],
+            OrderStatus::DELIVERED => [],
+            OrderStatus::CANCELED => [],
+            OrderStatus::REJECTED => [],
+        ];
+
+        if (!in_array($targetStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
+            throw new Exception(
+                'Order status transition not allowed from '.$this->orderStatusLabel($currentStatus).' to '.$this->orderStatusLabel($targetStatus).'.',
+                422
+            );
+        }
+    }
+
+    private function assertPaymentStatusTransitionAllowed(Order $order, int $targetStatus): void
+    {
+        if (!in_array($targetStatus, [PaymentStatus::PAID, PaymentStatus::UNPAID], true)) {
+            throw new Exception('Unknown payment status.', 422);
+        }
+
+        if ((int) $order->payment_status === $targetStatus) {
+            return;
+        }
+
+        if (in_array((int) $order->status, [OrderStatus::CANCELED, OrderStatus::REJECTED], true) && $targetStatus === PaymentStatus::PAID) {
+            throw new Exception('Canceled or rejected orders cannot be marked paid.', 422);
+        }
+
+        if ((int) $order->payment_status === PaymentStatus::PAID && $targetStatus === PaymentStatus::UNPAID) {
+            throw new Exception('Paid orders cannot be marked unpaid. Use refund or adjustment flow instead.', 422);
+        }
+    }
+
+    private function releaseOrderStocks(Order $order): void
+    {
+        Stock::where(['model_type' => Order::class, 'model_id' => $order->id])
+            ->update(['status' => Status::INACTIVE]);
+    }
+
+    private function orderStatusLabel(int $status): string
+    {
+        return match ($status) {
+            OrderStatus::PENDING => 'Pending',
+            OrderStatus::CONFIRMED => 'Confirmed',
+            OrderStatus::ON_THE_WAY => 'On The Way',
+            OrderStatus::DELIVERED => 'Delivered',
+            OrderStatus::CANCELED => 'Canceled',
+            OrderStatus::REJECTED => 'Rejected',
+            default => 'Unknown',
+        };
     }
 
     /**
