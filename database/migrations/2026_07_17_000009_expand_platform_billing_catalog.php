@@ -9,66 +9,103 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('platform_plans', function (Blueprint $table) {
-            $table->string('short_description', 255)->nullable()->after('name');
-            $table->boolean('is_public')->default(true)->after('status');
-            $table->unsignedInteger('display_order')->default(0)->after('is_public');
-            $table->boolean('is_recommended')->default(false)->after('display_order');
-            $table->string('badge_label', 60)->nullable()->after('is_recommended');
-        });
+        if (!Schema::hasColumn('platform_plans', 'short_description')) {
+            Schema::table('platform_plans', function (Blueprint $table) {
+                $table->string('short_description', 255)->nullable()->after('name');
+            });
+        }
 
-        Schema::create('platform_plan_prices', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('plan_id')->constrained('platform_plans')->cascadeOnDelete();
-            $table->enum('billing_interval', ['monthly', 'semiannual', 'yearly'])->default('monthly');
-            $table->decimal('price_amount', 12, 2)->default(0);
-            $table->timestamps();
-            $table->unique(['plan_id', 'billing_interval']);
-        });
+        if (!Schema::hasColumn('platform_plans', 'is_public')) {
+            Schema::table('platform_plans', function (Blueprint $table) {
+                $table->boolean('is_public')->default(true)->after('status');
+            });
+        }
 
-        Schema::create('platform_plan_features', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('plan_id')->constrained('platform_plans')->cascadeOnDelete();
-            $table->string('feature_code', 120);
-            $table->string('display_label', 160);
-            $table->string('compare_group', 120)->default('Operations');
-            $table->enum('feature_type', ['boolean', 'text', 'integer', 'percent'])->default('boolean');
-            $table->string('feature_value', 120)->nullable();
-            $table->unsignedInteger('sort_order')->default(0);
-            $table->timestamps();
-            $table->unique(['plan_id', 'feature_code']);
-        });
+        if (!Schema::hasColumn('platform_plans', 'display_order')) {
+            Schema::table('platform_plans', function (Blueprint $table) {
+                $table->unsignedInteger('display_order')->default(0)->after('is_public');
+            });
+        }
 
-        Schema::create('subscription_checkout_sessions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tenant_id');
-            $table->foreignId('tenant_subscription_id');
-            $table->foreignId('tenant_subscription_invoice_id');
-            $table->string('provider_code', 80);
-            $table->enum('status', ['pending', 'completed', 'cancelled', 'failed', 'expired'])->default('pending');
-            $table->string('session_token', 100)->unique();
-            $table->string('external_reference', 120)->nullable();
-            $table->text('return_url')->nullable();
-            $table->text('cancel_url')->nullable();
-            $table->timestamp('completed_at')->nullable();
-            $table->timestamp('expires_at')->nullable();
-            $table->json('metadata_json')->nullable();
-            $table->timestamps();
-            $table->index(['provider_code', 'status']);
-            $table->index(['tenant_id', 'status']);
-            $table->foreign('tenant_id', 'sub_checkout_tenant_fk')->references('id')->on('tenants')->cascadeOnDelete();
-            $table->foreign('tenant_subscription_id', 'sub_checkout_subscription_fk')->references('id')->on('tenant_subscriptions')->cascadeOnDelete();
-            $table->foreign('tenant_subscription_invoice_id', 'sub_checkout_invoice_fk')->references('id')->on('tenant_subscription_invoices')->cascadeOnDelete();
-        });
+        if (!Schema::hasColumn('platform_plans', 'is_recommended')) {
+            Schema::table('platform_plans', function (Blueprint $table) {
+                $table->boolean('is_recommended')->default(false)->after('display_order');
+            });
+        }
 
-        Schema::table('tenant_subscriptions', function (Blueprint $table) {
-            $table->timestamp('grace_ends_at')->nullable()->after('current_period_ends_at');
-        });
+        if (!Schema::hasColumn('platform_plans', 'badge_label')) {
+            Schema::table('platform_plans', function (Blueprint $table) {
+                $table->string('badge_label', 60)->nullable()->after('is_recommended');
+            });
+        }
 
-        Schema::table('tenant_subscription_invoices', function (Blueprint $table) {
-            $table->string('provider_code', 80)->nullable()->after('total_amount');
-            $table->string('external_reference', 120)->nullable()->after('provider_code');
-        });
+        if (!Schema::hasTable('platform_plan_prices')) {
+            Schema::create('platform_plan_prices', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('plan_id')->constrained('platform_plans')->cascadeOnDelete();
+                $table->enum('billing_interval', ['monthly', 'semiannual', 'yearly'])->default('monthly');
+                $table->decimal('price_amount', 12, 2)->default(0);
+                $table->timestamps();
+                $table->unique(['plan_id', 'billing_interval']);
+            });
+        }
+
+        if (!Schema::hasTable('platform_plan_features')) {
+            Schema::create('platform_plan_features', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('plan_id')->constrained('platform_plans')->cascadeOnDelete();
+                $table->string('feature_code', 120);
+                $table->string('display_label', 160);
+                $table->string('compare_group', 120)->default('Operations');
+                $table->enum('feature_type', ['boolean', 'text', 'integer', 'percent'])->default('boolean');
+                $table->string('feature_value', 120)->nullable();
+                $table->unsignedInteger('sort_order')->default(0);
+                $table->timestamps();
+                $table->unique(['plan_id', 'feature_code']);
+            });
+        }
+
+        if (!Schema::hasTable('subscription_checkout_sessions')) {
+            Schema::create('subscription_checkout_sessions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('tenant_id');
+                $table->foreignId('tenant_subscription_id');
+                $table->foreignId('tenant_subscription_invoice_id');
+                $table->string('provider_code', 80);
+                $table->enum('status', ['pending', 'completed', 'cancelled', 'failed', 'expired'])->default('pending');
+                $table->string('session_token', 100)->unique();
+                $table->string('external_reference', 120)->nullable();
+                $table->text('return_url')->nullable();
+                $table->text('cancel_url')->nullable();
+                $table->timestamp('completed_at')->nullable();
+                $table->timestamp('expires_at')->nullable();
+                $table->json('metadata_json')->nullable();
+                $table->timestamps();
+                $table->index(['provider_code', 'status']);
+                $table->index(['tenant_id', 'status']);
+                $table->foreign('tenant_id', 'sub_checkout_tenant_fk')->references('id')->on('tenants')->cascadeOnDelete();
+                $table->foreign('tenant_subscription_id', 'sub_checkout_subscription_fk')->references('id')->on('tenant_subscriptions')->cascadeOnDelete();
+                $table->foreign('tenant_subscription_invoice_id', 'sub_checkout_invoice_fk')->references('id')->on('tenant_subscription_invoices')->cascadeOnDelete();
+            });
+        }
+
+        if (!Schema::hasColumn('tenant_subscriptions', 'grace_ends_at')) {
+            Schema::table('tenant_subscriptions', function (Blueprint $table) {
+                $table->timestamp('grace_ends_at')->nullable()->after('current_period_ends_at');
+            });
+        }
+
+        if (!Schema::hasColumn('tenant_subscription_invoices', 'provider_code')) {
+            Schema::table('tenant_subscription_invoices', function (Blueprint $table) {
+                $table->string('provider_code', 80)->nullable()->after('total_amount');
+            });
+        }
+
+        if (!Schema::hasColumn('tenant_subscription_invoices', 'external_reference')) {
+            Schema::table('tenant_subscription_invoices', function (Blueprint $table) {
+                $table->string('external_reference', 120)->nullable()->after('provider_code');
+            });
+        }
 
         $driver = DB::getDriverName();
 
@@ -82,7 +119,7 @@ return new class extends Migration
         $plans = DB::table('platform_plans')->get(['id', 'monthly_price', 'yearly_price']);
 
         foreach ($plans as $plan) {
-            DB::table('platform_plan_prices')->insert([
+            DB::table('platform_plan_prices')->insertOrIgnore([
                 [
                     'plan_id' => $plan->id,
                     'billing_interval' => 'monthly',
