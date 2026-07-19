@@ -4,129 +4,154 @@
         subtitle="Business health, identity, products, orders, money, login, risk, and owner actions in one place.">
         <LoadingComponent :props="loading" />
 
-        <section class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold text-[#111827]">Merchants</h2>
-                    <p class="text-sm text-[#6B7280]">Select a merchant to open the full control center.</p>
-                </div>
-                <form class="flex flex-col gap-3 md:flex-row" @submit.prevent="fetchMerchants">
-                    <input
-                        v-model.trim="filters.q"
-                        type="text"
-                        placeholder="Search store, slug, email, code"
-                        class="h-11 w-full rounded-xl border border-[#D1D5DB] px-4 text-sm outline-none transition focus:border-primary md:w-72" />
-                    <select
-                        v-model="filters.status"
-                        class="h-11 rounded-xl border border-[#D1D5DB] px-4 text-sm outline-none transition focus:border-primary">
-                        <option value="">All statuses</option>
-                        <option value="active">Active</option>
-                        <option value="draft">Draft</option>
-                        <option value="suspended">Suspended</option>
-                    </select>
-                    <div class="flex gap-2">
-                        <button type="submit" class="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90">
-                            <i class="lab lab-line-search"></i>
-                            <span>Search</span>
-                        </button>
-                        <button type="button" class="inline-flex h-11 items-center gap-2 rounded-xl border border-[#D1D5DB] bg-white px-4 text-sm font-semibold text-[#374151] transition hover:border-primary hover:text-primary" @click="clearFilters">
-                            <i class="lab lab-line-cross"></i>
-                            <span>Clear</span>
-                        </button>
+        <div class="row">
+            <div class="col-12">
+                <div class="db-card">
+                    <div class="db-card-header border-none">
+                        <div>
+                            <h3 class="db-card-title">Merchant Control Center</h3>
+                            <p class="text-sm text-paragraph mt-1">Select a merchant to open profile, products, orders, finance, customers, activity, and risk details.</p>
+                        </div>
                     </div>
-                </form>
-            </div>
 
-            <div class="mt-5 overflow-x-auto">
-                <table class="min-w-full text-left text-sm">
-                    <thead>
-                        <tr class="border-b border-[#E5E7EB] text-[#6B7280]">
-                            <th class="px-4 py-3 font-semibold">Merchant</th>
-                            <th class="px-4 py-3 font-semibold">Storefront</th>
-                            <th class="px-4 py-3 font-semibold">Joined</th>
-                            <th class="px-4 py-3 font-semibold">Status</th>
-                            <th class="px-4 py-3 font-semibold">Business Health</th>
-                            <th class="px-4 py-3 font-semibold">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="merchants.length === 0">
-                            <td colspan="6" class="px-4 py-10 text-center text-[#6B7280]">No merchants found.</td>
-                        </tr>
-                        <tr
-                            v-for="merchant in merchants"
-                            :key="merchant.id"
-                            class="border-b border-[#F3F4F6] transition last:border-b-0 hover:bg-[#F9FAFB]"
-                            :class="selectedMerchant?.id === merchant.id ? 'bg-[#F9FAFB]' : ''">
-                            <td class="px-4 py-4 align-top">
-                                <p class="font-semibold text-[#111827]">{{ merchant.name }}</p>
-                                <p class="text-xs text-[#6B7280]">{{ merchant.contact_email || merchant.contact_phone || "-" }}</p>
-                                <p class="mt-1 text-xs text-[#6B7280]">{{ merchant.slug }} • {{ merchant.store_code }}</p>
-                            </td>
-                            <td class="px-4 py-4 align-top">
-                                <p class="font-medium text-[#111827]">{{ merchant.storefront_hostname }}</p>
-                                <p v-if="merchant.primary_domain && merchant.primary_domain !== merchant.storefront_hostname" class="text-xs text-[#6B7280]">
-                                    Live: {{ merchant.primary_domain }}
-                                </p>
-                            </td>
-                            <td class="px-4 py-4 align-top text-[#374151]">{{ formatDate(merchant.created_at) }}</td>
-                            <td class="px-4 py-4 align-top">
-                                <span :class="statusClass(merchant.status)">{{ humanStatus(merchant.status) }}</span>
-                            </td>
-                            <td class="px-4 py-4 align-top">
-                                <div class="space-y-1 text-xs text-[#6B7280]">
-                                    <p>{{ merchant.products_count || 0 }} products • {{ merchant.orders_count || 0 }} orders</p>
-                                    <p>{{ merchant.customers_count || 0 }} customers</p>
-                                    <p class="font-semibold text-[#111827]">{{ money(merchant.completed_sales_total) }} delivered sales</p>
+                    <div class="p-4 sm:p-5 border-t border-[#F3F4F6]">
+                        <form class="w-full" @submit.prevent="fetchMerchants">
+                            <div class="row">
+                                <div class="col-12 md:col-6 xl:col-5">
+                                    <label class="db-field-title after:hidden">Search</label>
+                                    <input
+                                        v-model.trim="filters.q"
+                                        type="text"
+                                        placeholder="Search store, slug, email, code"
+                                        class="db-field-control" />
                                 </div>
-                            </td>
-                            <td class="px-4 py-4 align-top">
-                                <div class="flex flex-wrap gap-2">
-                                    <button type="button" class="action-btn border-[#C7D2FE] bg-[#EEF2FF] text-[#4338CA]" @click="openMerchant(merchant)">
-                                        <i class="fa-regular fa-eye"></i>
-                                        <span>Details</span>
-                                    </button>
-                                    <button type="button" class="action-btn border-[#DDD6FE] bg-[#F5F3FF] text-[#6D28D9]" @click="openImpersonation(merchant)">
-                                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
-                                        <span>Login</span>
-                                    </button>
-                                    <button
-                                        v-if="merchant.status === 'draft'"
-                                        type="button"
-                                        class="action-btn border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
-                                        @click="runQuickAction(merchant, 'approve')">
-                                        <i class="fa-regular fa-circle-check"></i>
-                                        <span>Approve</span>
-                                    </button>
-                                    <button
-                                        v-if="merchant.status === 'suspended'"
-                                        type="button"
-                                        class="action-btn border-[#BBF7D0] bg-[#F0FDF4] text-[#047857]"
-                                        @click="openActionModal(merchant, 'reactivate')">
-                                        <i class="fa-solid fa-rotate"></i>
-                                        <span>Unsuspend</span>
-                                    </button>
-                                    <button
-                                        v-else
-                                        type="button"
-                                        class="action-btn border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]"
-                                        @click="openActionModal(merchant, 'suspend')">
-                                        <i class="fa-solid fa-ban"></i>
-                                        <span>Suspend</span>
-                                    </button>
-                                    <button type="button" class="action-btn border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]" @click="openActionModal(merchant, 'delete')">
-                                        <i class="fa-regular fa-trash-can"></i>
-                                        <span>Delete</span>
-                                    </button>
+                                <div class="col-12 md:col-3 xl:col-3">
+                                    <label class="db-field-title after:hidden">Status</label>
+                                    <select v-model="filters.status" class="db-field-control">
+                                        <option value="">All statuses</option>
+                                        <option value="active">Active</option>
+                                        <option value="draft">Draft</option>
+                                        <option value="suspended">Suspended</option>
+                                    </select>
                                 </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                <div class="col-12 md:col-3 xl:col-4">
+                                    <div class="flex flex-wrap gap-3 mt-6">
+                                        <button type="submit" class="db-btn py-2 text-white bg-primary">
+                                            <i class="lab lab-line-search"></i>
+                                            <span>Search</span>
+                                        </button>
+                                        <button type="button" class="db-btn py-2 text-white bg-gray-600" @click="clearFilters">
+                                            <i class="lab lab-line-cross"></i>
+                                            <span>Clear</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
 
-        <section v-if="selectedMerchant" class="mt-6 space-y-6">
+                    <div class="db-table-responsive">
+                        <table class="db-table stripe">
+                            <thead class="db-table-head">
+                                <tr class="db-table-head-tr">
+                                    <th class="db-table-head-th">Merchant</th>
+                                    <th class="db-table-head-th">Storefront</th>
+                                    <th class="db-table-head-th">Joined</th>
+                                    <th class="db-table-head-th">Status</th>
+                                    <th class="db-table-head-th">Business Health</th>
+                                    <th class="db-table-head-th hidden-print">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="db-table-body" v-if="merchants.length > 0">
+                                <tr
+                                    v-for="merchant in merchants"
+                                    :key="merchant.id"
+                                    class="db-table-body-tr"
+                                    :class="selectedMerchant?.id === merchant.id ? 'bg-[#FFF4F0]' : ''">
+                                    <td class="db-table-body-td">
+                                        <div class="space-y-1">
+                                            <p class="font-medium text-secondary">{{ merchant.name }}</p>
+                                            <p class="text-xs text-paragraph">{{ merchant.contact_email || merchant.contact_phone || "-" }}</p>
+                                            <p class="text-xs text-paragraph">{{ merchant.slug }} • {{ merchant.store_code }}</p>
+                                        </div>
+                                    </td>
+                                    <td class="db-table-body-td">
+                                        <div class="space-y-1">
+                                            <p class="font-medium text-secondary">{{ merchant.storefront_hostname }}</p>
+                                            <p v-if="merchant.primary_domain && merchant.primary_domain !== merchant.storefront_hostname" class="text-xs text-paragraph">
+                                                Live: {{ merchant.primary_domain }}
+                                            </p>
+                                        </div>
+                                    </td>
+                                    <td class="db-table-body-td">{{ formatDate(merchant.created_at) }}</td>
+                                    <td class="db-table-body-td">
+                                        <span :class="statusClass(merchant.status)">{{ humanStatus(merchant.status) }}</span>
+                                    </td>
+                                    <td class="db-table-body-td">
+                                        <div class="space-y-1 text-xs text-paragraph">
+                                            <p>{{ merchant.products_count || 0 }} products • {{ merchant.orders_count || 0 }} orders</p>
+                                            <p>{{ merchant.customers_count || 0 }} customers</p>
+                                            <p class="font-semibold text-secondary">{{ money(merchant.completed_sales_total) }} delivered sales</p>
+                                        </div>
+                                    </td>
+                                    <td class="db-table-body-td hidden-print">
+                                        <div class="flex flex-wrap gap-2">
+                                            <button type="button" class="action-btn border-[#C7D2FE] bg-[#EEF2FF] text-[#4338CA]" @click="openMerchant(merchant)">
+                                                <i class="fa-regular fa-eye"></i>
+                                                <span>Details</span>
+                                            </button>
+                                            <button type="button" class="action-btn border-[#DDD6FE] bg-[#F5F3FF] text-[#6D28D9]" @click="openImpersonation(merchant)">
+                                                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                                                <span>Login</span>
+                                            </button>
+                                            <button
+                                                v-if="merchant.status === 'draft'"
+                                                type="button"
+                                                class="action-btn border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
+                                                @click="runQuickAction(merchant, 'approve')">
+                                                <i class="fa-regular fa-circle-check"></i>
+                                                <span>Approve</span>
+                                            </button>
+                                            <button
+                                                v-if="merchant.status === 'suspended'"
+                                                type="button"
+                                                class="action-btn border-[#BBF7D0] bg-[#F0FDF4] text-[#047857]"
+                                                @click="openActionModal(merchant, 'reactivate')">
+                                                <i class="fa-solid fa-rotate"></i>
+                                                <span>Unsuspend</span>
+                                            </button>
+                                            <button
+                                                v-else
+                                                type="button"
+                                                class="action-btn border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]"
+                                                @click="openActionModal(merchant, 'suspend')">
+                                                <i class="fa-solid fa-ban"></i>
+                                                <span>Suspend</span>
+                                            </button>
+                                            <button type="button" class="action-btn border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]" @click="openActionModal(merchant, 'delete')">
+                                                <i class="fa-regular fa-trash-can"></i>
+                                                <span>Delete</span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tbody class="db-table-body" v-else>
+                                <tr class="db-table-body-tr">
+                                    <td class="db-table-body-td text-center" colspan="6">
+                                        <div class="p-4">
+                                            <span class="d-block mt-3 text-lg">No merchants found</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section v-if="selectedMerchant" ref="merchantDetails" class="mt-6 space-y-6">
             <div class="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
                 <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                     <div class="min-w-0">
@@ -668,7 +693,7 @@ export default {
                 if (this.selectedMerchant?.id) {
                     const refreshed = this.merchants.find((merchant) => merchant.id === this.selectedMerchant.id);
                     if (refreshed) {
-                        this.openMerchant(refreshed, false);
+                        this.openMerchant(refreshed, false, false);
                     } else {
                         this.selectedMerchant = null;
                     }
@@ -682,21 +707,37 @@ export default {
             this.filters.status = "";
             this.fetchMerchants();
         },
-        openMerchant: function (merchant, showLoading = true) {
+        openMerchant: function (merchant, showLoading = true, scrollToDetails = true) {
             if (showLoading) {
                 this.loading.isActive = true;
             }
 
             axios.get(`platform/tenants/${merchant.id}`)
                 .then((res) => {
-                    this.selectedMerchant = res?.data?.data || null;
+                    const detail = res?.data?.data || {};
+                    this.selectedMerchant = { ...merchant, ...detail };
                     this.activeTab = "profile";
+                    if (scrollToDetails) {
+                        this.focusMerchantDetails();
+                    }
+                })
+                .catch((error) => {
+                    const message = error?.response?.data?.message || "Merchant details could not be loaded.";
+                    this.$toast?.error(message);
                 })
                 .finally(() => {
                     if (showLoading) {
                         this.loading.isActive = false;
                     }
                 });
+        },
+        focusMerchantDetails: function () {
+            this.$nextTick(() => {
+                this.$refs.merchantDetails?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+            });
         },
         replaceMerchant: function (merchant) {
             this.merchants = this.merchants.map((item) => item.id === merchant.id ? { ...item, ...merchant } : item);
