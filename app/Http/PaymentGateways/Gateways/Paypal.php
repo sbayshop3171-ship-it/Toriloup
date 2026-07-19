@@ -4,14 +4,12 @@ namespace App\Http\PaymentGateways\Gateways;
 
 
 use App\Enums\Activity;
-use App\Models\Currency;
 use App\Models\PaymentGateway;
 use App\Services\PaymentAbstract;
 use Exception;
 use App\Services\PaymentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Dipokhalder\Settings\Facades\Settings;
 use Srmklive\PayPal\Services\PayPal as PayPalClient;
 
 class Paypal extends PaymentAbstract
@@ -27,14 +25,7 @@ class Paypal extends PaymentAbstract
         parent::__construct($paymentService);
         $this->paymentGateway = PaymentGateway::with('gatewayOptions')->where(['slug' => 'paypal'])->first();
         if (!blank($this->paymentGateway)) {
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
 
             $this->paymentGatewayOption = $this->paymentGateway->gatewayOptions->pluck('value', 'option');
             $config                     = [
@@ -63,14 +54,7 @@ class Paypal extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
 
             $this->gateway->getAccessToken();
             $response = $this->gateway->createOrder([

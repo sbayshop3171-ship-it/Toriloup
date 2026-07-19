@@ -4,14 +4,12 @@ namespace App\Http\PaymentGateways\Gateways;
 
 use App\Enums\Activity;
 use App\Models\CapturePaymentNotification;
-use App\Models\Currency;
 use App\Models\PaymentGateway;
 use App\Services\PaymentAbstract;
 use App\Services\PaymentService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Dipokhalder\Settings\Facades\Settings;
 use Stripe as StripeClient;
 
 class Stripe extends PaymentAbstract
@@ -34,14 +32,7 @@ class Stripe extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
             
 	    $amount = number_format((float) $order->total, 2, '.', '');
             $response = $this->gateway->charges->create([

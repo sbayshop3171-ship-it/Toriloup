@@ -204,12 +204,12 @@ export default {
     },
     mounted() {
         this.modalShow();
-        this.$store.dispatch("company/lists").then().catch();
+        this.$store.dispatch("frontendSetting/lists").then().catch();
         this.show();
     },
     computed: {
         company: function () {
-            return this.$store.getters['company/lists'];
+            return this.$store.getters['frontendSetting/lists'];
         },
         order: function () {
             return this.$store.getters['frontendOrder/show'];

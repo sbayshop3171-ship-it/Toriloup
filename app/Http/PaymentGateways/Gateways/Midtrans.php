@@ -5,7 +5,6 @@ namespace App\Http\PaymentGateways\Gateways;
 
 use App\Enums\Activity;
 use App\Enums\GatewayMode;
-use App\Models\Currency;
 use GuzzleHttp\Client;
 use App\Models\PaymentGateway;
 use App\Services\PaymentAbstract;
@@ -13,7 +12,6 @@ use Exception;
 use App\Services\PaymentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Dipokhalder\Settings\Facades\Settings;
 
 class Midtrans extends PaymentAbstract
 {
@@ -43,14 +41,7 @@ class Midtrans extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Routing\Redirector|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'IDR';
-            $currencyId = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('IDR');
             if (env('DEMO')) {
                 $currencyCode = 'IDR';
             }

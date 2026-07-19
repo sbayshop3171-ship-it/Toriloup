@@ -17,13 +17,27 @@ class CountryCodeResource extends JsonResource
      */
     public function toArray($request)
     {
+        if ($this->resource === null) {
+            return [
+                "calling_code"  => null,
+                "flag_emoji"    => "",
+                "flag_svg"      => "",
+                "flag_svg_path" => "",
+                "capital"       => null,
+                "nationality"   => null,
+            ];
+        }
+
+        $callingCodes = (array) data_get($this->resource, 'calling_codes', []);
+        $callingCode = $callingCodes[0] ?? null;
+
         return [
-            "calling_code"  => $this->calling_codes[0] == '+1201' ? '+1' : $this->calling_codes[0],
-            "flag_emoji"    => $this->flag->emoji,
-            "flag_svg"      => $this->flag->svg,
-            "flag_svg_path" => $this->flag->svg_path,
-            "capital"       => $this->capital_rinvex,
-            "nationality"   => $this->demonym,
+            "calling_code"  => $callingCode == '+1201' ? '+1' : $callingCode,
+            "flag_emoji"    => data_get($this->resource, 'flag.emoji', ''),
+            "flag_svg"      => data_get($this->resource, 'flag.svg', ''),
+            "flag_svg_path" => data_get($this->resource, 'flag.svg_path', ''),
+            "capital"       => data_get($this->resource, 'capital_rinvex'),
+            "nationality"   => data_get($this->resource, 'demonym'),
         ];
     }
 }

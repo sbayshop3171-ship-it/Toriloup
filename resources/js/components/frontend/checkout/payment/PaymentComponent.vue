@@ -81,6 +81,7 @@ import LoadingComponent from "../../components/LoadingComponent.vue";
 import _ from "lodash";
 import alertService from "../../../../services/alertService";
 import sourceEnum from "../../../../enums/modules/sourceEnum";
+import orderTypeEnum from "../../../../enums/modules/orderTypeEnum";
 
 export default {
     name: "PaymentComponent",
@@ -101,6 +102,9 @@ export default {
     computed: {
         profile: function () {
             return this.$store.getters.authInfo;
+        },
+        setting: function () {
+            return this.$store.getters['frontendSetting/lists'];
         },
         paymentMethod: function () {
             return this.$store.getters['frontendCart/paymentMethod'];
@@ -208,8 +212,16 @@ export default {
                 return;
             }
 
+            if (!this.hasRequiredCheckoutAddress()) {
+                alertService.error(this.$t('message.shipping_and_billing_address'));
+                this.resetConfirmButton(button);
+                this.$router.push({ name: 'frontend.checkout.checkout' });
+                return;
+            }
+
             this.loading.isActive = true;
-            this.form = {
+            this.$store.dispatch("frontendCart/reprice", { setting: this.setting }).then(() => {
+                this.form = {
                 subtotal: this.subtotal,
                 discount: this.discount,
                 tax: this.totalTax,
@@ -223,28 +235,49 @@ export default {
                 source: sourceEnum.WEB,
                 payment_method: Object.keys(this.paymentMethod).length > 0 ? this.paymentMethod.id : 0,
                 products: JSON.stringify(this.products)
+                }
+
+                this.$store.dispatch('frontendOrder/save', this.form).then(orderResponse => {
+                    this.loading.isActive = false;
+                    let paymentSlug = Object.keys(this.paymentMethod).length > 0 ? this.paymentMethod.slug : '';
+                    if (paymentSlug) {
+                        window.location.href = new URL(
+                            "/payment/" + paymentSlug + "/pay/" + orderResponse.data.data.id,
+                            window.location.origin
+                        ).toString();
+                    } else {
+                        alertService.error(this.$t('message.payment_method_required'));
+                        this.resetConfirmButton(button);
+                    }
+                }).catch((err) => {
+                    this.resetConfirmButton(button);
+                    const errors = err?.response?.data?.errors;
+                    if (typeof errors === 'object') {
+                        _.forEach(errors, (error) => {
+                            alertService.error(error[0]);
+                        });
+                    } else {
+                        alertService.error(err?.response?.data?.message || this.$t('message.something_wrong'));
+                    }
+                });
+            }).catch(() => {
+                this.resetConfirmButton(button);
+            });
+        },
+        hasRequiredCheckoutAddress: function () {
+            if (this.orderType === orderTypeEnum.DELIVERY) {
+                return this.hasObject(this.getShippingAddress)
+                    && this.hasObject(this.getBillingAddress);
             }
 
-            this.$store.dispatch('frontendOrder/save', this.form).then(orderResponse => {
-                this.loading.isActive = false;
-                let paymentSlug = Object.keys(this.paymentMethod).length > 0 ? this.paymentMethod.slug : '';
-                if (paymentSlug) {
-                    window.location.href = new URL(
-                        "/payment/" + paymentSlug + "/pay/" + orderResponse.data.data.id,
-                        window.location.origin
-                    ).toString();
-                } else {
-                    alertService.error(this.$t('message.payment_method_required'));
-                    this.resetConfirmButton(button);
-                }
-            }).catch((err) => {
-                this.resetConfirmButton(button);
-                if (typeof err.response.data.errors === 'object') {
-                    _.forEach(err.response.data.errors, (error) => {
-                        alertService.error(error[0]);
-                    });
-                }
-            });
+            if (this.orderType === orderTypeEnum.PICK_UP) {
+                return this.hasObject(this.getOutletAddress);
+            }
+
+            return false;
+        },
+        hasObject: function (value) {
+            return value && typeof value === 'object' && Object.keys(value).length > 0;
         }
     }
 }

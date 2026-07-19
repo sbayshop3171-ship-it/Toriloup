@@ -7,12 +7,10 @@ use Exception;
 use App\Enums\Activity;
 use App\Enums\GatewayMode;
 use App\Models\PaymentGateway;
-use App\Models\Currency;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Dipokhalder\Settings\Facades\Settings;
 
 
 class Telr extends PaymentAbstract
@@ -33,14 +31,7 @@ class Telr extends PaymentAbstract
     public function payment($order, $request)
     {
         try {
-            $currencyCode = 'AED';
-            $currencyId = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('AED');
 
             $mode = $this->paymentGatewayOption['telr_mode'] == GatewayMode::SANDBOX ? 1 : 0;
 

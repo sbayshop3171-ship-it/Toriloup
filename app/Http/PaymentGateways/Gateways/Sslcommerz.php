@@ -5,14 +5,12 @@ namespace App\Http\PaymentGateways\Gateways;
 
 use App\Enums\Activity;
 use App\Enums\GatewayMode;
-use App\Models\Currency;
 use App\Models\PaymentGateway;
 use App\Services\PaymentAbstract;
 use Exception;
 use App\Services\PaymentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Dipokhalder\Settings\Facades\Settings;
 
 class Sslcommerz extends PaymentAbstract
 {
@@ -29,14 +27,7 @@ class Sslcommerz extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Routing\Redirector|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
 
             $array['store_id']         = $this->paymentGatewayOption['sslcommerz_store_id'];
             $array['store_passwd']     = $this->paymentGatewayOption['sslcommerz_store_password'];

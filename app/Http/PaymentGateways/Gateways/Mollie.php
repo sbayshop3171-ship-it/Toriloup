@@ -6,13 +6,11 @@ namespace App\Http\PaymentGateways\Gateways;
 use App\Models\CapturePaymentNotification;
 use Exception;
 use App\Enums\Activity;
-use App\Models\Currency;
 use App\Models\PaymentGateway;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Dipokhalder\Settings\Facades\Settings;
 use Mollie\Laravel\Facades\Mollie as MollieClient;
 
 class Mollie extends PaymentAbstract
@@ -33,14 +31,7 @@ class Mollie extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
 
             $payment = MollieClient::api()->payments->create([
                 "amount"      => [

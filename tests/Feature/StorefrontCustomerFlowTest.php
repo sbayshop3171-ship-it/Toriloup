@@ -545,6 +545,36 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertRedirect('/checkout/payment');
     }
 
+    public function test_storefront_payment_page_accepts_global_currency_setting_under_tenant_scope(): void
+    {
+        $tenant = $this->createTenant('global-currency-payment-store');
+        $customer = $this->createCustomerUser('global-currency-payment-customer@test.com');
+        $globalCurrency = Currency::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'name' => 'Jordanian Dinar',
+            'symbol' => 'JD',
+            'code' => 'JOD',
+            'is_cryptocurrency' => 0,
+            'exchange_rate' => 1,
+        ]);
+
+        $this->preparePaymentPageSettings($tenant, 'Global Currency Payment Store');
+        Settings::group('site')->set([
+            'site_default_currency' => $globalCurrency->id,
+            'site_default_currency_code' => 'JOD',
+            'site_default_currency_symbol' => 'JD',
+        ]);
+
+        $stripe = $this->createStripeGateway();
+        $this->createTenantGatewayMethod($tenant, 'stripe');
+        $order = $this->createPaymentOrder($tenant, $customer, $stripe, 225, 'GLOBAL-CURRENCY-PAGE-1');
+
+        $this
+            ->get("http://{$tenant->slug}.company.com/payment/stripe/pay/{$order->id}")
+            ->assertOk()
+            ->assertSee('paymentForm', false);
+    }
+
     public function test_storefront_stripe_success_settles_merchant_wallet_and_keeps_notifications_single(): void
     {
         config(['saas.wallet.holding_days' => 0]);
@@ -740,6 +770,18 @@ class StorefrontCustomerFlowTest extends TestCase
             'tenant_id' => $tenant->id,
             'status' => Status::ACTIVE,
         ]);
+    }
+
+    public function test_storefront_country_code_show_null_returns_empty_payload_instead_of_crashing(): void
+    {
+        $tenant = $this->createTenant('country-code-null-store');
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/country-code/show/null")
+            ->assertOk()
+            ->assertJsonPath('data.calling_code', null)
+            ->assertJsonPath('data.flag_emoji', '');
     }
 
     public function test_storefront_password_reset_returns_storefront_surface_context_and_shadow_customer(): void

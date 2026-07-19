@@ -4,7 +4,6 @@ namespace App\Http\PaymentGateways\Gateways;
 
 use Exception;
 use App\Enums\Activity;
-use App\Models\Currency;
 use App\Enums\GatewayMode;
 use Tco\TwocheckoutFacade;
 use App\Models\PaymentGateway;
@@ -33,14 +32,7 @@ class twocheckout extends PaymentAbstract
     {
         try {
             $company = Settings::group('company')->all();
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
             if ($this->paymentGatewayOption) {
                 $config = [
                     'sellerId'          => $this->paymentGatewayOption['twocheckout_seller_id'],

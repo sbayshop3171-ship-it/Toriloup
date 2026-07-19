@@ -389,7 +389,7 @@ export default {
         Promise.allSettled([
             this.$store.dispatch('frontendCountryStateCity/countries'),
             this.$store.dispatch('frontendCountryCode/lists'),
-            this.$store.dispatch('company/lists'),
+            this.$store.dispatch('frontendSetting/lists'),
         ]).then(async (results) => {
             const companyCountryCode = results[2]?.value?.data?.data?.company_country_code || null;
             await this.applyCompanyCountryCodeDefault(companyCountryCode);

@@ -5,14 +5,12 @@ namespace App\Http\PaymentGateways\Gateways;
 
 use Exception;
 use App\Enums\Activity;
-use App\Models\Currency;
 use App\Models\PaymentGateway;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
 use KingFlamez\Rave\Facades\Rave;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
-use Dipokhalder\Settings\Facades\Settings;
 
 class Flutterwave extends PaymentAbstract
 {
@@ -36,14 +34,7 @@ class Flutterwave extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Routing\Redirector|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
 
             $reference = Rave::generateReference();
 

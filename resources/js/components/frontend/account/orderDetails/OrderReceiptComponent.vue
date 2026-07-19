@@ -232,11 +232,11 @@ export default {
         }
     },
     mounted() {
-        this.$store.dispatch("company/lists").then().catch();
+        this.$store.dispatch("frontendSetting/lists").then().catch();
     },
     computed: {
         company: function () {
-            return this.$store.getters['company/lists'];
+            return this.$store.getters['frontendSetting/lists'];
         },
         outletAddress: function () {
             return this.$store.getters['frontendOrder/outletAddress'];

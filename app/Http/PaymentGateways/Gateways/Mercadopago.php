@@ -6,14 +6,12 @@ namespace App\Http\PaymentGateways\Gateways;
 use Exception;
 use App\Enums\Activity;
 use App\Enums\GatewayMode;
-use App\Models\Currency;
 use App\Models\PaymentGateway;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use SantiGraviano\LaravelMercadoPago\MP;
-use Dipokhalder\Settings\Facades\Settings;
 
 class Mercadopago extends PaymentAbstract
 {
@@ -36,14 +34,7 @@ class Mercadopago extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'ARS';
-            $currencyId = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('ARS');
             $data = [
                 'items' => [
                     [

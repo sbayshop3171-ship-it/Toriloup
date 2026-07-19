@@ -5,7 +5,6 @@ namespace App\Http\PaymentGateways\Gateways;
 use Exception;
 use Iyzipay\Options;
 use App\Enums\Activity;
-use App\Models\Currency;
 use Iyzipay\Model\Buyer;
 use Iyzipay\Model\Locale;
 use App\Enums\GatewayMode;
@@ -55,14 +54,7 @@ class Iyzico extends PaymentAbstract
         try {
             $company = Settings::group('company')->all();
 
-            $currencyCode = IyzipayCurrency::TL;
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode(IyzipayCurrency::TL);
 
             $request = new \Iyzipay\Request\CreatePayWithIyzicoInitializeRequest();
             $request->setLocale(Locale::EN);

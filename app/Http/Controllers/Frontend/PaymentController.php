@@ -61,7 +61,7 @@ class PaymentController extends Controller
         $site            = Settings::group('site')->all();
         $logo            = ThemeSetting::where(['key' => 'theme_logo'])->first();
         $faviconLogo     = ThemeSetting::where(['key' => 'theme_favicon_logo'])->first();
-        $currency        = Currency::findOrFail(Settings::group('site')->get('site_default_currency'));
+        $currency        = $this->paymentCurrency($site);
         if ($order?->user?->balance >= $order->total && $this->orderAllowsGateway($order, 'credit')) {
             $credit = true;
         }
@@ -281,5 +281,30 @@ class PaymentController extends Controller
                     $gateway->setAttribute('name', $method->display_name ?: $gateway->name);
                 }
             });
+    }
+
+    private function paymentCurrency(array $site): Currency
+    {
+        $currencyId = $site['site_default_currency'] ?? Settings::group('site')->get('site_default_currency');
+
+        if (filled($currencyId)) {
+            $currency = Currency::query()->find((int) $currencyId)
+                ?: Currency::withoutGlobalScopes()->find((int) $currencyId);
+
+            if ($currency instanceof Currency) {
+                return $currency;
+            }
+        }
+
+        $currencyCode = strtoupper((string) ($site['site_default_currency_code'] ?? config('currency.base_code', 'USD')));
+        $currency = Currency::query()->where('code', $currencyCode)->first()
+            ?: Currency::withoutGlobalScopes()->where('code', $currencyCode)->first();
+
+        return $currency ?: new Currency([
+            'name' => $currencyCode,
+            'symbol' => (string) ($site['site_default_currency_symbol'] ?? config('currency.base_symbol', '$')),
+            'code' => $currencyCode,
+            'exchange_rate' => 1,
+        ]);
     }
 }

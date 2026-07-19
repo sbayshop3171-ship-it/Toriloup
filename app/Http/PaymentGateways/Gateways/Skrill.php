@@ -5,7 +5,6 @@ namespace App\Http\PaymentGateways\Gateways;
 
 use Exception;
 use App\Enums\Activity;
-use App\Models\Currency;
 use App\Models\PaymentGateway;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
@@ -13,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Obydul\LaraSkrill\SkrillClient;
 use Obydul\LaraSkrill\SkrillRequest;
-use Dipokhalder\Settings\Facades\Settings;
 
 class Skrill extends PaymentAbstract
 {
@@ -35,14 +33,7 @@ class Skrill extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = 'USD';
-            $currencyId   = Settings::group('site')->get('site_default_currency');
-            if (!blank($currencyId)) {
-                $currency = Currency::find($currencyId);
-                if ($currency) {
-                    $currencyCode = $currency->code;
-                }
-            }
+            $currencyCode = $this->siteCurrencyCode('USD');
 
             $this->skrill->return_url     = route('payment.successful', ['order' => $order, 'paymentGateway' => 'skrill']);
             $this->skrill->cancel_url     = route('payment.cancel', ['order' => $order, 'paymentGateway' => 'skrill']);
