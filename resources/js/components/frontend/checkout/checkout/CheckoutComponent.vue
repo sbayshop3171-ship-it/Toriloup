@@ -36,12 +36,12 @@
                 </div>
             </div>
 
-            <AddressComponent v-if="orderType === orderTypeEnum.DELIVERY" :slug="'shipping'"
+            <AddressComponent v-if="orderType === orderTypeEnum.DELIVERY" :key="'shipping-address'" :slug="'shipping'"
                               :title="$t('label.shipping_address')" :show="true" :selectedAddress="getShippingAddress"
                               :method="shippingAddress"/>
 
             <div v-if="orderType === orderTypeEnum.DELIVERY" class="flex items-start mb-6">
-                <input checked="checked" :value="shippingAndBillingCheck" @click="checkBillingCheckBox($event)"
+                <input :checked="shippingAndBillingCheck" @change="checkBillingCheckBox($event)"
                        type="checkbox"
                        id="shipping-and-billing-is-same" class="cs-custom-checkbox">
                 <label for="shipping-and-billing-is-same" class="font-medium pl-3 leading-none cursor-pointer">{{
@@ -49,7 +49,7 @@
                     }}</label>
             </div>
 
-            <AddressComponent v-if="orderType === orderTypeEnum.DELIVERY" :slug="'billing'"
+            <AddressComponent v-if="orderType === orderTypeEnum.DELIVERY" :key="'billing-address'" :slug="'billing'"
                               :title="$t('label.billing_address')" :show="billingStatus"
                               :selectedAddress="getBillingAddress" :method="billingAddress"/>
 

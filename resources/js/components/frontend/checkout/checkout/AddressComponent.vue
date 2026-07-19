@@ -19,9 +19,22 @@
         </div>
         <div v-if="addresses.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4">
             <div :class="isSelectedAddress(address) ? 'border-primary/50 bg-[#FFF4F1]' : 'border-[#F7F7F7] bg-[#F7F7F7]'"
-                @click.prevent="activeAddress(address)" v-for="address in addresses" :key="address.id"
+                @click.prevent="activeAddress(address)" v-for="address in addresses" :key="address.id || address.phone || address.address"
                 class="py-3 px-4 rounded-lg cursor-pointer border transition-all duration-300">
-                <span class="text-base font-medium capitalize mb-1">{{ address.full_name }}</span>
+                <div class="flex items-start justify-between gap-3 mb-1">
+                    <span class="text-base font-medium capitalize">{{ address.full_name }}</span>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button type="button" @click.stop.prevent="edit(address)"
+                            class="w-7 h-7 leading-7 rounded-full text-center bg-[#E6FFF0] text-success">
+                            <i class="lab-fill-edit text-sm"></i>
+                        </button>
+                        <span
+                            :class="isSelectedAddress(address) ? 'border-primary bg-primary text-white' : 'border-[#D9DBE9] bg-white text-transparent'"
+                            class="w-6 h-6 leading-6 rounded-full text-center border transition-all duration-300">
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </span>
+                    </div>
+                </div>
                 <span v-if="address.phone" class="block text-sm leading-6">{{
                     address.country_code ?? ''
                     }} {{ address.phone }},</span>
@@ -33,15 +46,21 @@
                         v-if="address.zip_code">,</span></span>
                 <span v-if="address.zip_code" class="block text-sm leading-6">{{ address.zip_code }}</span>
             </div>
+            <button type="button" @click.prevent="showTarget(slug + '-address-modal', 'modal-active')"
+                class="min-h-[120px] py-3 px-4 rounded-lg border border-dashed border-[#D9DBE9] bg-[#F7F7FC] flex items-center justify-center gap-2 text-primary transition-all duration-300 hover:border-primary/40 hover:bg-[#FFF4F1]">
+                <i class="lab-fill-circle-plus text-lg"></i>
+                <span class="text-sm font-semibold capitalize">{{ $t('button.add_new_address') }}</span>
+            </button>
         </div>
         <div v-else class="p-4">
             <button type="button" @click.prevent="showTarget(slug + '-address-modal', 'modal-active')"
-                class="w-full text-left py-4 px-5 rounded-lg border border-dashed border-[#D9DBE9] bg-[#F7F7FC] transition-all duration-300 hover:border-primary/40 hover:bg-[#FFF4F1]">
-                <span class="block text-sm font-semibold text-secondary">
-                    {{ addressListError ? $t('message.addresses_could_not_be_loaded') : $t('message.no_saved_address') }}
+                class="w-full min-h-[96px] py-4 px-5 rounded-lg border border-dashed border-[#D9DBE9] bg-[#F7F7FC] transition-all duration-300 hover:border-primary/40 hover:bg-[#FFF4F1]">
+                <span class="flex items-center justify-center gap-2 text-sm font-semibold text-primary">
+                    <i class="lab-fill-circle-plus text-lg"></i>
+                    {{ addressListError ? $t('message.addresses_could_not_be_loaded') : $t('button.add_new_address') }}
                 </span>
-                <span class="block mt-1 text-sm leading-6 text-[#6E7191]">
-                    {{ addressListError || $t('message.add_address_to_continue_checkout') }}
+                <span v-if="addressListError" class="block mt-1 text-center text-sm leading-6 text-[#6E7191]">
+                    {{ addressListError }}
                 </span>
             </button>
         </div>
@@ -415,7 +434,9 @@ export default {
         },
         activeAddress: function (address) {
             this.activeAddressId = address.id;
-            this.method(address);
+            if (typeof this.method === "function") {
+                this.method(address);
+            }
         },
         showTarget: function (targetID, addClass) {
             targetService.showTarget(targetID, addClass);
