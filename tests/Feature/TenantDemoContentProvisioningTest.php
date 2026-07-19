@@ -106,6 +106,10 @@ class TenantDemoContentProvisioningTest extends TestCase
             ->where('tenant_id', $alpha->id)
             ->where('sku', $source['product']->sku)
             ->firstOrFail();
+        $alphaSlider = Slider::withoutGlobalScopes()
+            ->where('tenant_id', $alpha->id)
+            ->where('title', $source['slider']->title)
+            ->firstOrFail();
         $alphaCategory = ProductCategory::withoutGlobalScopes()
             ->where('tenant_id', $alpha->id)
             ->where('slug', $source['category']->slug)
@@ -118,7 +122,9 @@ class TenantDemoContentProvisioningTest extends TestCase
         $this->assertNotSame($source['product']->id, $alphaProduct->id);
         $this->assertSame($alphaCategory->id, $alphaProduct->product_category_id);
         $this->assertSame($alpha->id, $alphaProduct->tenant_id);
+        $this->assertSame($alpha->id, $alphaSlider->tenant_id);
         $this->assertCount(1, $alphaProduct->getMedia('product'));
+        $this->assertCount(1, $alphaSlider->getMedia('slider'));
 
         $this->assertDatabaseHas('product_tags', [
             'product_id' => $alphaProduct->id,
@@ -145,14 +151,12 @@ class TenantDemoContentProvisioningTest extends TestCase
             'target_type' => Product::class,
             'target_id' => $alphaProduct->id,
         ]);
-        $this->assertDatabaseMissing('sliders', [
-            'tenant_id' => $alpha->id,
-            'title' => $source['slider']->title,
-        ]);
-        $this->assertDatabaseMissing('tenant_demo_content_seeds', [
+        $this->assertDatabaseHas('tenant_demo_content_seeds', [
             'tenant_id' => $alpha->id,
             'source_type' => Slider::class,
             'source_id' => $source['slider']->id,
+            'target_type' => Slider::class,
+            'target_id' => $alphaSlider->id,
         ]);
 
         $this->assertDatabaseMissing('products', [
@@ -164,6 +168,8 @@ class TenantDemoContentProvisioningTest extends TestCase
 
         $this->assertSame(1, Product::withoutGlobalScopes()->where('tenant_id', $alpha->id)->where('sku', $source['product']->sku)->count());
         $this->assertSame(1, Product::withoutGlobalScopes()->where('tenant_id', $beta->id)->where('sku', $source['product']->sku)->count());
+        $this->assertSame(1, Slider::withoutGlobalScopes()->where('tenant_id', $alpha->id)->where('title', $source['slider']->title)->count());
+        $this->assertSame(1, Slider::withoutGlobalScopes()->where('tenant_id', $beta->id)->where('title', $source['slider']->title)->count());
     }
 
     public function test_tenant_demo_copy_can_be_deleted_without_touching_owner_template_or_reappearing(): void
@@ -181,8 +187,13 @@ class TenantDemoContentProvisioningTest extends TestCase
             ->where('tenant_id', $tenant->id)
             ->where('sku', $source['product']->sku)
             ->firstOrFail();
+        $tenantSlider = Slider::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('title', $source['slider']->title)
+            ->firstOrFail();
 
         $tenantProduct->delete();
+        $tenantSlider->delete();
         $service->seedStorefrontDefaultsForTenants('delete-demo');
 
         $this->assertSoftDeleted('products', ['id' => $tenantProduct->id]);
@@ -201,6 +212,23 @@ class TenantDemoContentProvisioningTest extends TestCase
             'source_type' => Product::class,
             'source_id' => $source['product']->id,
             'target_id' => $tenantProduct->id,
+        ]);
+        $this->assertDatabaseMissing('sliders', [
+            'id' => $tenantSlider->id,
+        ]);
+        $this->assertDatabaseMissing('sliders', [
+            'tenant_id' => $tenant->id,
+            'title' => $source['slider']->title,
+        ]);
+        $this->assertDatabaseHas('sliders', [
+            'id' => $source['slider']->id,
+            'tenant_id' => null,
+        ]);
+        $this->assertDatabaseHas('tenant_demo_content_seeds', [
+            'tenant_id' => $tenant->id,
+            'source_type' => Slider::class,
+            'source_id' => $source['slider']->id,
+            'target_id' => $tenantSlider->id,
         ]);
     }
 

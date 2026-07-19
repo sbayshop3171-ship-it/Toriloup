@@ -19,13 +19,6 @@ return new class extends Migration
         'outlets' => ['name', 'email', 'phone', 'country_code', 'latitude', 'longitude', 'city', 'state', 'zip_code', 'address', 'status', 'created_at', 'updated_at'],
     ];
 
-    /**
-     * @var array<int, string>
-     */
-    private array $sharedTemplateTables = [
-        'sliders',
-    ];
-
     public function up(): void
     {
         foreach (array_keys($this->tenantTables) as $tableName) {
@@ -72,10 +65,6 @@ return new class extends Migration
 
         foreach ($this->tenantTables as $tableName => $columns) {
             if (!Schema::hasTable($tableName) || !Schema::hasColumn($tableName, 'tenant_id')) {
-                continue;
-            }
-
-            if (in_array($tableName, $this->sharedTemplateTables, true)) {
                 continue;
             }
 

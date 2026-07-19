@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 
 use Exception;
-use App\Models\Slider;
 use App\Services\SliderService;
 use App\Http\Requests\SliderRequest;
 use App\Http\Requests\PaginateRequest;
 use App\Http\Resources\SliderResource;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Routing\Controllers\HasMiddleware;
 
@@ -47,29 +47,35 @@ class SliderController extends AdminController implements HasMiddleware
         }
     }
 
-    public function show(Slider $slider): SliderResource | \Illuminate\Http\Response
+    public function show(int|string $slider): SliderResource | \Illuminate\Http\Response
     {
         try {
             return new SliderResource($this->sliderService->show($slider));
+        } catch (ModelNotFoundException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }
     }
 
-    public function update(SliderRequest $request, Slider $slider): SliderResource | \Illuminate\Http\Response
+    public function update(SliderRequest $request, int|string $slider): SliderResource | \Illuminate\Http\Response
     {
         try {
             return new SliderResource($this->sliderService->update($request, $slider));
+        } catch (ModelNotFoundException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }
     }
 
-    public function destroy(Slider $slider): \Illuminate\Foundation\Application|\Illuminate\Http\Response|\Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\Routing\ResponseFactory
+    public function destroy(int|string $slider): \Illuminate\Foundation\Application|\Illuminate\Http\Response|\Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\Routing\ResponseFactory
     {
         try {
             $this->sliderService->destroy($slider);
             return response('', 202);
+        } catch (ModelNotFoundException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }

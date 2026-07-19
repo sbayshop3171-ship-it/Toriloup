@@ -4,13 +4,13 @@ namespace App\Services;
 
 
 use Exception;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Database\Eloquent\Builder;
 use App\Http\Requests\PaginateRequest;
 use App\Http\Requests\SliderRequest;
 use App\Libraries\QueryExceptionLibrary;
 use App\Models\Slider;
 use App\Services\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 
 class SliderService
 {
@@ -43,12 +43,6 @@ class SliderService
     public function storefrontList(PaginateRequest $request)
     {
         try {
-            $tenantId = app(TenantContext::class)->currentId($request);
-
-            if ($tenantId !== null && !Slider::query()->exists()) {
-                return $this->runListQuery($this->globalTemplateQuery(), $request);
-            }
-
             return $this->runListQuery($this->scopedQuery($request), $request);
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
@@ -76,8 +70,10 @@ class SliderService
     /**
      * @throws Exception
      */
-    public function update(SliderRequest $request, Slider $slider): Slider
+    public function update(SliderRequest $request, Slider|int|string $slider): Slider
     {
+        $slider = $this->findScoped($slider);
+
         try {
             $slider->update($request->validated() + ['link' => $request->link]);
             if ($request->image) {
@@ -94,8 +90,10 @@ class SliderService
     /**
      * @throws Exception
      */
-    public function destroy(Slider $slider)
+    public function destroy(Slider|int|string $slider)
     {
+        $slider = $this->findScoped($slider);
+
         try {
             $slider->delete();
         } catch (Exception $exception) {
@@ -107,34 +105,37 @@ class SliderService
     /**
      * @throws Exception
      */
-    public function show(Slider $slider): Slider
+    public function show(Slider|int|string $slider): Slider
     {
-        try {
-            return $slider;
-        } catch (Exception $exception) {
-            Log::info($exception->getMessage());
-            throw new Exception(QueryExceptionLibrary::message($exception), 422);
-        }
+        return $this->findScoped($slider);
     }
 
     private function scopedQuery(PaginateRequest $request): Builder
     {
-        $query = Slider::with('media');
+        $query = Slider::withoutGlobalScope('tenant')->with('media');
+        $tenantId = app(TenantContext::class)->currentId($request);
 
-        if (app(TenantContext::class)->currentId($request) === null) {
-            $query->whereNull($query->getModel()->qualifyColumn('tenant_id'));
-        }
+        $tenantId === null
+            ? $query->whereNull($query->getModel()->qualifyColumn('tenant_id'))
+            : $query->where($query->getModel()->qualifyColumn('tenant_id'), $tenantId);
 
         return $query;
     }
 
-    private function globalTemplateQuery(): Builder
+    private function findScoped(Slider|int|string $slider): Slider
     {
-        $slider = new Slider();
-
-        return Slider::withoutGlobalScope('tenant')
+        $sliderId = $slider instanceof Slider ? $slider->getKey() : $slider;
+        $model = new Slider();
+        $query = Slider::withoutGlobalScope('tenant')
             ->with('media')
-            ->whereNull($slider->qualifyColumn('tenant_id'));
+            ->whereKey($sliderId);
+        $tenantId = app(TenantContext::class)->currentId();
+
+        $tenantId === null
+            ? $query->whereNull($model->qualifyColumn('tenant_id'))
+            : $query->where($model->qualifyColumn('tenant_id'), $tenantId);
+
+        return $query->firstOrFail();
     }
 
     private function runListQuery(Builder $query, PaginateRequest $request)

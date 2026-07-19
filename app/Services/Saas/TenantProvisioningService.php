@@ -22,6 +22,7 @@ use App\Models\ProductTag;
 use App\Models\ProductTax;
 use App\Models\ProductVariation;
 use App\Models\ProductVideo;
+use App\Models\Slider;
 use App\Models\Tax;
 use App\Models\Tenant;
 use App\Models\TenantDemoContentSeed;
@@ -336,6 +337,7 @@ class TenantProvisioningService
 
     public function seedStorefrontDefaults(Tenant $tenant): void
     {
+        $this->seedTenantCopies($tenant, Slider::class, ['title', 'link', 'description', 'status'], ['title'], ['slider']);
         $this->seedTenantCopies($tenant, Page::class, ['title', 'slug', 'description', 'menu_section_id', 'menu_template_id', 'status'], ['slug'], ['page-image']);
         $this->seedTenantCopies($tenant, Benefit::class, ['title', 'description', 'status', 'sort'], ['title'], ['benefit']);
         $this->seedTenantCopies($tenant, Currency::class, ['name', 'symbol', 'code', 'is_cryptocurrency', 'exchange_rate'], ['code']);

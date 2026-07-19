@@ -116,6 +116,34 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
 
         $this->assertTrue($ids->contains($globalSlider->id));
         $this->assertFalse($ids->contains($tenantSlider->id));
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson("http://owner.company.com/api/admin/setting/slider/show/{$tenantSlider->id}")
+            ->assertNotFound();
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/admin/setting/slider/{$tenantSlider->id}", [
+                'title' => 'Owner Should Not Touch Tenant Hero',
+                'link' => 'https://owner.example.test/blocked',
+                'description' => 'Blocked update',
+                'status' => 5,
+            ])
+            ->assertNotFound();
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->deleteJson("http://owner.company.com/api/admin/setting/slider/{$tenantSlider->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('sliders', [
+            'id' => $tenantSlider->id,
+            'title' => 'Tenant Hero',
+        ]);
     }
 
     public function test_merchant_can_use_allowlisted_legacy_admin_product_api_with_tenant_scope(): void
@@ -246,6 +274,13 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             'description' => 'Other tenant slider',
             'status' => 5,
         ]);
+        $globalSlider = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'title' => 'Global Hero',
+            'link' => 'https://owner.example.test',
+            'description' => 'Owner default banner',
+            'status' => 5,
+        ]);
 
         $menuSection = MenuSection::query()->create(['name' => 'Footer']);
         $menuTemplate = MenuTemplate::query()->create(['name' => 'Simple']);
@@ -371,7 +406,8 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
                 ->assertOk();
         }
 
-        $this->assertListContainsOnlyCurrentTenant('setting/slider', $sliderA->id, $sliderB->id, $context['tenant']->slug);
+        $sliderResponse = $this->assertListContainsOnlyCurrentTenant('setting/slider', $sliderA->id, $sliderB->id, $context['tenant']->slug);
+        $this->assertFalse(collect($sliderResponse->json('data'))->pluck('id')->contains($globalSlider->id));
         $this->assertListContainsOnlyCurrentTenant('setting/page', $pageA->id, $pageB->id, $context['tenant']->slug);
         $this->assertListContainsOnlyCurrentTenant('setting/benefit', $benefitA->id, $benefitB->id, $context['tenant']->slug);
         $this->assertListContainsOnlyCurrentTenant('setting/currency', $currencyA->id, $currencyB->id, $context['tenant']->slug);
@@ -637,7 +673,7 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
         int $currentTenantModelId,
         int $otherTenantModelId,
         string $tenantSlug
-    ): void {
+    ) {
         $response = $this
             ->withHeaders($this->tenantHeaders($tenantSlug))
             ->getJson("http://merchant.company.com/api/admin/{$endpoint}")
@@ -647,5 +683,7 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
 
         $this->assertTrue($ids->contains($currentTenantModelId), "{$endpoint} did not include the current tenant record.");
         $this->assertFalse($ids->contains($otherTenantModelId), "{$endpoint} leaked another tenant record.");
+
+        return $response;
     }
 }
