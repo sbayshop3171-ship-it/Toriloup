@@ -32,7 +32,7 @@ class twocheckout extends PaymentAbstract
     {
         try {
             $company = Settings::group('company')->all();
-            $currencyCode = $this->siteCurrencyCode('USD');
+            $currencyCode = $this->siteCurrencyCode('USD', $order);
             if ($this->paymentGatewayOption) {
                 $config = [
                     'sellerId'          => $this->paymentGatewayOption['twocheckout_seller_id'],

@@ -27,11 +27,11 @@
                         </div>
                         <div class="flex flex-wrap gap-3 mb-3">
                             <span class="font-semibold font-sans">{{ currencyFormat(cart.price,
-                                setting.site_digit_after_decimal_point,
-                                setting.site_default_currency_symbol, setting.site_currency_position) }}</span>
+                                cartCurrencyDecimal(cart),
+                                cartCurrencySymbol(cart), setting.site_currency_position) }}</span>
                             <del v-if="cart.is_offer || cart.discount > 0" class="font-semibold font-sans text-[#FF6262]">
-                                {{ currencyFormat(cart.old_price, setting.site_digit_after_decimal_point,
-                                    setting.site_default_currency_symbol, setting.site_currency_position) }}
+                                {{ currencyFormat(cart.old_price, cartCurrencyDecimal(cart),
+                                    cartCurrencySymbol(cart), setting.site_currency_position) }}
                             </del>
                         </div>
 
@@ -63,8 +63,8 @@
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-semibold capitalize">{{ $t('label.subtotal') }}</h3>
                     <h4 class="font-semibold capitalize font-sans">{{ currencyFormat(subtotal,
-                        setting.site_digit_after_decimal_point,
-                        setting.site_default_currency_symbol, setting.site_currency_position) }} </h4>
+                        displayCurrencyDecimal,
+                        displayCurrencySymbol, setting.site_currency_position) }} </h4>
                 </div>
                 <router-link :to="{ name: 'frontend.checkout' }" v-on:click="closeCanvas('cart-canvas')"
                     class="text-center w-full mb-3 h-12 leading-12 px-12 font-semibold tracking-wide rounded-full whitespace-nowrap text-white bg-primary">
@@ -108,6 +108,12 @@ export default {
         },
         cartCoupon: function () {
             return this.$store.getters['frontendCart/coupon'];
+        },
+        displayCurrencySymbol: function () {
+            return this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol;
+        },
+        displayCurrencyDecimal: function () {
+            return this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point;
         }
 
     },
@@ -120,6 +126,12 @@ export default {
         },
         currencyFormat(amount, decimal, currency, position) {
             return appService.currencyFormat(amount, decimal, currency, position);
+        },
+        cartCurrencySymbol: function (cart) {
+            return cart.display_currency_symbol || this.displayCurrencySymbol;
+        },
+        cartCurrencyDecimal: function (cart) {
+            return cart.display_currency_minor_unit ?? this.displayCurrencyDecimal;
         },
         quantityUp: function (id, product, e) {
             let quantity = e.target.value;

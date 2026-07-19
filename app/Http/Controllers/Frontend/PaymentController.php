@@ -50,6 +50,10 @@ class PaymentController extends Controller
             return redirect('/checkout/payment')->with('error', trans('all.message.something_wrong'));
         }
 
+        if ($this->orderQuoteExpired($order)) {
+            return redirect('/checkout/payment')->with('error', 'Exchange rate updated. Please refresh price.');
+        }
+
         if (!$this->orderCanStartGateway($order, $paymentGateway->slug)) {
             return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
         }
@@ -61,7 +65,7 @@ class PaymentController extends Controller
         $site            = Settings::group('site')->all();
         $logo            = ThemeSetting::where(['key' => 'theme_logo'])->first();
         $faviconLogo     = ThemeSetting::where(['key' => 'theme_favicon_logo'])->first();
-        $currency        = $this->paymentCurrency($site);
+        $currency        = $this->paymentCurrency($site, $order);
         if ($order?->user?->balance >= $order->total && $this->orderAllowsGateway($order, 'credit')) {
             $credit = true;
         }
@@ -96,6 +100,10 @@ class PaymentController extends Controller
 
         if (!$order instanceof Order) {
             return redirect('/checkout/payment')->with('error', trans('all.message.something_wrong'));
+        }
+
+        if ($this->orderQuoteExpired($order)) {
+            return redirect('/checkout/payment')->with('error', 'Exchange rate updated. Please refresh price.');
         }
 
         if (!$this->orderCanStartGateway($order, $request->paymentMethod)) {
@@ -218,7 +226,14 @@ class PaymentController extends Controller
     private function orderCanStartGateway(Order $order, string $gatewaySlug): bool
     {
         return $this->orderUsesGateway($order, $gatewaySlug)
-            && $this->orderAllowsGateway($order, $gatewaySlug);
+            && $this->orderAllowsGateway($order, $gatewaySlug)
+            && $order->payment_status === PaymentStatus::UNPAID
+            && blank($order->transaction);
+    }
+
+    private function orderQuoteExpired(Order $order): bool
+    {
+        return $order->fx_quote_expires_at !== null && now()->greaterThan($order->fx_quote_expires_at);
     }
 
     private function orderUsesGateway(Order $order, string $gatewaySlug): bool
@@ -283,8 +298,23 @@ class PaymentController extends Controller
             });
     }
 
-    private function paymentCurrency(array $site): Currency
+    private function paymentCurrency(array $site, ?Order $order = null): Currency
     {
+        $orderCurrencyCode = strtoupper((string) ($order?->charge_currency_code ?: $order?->display_currency_code));
+
+        if (filled($orderCurrencyCode)) {
+            $currency = Currency::query()->where('code', $orderCurrencyCode)->first()
+                ?: Currency::withoutGlobalScopes()->where('code', $orderCurrencyCode)->first();
+
+            return $currency ?: new Currency([
+                'name' => $orderCurrencyCode,
+                'symbol' => (string) ($order?->display_currency_symbol ?: $orderCurrencyCode),
+                'code' => $orderCurrencyCode,
+                'minor_unit' => (int) ($order?->display_currency_minor_unit ?? 2),
+                'exchange_rate' => $order?->display_exchange_rate ?: 1,
+            ]);
+        }
+
         $currencyId = $site['site_default_currency'] ?? Settings::group('site')->get('site_default_currency');
 
         if (filled($currencyId)) {

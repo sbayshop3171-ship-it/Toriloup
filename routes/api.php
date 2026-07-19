@@ -259,6 +259,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'legacyAdmin
 
         Route::prefix('currency')->name('currency.')->group(function () {
             Route::get('/', [CurrencyController::class, 'index']);
+            Route::post('/sync', [CurrencyController::class, 'sync']);
             Route::get('/show/{currency}', [CurrencyController::class, 'show']);
             Route::post('/', [CurrencyController::class, 'store']);
             Route::match(['put', 'patch'], '/{currency}', [CurrencyController::class, 'update']);

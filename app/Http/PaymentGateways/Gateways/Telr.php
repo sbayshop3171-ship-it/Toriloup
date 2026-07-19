@@ -31,7 +31,7 @@ class Telr extends PaymentAbstract
     public function payment($order, $request)
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('AED');
+            $currencyCode = $this->siteCurrencyCode('AED', $order);
 
             $mode = $this->paymentGatewayOption['telr_mode'] == GatewayMode::SANDBOX ? 1 : 0;
 

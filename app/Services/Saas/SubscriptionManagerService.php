@@ -16,6 +16,8 @@ use App\Models\TenantMember;
 use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionInvoice;
 use App\Models\User;
+use App\Services\Currency\CurrencyCatalogService;
+use App\Services\Currency\CurrencyConversionService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -26,6 +28,12 @@ use Illuminate\Validation\ValidationException;
 class SubscriptionManagerService
 {
     private const FALLBACK_PLAN_CODE = 'starter';
+
+    public function __construct(
+        private readonly CurrencyCatalogService $currencyCatalogService,
+        private readonly CurrencyConversionService $currencyConversionService,
+    ) {
+    }
 
     /**
      * @return array<string, array<string, mixed>>
@@ -928,7 +936,7 @@ class SubscriptionManagerService
             ->orderBy('monthly_price')
             ->orderBy('name')
             ->get()
-            ->map(fn (PlatformPlan $plan) => $this->serializePlan($plan))
+            ->map(fn (PlatformPlan $plan) => $this->serializePlan($plan, $tenant))
             ->values()
             ->all();
     }
@@ -1127,7 +1135,7 @@ class SubscriptionManagerService
     /**
      * @return array<string, mixed>
      */
-    public function serializePlan(PlatformPlan $plan): array
+    public function serializePlan(PlatformPlan $plan, ?Tenant $displayTenant = null): array
     {
         $plan->loadMissing(['limits', 'prices', 'features']);
 
@@ -1139,6 +1147,7 @@ class SubscriptionManagerService
         $prices['monthly'] = $prices['monthly'] ?? number_format((float) $plan->monthly_price, 2, '.', '');
         $prices['semiannual'] = $prices['semiannual'] ?? number_format((float) $plan->monthly_price * 6, 2, '.', '');
         $prices['yearly'] = $prices['yearly'] ?? number_format((float) $plan->yearly_price, 2, '.', '');
+        $displayPricing = $this->displayPlanPricing($plan, $prices, $displayTenant);
 
         $features = $plan->features
             ->sortBy([
@@ -1172,6 +1181,15 @@ class SubscriptionManagerService
             'monthly_price' => number_format((float) $plan->monthly_price, 2, '.', ''),
             'yearly_price' => number_format((float) $plan->yearly_price, 2, '.', ''),
             'prices' => $prices,
+            'base_currency_code' => $displayPricing['base_currency_code'],
+            'display_currency_code' => $displayPricing['display_currency_code'],
+            'display_currency_symbol' => $displayPricing['display_currency_symbol'],
+            'display_currency_minor_unit' => $displayPricing['display_currency_minor_unit'],
+            'display_exchange_rate' => $displayPricing['display_exchange_rate'],
+            'display_prices' => $displayPricing['prices'],
+            'display_formatted_prices' => $displayPricing['formatted_prices'],
+            'display_monthly_price' => $displayPricing['prices']['monthly'] ?? null,
+            'display_yearly_price' => $displayPricing['prices']['yearly'] ?? null,
             'trial_days' => $plan->trial_days,
             'transaction_fee_type' => $plan->transaction_fee_type,
             'transaction_fee_value' => $plan->transaction_fee_value,
@@ -1180,6 +1198,44 @@ class SubscriptionManagerService
             'features' => $features,
             'compare_groups' => $this->groupFeatureRows($features, $limits),
             'subscribers_count' => $plan->subscriptions_count ?? $plan->subscriptions()->count(),
+        ];
+    }
+
+    /**
+     * @param  array<string, string|float|int>  $prices
+     * @return array<string, mixed>
+     */
+    private function displayPlanPricing(PlatformPlan $plan, array $prices, ?Tenant $displayTenant = null): array
+    {
+        $baseCode = strtoupper((string) ($plan->currency_code ?: config('currency.base_code', 'USD')));
+        $displayCode = strtoupper((string) ($displayTenant?->primary_currency_code ?: $baseCode));
+        $displayCurrency = $this->currencyCatalogService->findByCode($displayCode, $displayTenant);
+        $symbol = $displayCurrency?->symbol ?: $displayCode;
+        $minorUnit = (int) ($displayCurrency?->minor_unit ?? 2);
+        $exchangeRate = $this->currencyConversionService->exchangeRateBetween($baseCode, $displayCode, $displayTenant);
+        $displayPrices = [];
+        $formattedPrices = [];
+
+        foreach ($prices as $interval => $amount) {
+            $converted = $this->currencyConversionService->convert((float) $amount, $baseCode, $displayCode, $displayTenant);
+            $displayPrices[$interval] = number_format($converted, $minorUnit, '.', '');
+            $formattedPrices[$interval] = $this->currencyConversionService->format(
+                $converted,
+                $displayCode,
+                $symbol,
+                $minorUnit,
+                env('CURRENCY_POSITION')
+            );
+        }
+
+        return [
+            'base_currency_code' => $baseCode,
+            'display_currency_code' => $displayCode,
+            'display_currency_symbol' => $symbol,
+            'display_currency_minor_unit' => $minorUnit,
+            'display_exchange_rate' => $exchangeRate,
+            'prices' => $displayPrices,
+            'formatted_prices' => $formattedPrices,
         ];
     }
 
@@ -1206,12 +1262,12 @@ class SubscriptionManagerService
             'cancel_at_period_end' => $subscription->cancel_at_period_end,
             'ended_at' => $subscription->ended_at,
             'tenant' => $subscription->tenant?->only(['id', 'name', 'slug', 'status', 'plan_code']),
-            'plan' => $subscription->plan ? $this->serializePlan($subscription->plan) : [
+            'plan' => $subscription->plan ? $this->serializePlan($subscription->plan, $subscription->tenant) : [
                 'code' => $subscription->plan_code_snapshot,
                 'name' => $subscription->plan_name_snapshot,
                 'currency_code' => $subscription->currency_code,
             ],
-            'effective_plan' => $effectivePlan ? $this->serializePlan($effectivePlan) : null,
+            'effective_plan' => $effectivePlan ? $this->serializePlan($effectivePlan, $subscription->tenant) : null,
             'soft_locked' => $subscription->status === 'past_due',
             'invoices' => $subscription->invoices
                 ->sortByDesc('id')

@@ -5,6 +5,7 @@ namespace App\Services;
 
 use Exception;
 use App\Models\Currency;
+use App\Services\Currency\CurrencyCatalogService;
 use Illuminate\Support\Facades\Log;
 use App\Http\Requests\CurrencyRequest;
 use App\Http\Requests\PaginateRequest;
@@ -13,6 +14,10 @@ use Dipokhalder\Settings\Facades\Settings;
 
 class CurrencyService
 {
+    public function __construct(private readonly CurrencyCatalogService $currencyCatalogService)
+    {
+    }
+
     protected $currencyFilter = [
         'name',
         'symbol',
@@ -28,6 +33,11 @@ class CurrencyService
     {
         try {
             $requests    = $request->all();
+            if (app()->bound('currentTenant')) {
+                $this->currencyCatalogService->ensureTenantCurrencies(app('currentTenant'));
+            } else {
+                $this->currencyCatalogService->seedGlobalCurrencies();
+            }
             $method      = $request->get('paginate', 0) == 1 ? 'paginate' : 'get';
             $methodValue = $request->get('paginate', 0) == 1 ? $request->get('per_page', 10) : '*';
             $orderColumn = $request->get('order_column') ?? 'id';
@@ -54,7 +64,11 @@ class CurrencyService
     public function store(CurrencyRequest $request)
     {
         try {
-            return Currency::create($request->validated());
+            $data = $request->validated();
+            $data['code'] = strtoupper((string) $data['code']);
+            $data['is_auto_managed'] = false;
+
+            return Currency::create($data);
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -67,7 +81,11 @@ class CurrencyService
     public function update(CurrencyRequest $request, Currency $currency)
     {
         try {
-            return tap($currency)->update($request->validated());
+            $data = $request->validated();
+            $data['code'] = strtoupper((string) $data['code']);
+            $data['is_auto_managed'] = false;
+
+            return tap($currency)->update($data);
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -80,11 +98,28 @@ class CurrencyService
     public function destroy(Currency $currency): void
     {
         try {
+            if ((bool) ($currency->is_auto_managed ?? false)) {
+                throw new Exception("Auto-managed currency not deletable", 422);
+            }
+
             if (Settings::group('site')->get("site_default_currency") != $currency->id) {
                 $currency->delete();
             } else {
                 throw new Exception("Default currency not deletable", 422);
             }
+        } catch (Exception $exception) {
+            Log::info($exception->getMessage());
+            throw new Exception(QueryExceptionLibrary::message($exception), 422);
+        }
+    }
+
+    /**
+     * @return array{seeded: int, updated: int, source: string, failed: bool, message: string|null}
+     */
+    public function sync(): array
+    {
+        try {
+            return $this->currencyCatalogService->syncRates(app()->bound('currentTenant') ? app('currentTenant') : null);
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);

@@ -31,7 +31,7 @@ class Mollie extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD');
+            $currencyCode = $this->siteCurrencyCode('USD', $order);
 
             $payment = MollieClient::api()->payments->create([
                 "amount"      => [

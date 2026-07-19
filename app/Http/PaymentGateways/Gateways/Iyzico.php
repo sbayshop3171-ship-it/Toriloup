@@ -54,7 +54,7 @@ class Iyzico extends PaymentAbstract
         try {
             $company = Settings::group('company')->all();
 
-            $currencyCode = $this->siteCurrencyCode(IyzipayCurrency::TL);
+            $currencyCode = $this->siteCurrencyCode(IyzipayCurrency::TL, $order);
 
             $request = new \Iyzipay\Request\CreatePayWithIyzicoInitializeRequest();
             $request->setLocale(Locale::EN);

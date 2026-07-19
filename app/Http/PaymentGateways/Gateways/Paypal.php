@@ -54,7 +54,7 @@ class Paypal extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD');
+            $currencyCode = $this->siteCurrencyCode('USD', $order);
 
             $this->gateway->getAccessToken();
             $response = $this->gateway->createOrder([

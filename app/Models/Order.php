@@ -31,6 +31,16 @@ class Order extends Model
         'pos_payment_method',
         'pos_payment_note',
         'pos_received_amount',
+        'base_currency_code',
+        'display_currency_code',
+        'display_currency_symbol',
+        'display_currency_minor_unit',
+        'display_exchange_rate',
+        'display_rate_source',
+        'display_rate_synced_at',
+        'charge_currency_code',
+        'fx_quote_expires_at',
+        'currency_snapshot_json',
         'active'
     ];
 
@@ -54,6 +64,16 @@ class Order extends Model
         'pos_payment_method'  => 'integer',
         'pos_payment_note'    => 'string',
         'pos_received_amount' => 'decimal:6',
+        'base_currency_code'  => 'string',
+        'display_currency_code' => 'string',
+        'display_currency_symbol' => 'string',
+        'display_currency_minor_unit' => 'integer',
+        'display_exchange_rate' => 'decimal:8',
+        'display_rate_source' => 'string',
+        'display_rate_synced_at' => 'datetime',
+        'charge_currency_code' => 'string',
+        'fx_quote_expires_at' => 'datetime',
+        'currency_snapshot_json' => 'array',
         'active'              => 'integer'
     ];
 

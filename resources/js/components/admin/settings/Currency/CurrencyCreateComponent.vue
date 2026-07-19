@@ -69,6 +69,15 @@
                         </div>
 
                         <div class="form-col-12 sm:form-col-6">
+                            <label for="minor_unit" class="db-field-title">
+                                Minor Unit
+                            </label>
+                            <input v-model="props.form.minor_unit" v-bind:class="errors.minor_unit ? 'invalid' : ''"
+                                type="number" min="0" max="6" id="minor_unit" class="db-field-control" />
+                            <small class="db-field-alert" v-if="errors.minor_unit">{{ errors.minor_unit[0] }}</small>
+                        </div>
+
+                        <div class="form-col-12 sm:form-col-6">
                             <label for="exchange_rate" class="db-field-title">{{
                                 $t("label.exchange_rate")
                             }}</label>
@@ -78,6 +87,28 @@
                             <small class="db-field-alert" v-if="errors.exchange_rate">{{
                                 errors.exchange_rate[0]
                             }}</small>
+                        </div>
+
+                        <div class="form-col-12 sm:form-col-6">
+                            <label class="db-field-title" for="currency-enabled">Enabled</label>
+                            <div class="db-field-radio-group">
+                                <div class="db-field-radio">
+                                    <div class="custom-radio">
+                                        <input :value="true" v-model="props.form.is_enabled" id="currency-enabled"
+                                            type="radio" class="custom-radio-field" />
+                                        <span class="custom-radio-span"></span>
+                                    </div>
+                                    <label for="currency-enabled" class="db-field-label">{{ $t("label.yes") }}</label>
+                                </div>
+                                <div class="db-field-radio">
+                                    <div class="custom-radio">
+                                        <input :value="false" v-model="props.form.is_enabled" type="radio"
+                                            id="currency-disabled" class="custom-radio-field" />
+                                        <span class="custom-radio-span"></span>
+                                    </div>
+                                    <label for="currency-disabled" class="db-field-label">{{ $t("label.no") }}</label>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-col-12">
@@ -139,8 +170,10 @@ export default {
                 name: "",
                 symbol: "",
                 code: "",
+                minor_unit: 2,
                 is_cryptocurrency: askEnum.NO,
                 exchange_rate: "",
+                is_enabled: true,
             };
         },
 
@@ -159,8 +192,10 @@ export default {
                         name: "",
                         symbol: "",
                         code: "",
+                        minor_unit: 2,
                         is_cryptocurrency: askEnum.NO,
                         exchange_rate: "",
+                        is_enabled: true,
                     };
                     this.errors = {};
                 }).catch((err) => {

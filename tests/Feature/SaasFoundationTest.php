@@ -21,8 +21,10 @@ class SaasFoundationTest extends TestCase
         parent::setUp();
 
         config([
+            'saas.root_domain' => 'company.com',
             'saas.marketing_host' => 'company.com',
             'saas.owner_host' => 'owner.company.com',
+            'saas.owner_host_aliases' => [],
             'saas.merchant_host' => 'merchant.company.com',
             'saas.fallback_subdomain_suffix' => 'company.com',
         ]);

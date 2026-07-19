@@ -4,6 +4,7 @@ use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantSubscription;
 use App\Models\User;
+use App\Services\Currency\CurrencyCatalogService;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -497,5 +498,49 @@ Artisan::command('tenants:seed-demo-content {--tenant=} {--json}', function (Ten
     return 0;
 })->purpose('Copy owner demo sliders, products, categories, and storefront sections into merchant tenants.');
 
+Artisan::command('currency:sync {--tenant=} {--seed-only} {--json}', function (CurrencyCatalogService $currencyCatalogService) {
+    $tenantSlug = filled($this->option('tenant')) ? (string) $this->option('tenant') : null;
+    $tenant = $tenantSlug !== null ? Tenant::query()->where('slug', $tenantSlug)->first() : null;
+
+    if ($tenantSlug !== null && !$tenant instanceof Tenant) {
+        $this->error("Tenant not found: {$tenantSlug}");
+
+        return 1;
+    }
+
+    if ((bool) $this->option('seed-only')) {
+        $result = [
+            'seeded' => $currencyCatalogService->seedGlobalCurrencies(),
+            'tenant_created' => $tenant instanceof Tenant ? $currencyCatalogService->ensureTenantCurrencies($tenant) : null,
+            'source' => 'seed',
+            'failed' => false,
+            'message' => null,
+        ];
+    } else {
+        $result = $currencyCatalogService->syncRates($tenant);
+    }
+
+    if ((bool) $this->option('json')) {
+        $this->line(json_encode([
+            'status' => !($result['failed'] ?? false),
+            'tenant' => $tenantSlug,
+            'result' => $result,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    } else {
+        $this->info('Currency catalog synchronized.');
+        foreach ($result as $key => $value) {
+            $this->line($key.': '.(is_scalar($value) || $value === null ? var_export($value, true) : json_encode($value)));
+        }
+    }
+
+    return ($result['failed'] ?? false) ? 1 : 0;
+})->purpose('Seed ISO/CLDR currencies and refresh exchange rates for storefront conversion.');
+
 Schedule::command('ops:backup-audit --allow-missing --max-age-hours='.env('OPS_BACKUP_MAX_AGE_HOURS', 36))
     ->dailyAt('03:15');
+
+if ((bool) env('CURRENCY_AUTO_SYNC_ENABLED', true)) {
+    Schedule::command('currency:sync --json')
+        ->hourly()
+        ->withoutOverlapping();
+}

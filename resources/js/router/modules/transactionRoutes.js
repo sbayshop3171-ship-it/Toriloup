@@ -33,6 +33,7 @@ export default [
         meta: {
             isFrontend: false,
             auth: true,
+            workspace: 'platform',
             breadcrumb: 'wallets'
         }
     }

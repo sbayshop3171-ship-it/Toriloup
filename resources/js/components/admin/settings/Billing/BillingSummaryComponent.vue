@@ -365,8 +365,12 @@ export default {
             return interval === "semiannual" ? "6 mo" : interval === "yearly" ? "yr" : "mo";
         },
         money(plan, interval) {
-            const currency = plan.currency_code || "USD";
-            const amount = Number(plan?.prices?.[interval] || 0).toFixed(2);
+            if (plan?.display_formatted_prices?.[interval]) {
+                return plan.display_formatted_prices[interval];
+            }
+
+            const currency = plan.display_currency_code || plan.currency_code || "USD";
+            const amount = Number(plan?.display_prices?.[interval] || plan?.prices?.[interval] || 0).toFixed(2);
             return `${currency} ${amount}`;
         },
         formatDate(value) {

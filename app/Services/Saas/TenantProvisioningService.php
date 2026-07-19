@@ -32,6 +32,8 @@ use App\Models\TenantMember;
 use App\Models\TenantPaymentMethod;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\CountryMetadataService;
+use App\Services\Currency\CurrencyCatalogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +52,8 @@ class TenantProvisioningService
         private readonly TenantSettingsService $tenantSettingsService,
         private readonly SubscriptionManagerService $subscriptionManagerService,
         private readonly MerchantPermissionBootstrapper $merchantPermissionBootstrapper,
+        private readonly CurrencyCatalogService $currencyCatalogService,
+        private readonly CountryMetadataService $countryMetadataService,
     ) {
     }
 
@@ -64,6 +68,7 @@ class TenantProvisioningService
             $tenantRole = $this->platformRoleRegistryService->merchantOwnerRole();
             $storeSlug = $this->resolveStoreSlug($payload);
             $billingEnforced = $this->subscriptionManagerService->billingCatalogEnforced();
+            $primaryCurrencyCode = $this->resolvePrimaryCurrencyCode($payload);
             $registrationPlanCode = $billingEnforced
                 ? $this->subscriptionManagerService->defaultFreePlanCode($payload['plan_code'] ?? 'starter')
                 : null;
@@ -93,7 +98,7 @@ class TenantProvisioningService
                 'billing_grandfathered_at' => $billingEnforced ? null : now(),
                 'onboarding_status' => 'pending',
                 'primary_locale' => $payload['primary_locale'] ?? 'en',
-                'primary_currency_code' => $payload['primary_currency_code'] ?? 'USD',
+                'primary_currency_code' => $primaryCurrencyCode,
                 'timezone' => $payload['timezone'] ?? 'UTC',
                 'country_code' => $payload['country_code'] ?? null,
                 'contact_email' => $payload['email'] ?? null,
@@ -121,12 +126,18 @@ class TenantProvisioningService
                 'joined_at' => now(),
             ]);
 
+            $this->currencyCatalogService->ensureTenantCurrencies($tenant);
+            $tenantCurrency = $this->currencyCatalogService->findByCode($primaryCurrencyCode, $tenant);
+
             $this->tenantSettingsService->seedDefaultsForTenant($tenant, [
                 'company_name' => $tenant->name,
                 'company_email' => $tenant->contact_email,
                 'company_phone' => $tenant->contact_phone,
                 'company_calling_code' => $payload['country_code'] ?? null,
                 'company_country_code' => $payload['country_code'] ?? null,
+                'site_default_currency' => $tenantCurrency?->id ?? 1,
+                'site_default_currency_code' => $primaryCurrencyCode,
+                'site_default_currency_symbol' => $tenantCurrency?->symbol ?? '$',
                 'site_online_payment_gateway' => 5,
                 'site_cash_on_delivery' => 5,
                 'shipping_setup_method' => 5,
@@ -258,6 +269,37 @@ class TenantProvisioningService
     private function buildStoreCode(string $storeSlug): string
     {
         return strtoupper(Str::substr(Str::slug($storeSlug, ''), 0, 6)).str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolvePrimaryCurrencyCode(array $payload): string
+    {
+        if (filled($payload['primary_currency_code'] ?? null)) {
+            return strtoupper((string) $payload['primary_currency_code']);
+        }
+
+        $countryCode = (string) ($payload['country_code'] ?? '');
+
+        if (preg_match('/^[A-Za-z]{2}$/', $countryCode)) {
+            $currencyCode = $this->countryMetadataService->byCountryCode($countryCode)['currency_code'] ?? null;
+
+            if (filled($currencyCode)) {
+                return strtoupper((string) $currencyCode);
+            }
+        }
+
+        if (str_starts_with($countryCode, '+')) {
+            $isoCountryCode = $this->countryMetadataService->countryCodeByCallingCode($countryCode);
+            $currencyCode = $this->countryMetadataService->byCountryCode($isoCountryCode)['currency_code'] ?? null;
+
+            if (filled($currencyCode)) {
+                return strtoupper((string) $currencyCode);
+            }
+        }
+
+        return strtoupper((string) config('currency.base_code', 'USD'));
     }
 
     private function seedCommerceDefaults(Tenant $tenant, User $actor): void

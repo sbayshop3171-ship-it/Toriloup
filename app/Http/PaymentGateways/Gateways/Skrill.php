@@ -33,7 +33,7 @@ class Skrill extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD');
+            $currencyCode = $this->siteCurrencyCode('USD', $order);
 
             $this->skrill->return_url     = route('payment.successful', ['order' => $order, 'paymentGateway' => 'skrill']);
             $this->skrill->cancel_url     = route('payment.cancel', ['order' => $order, 'paymentGateway' => 'skrill']);

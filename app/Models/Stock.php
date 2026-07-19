@@ -23,6 +23,10 @@ class Stock extends Model
         'item_id',
         'variation_names',
         'price',
+        'base_price',
+        'base_currency_code',
+        'display_currency_code',
+        'display_exchange_rate',
         'quantity',
         'discount',
         'tax',
@@ -42,6 +46,10 @@ class Stock extends Model
         'item_id'       => 'integer',
         'variation_names'=> 'string',
         'price'         => 'decimal:6',
+        'base_price'    => 'decimal:6',
+        'base_currency_code' => 'string',
+        'display_currency_code' => 'string',
+        'display_exchange_rate' => 'decimal:8',
         'quantity'      => 'integer',
         'discount'      => 'decimal:6',
         'tax'           => 'decimal:6',
@@ -52,6 +60,11 @@ class Stock extends Model
     ];
 
     public function item(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function model(): \Illuminate\Database\Eloquent\Relations\MorphTo
     {
         return $this->morphTo();
     }

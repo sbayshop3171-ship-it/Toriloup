@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Saas;
 
+use App\Services\Tenancy\TenantResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -38,17 +39,7 @@ class TenantDomainStoreRequest extends FormRequest
                 'regex:/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/',
                 Rule::unique('tenant_domains', 'hostname'),
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    $reservedHosts = array_map(
-                        static fn (?string $host): string => strtolower((string) $host),
-                        array_filter([
-                            config('saas.marketing_host'),
-                            config('saas.owner_host'),
-                            config('saas.merchant_host'),
-                            ...((array) config('saas.owner_host_aliases', [])),
-                        ])
-                    );
-
-                    if (in_array(strtolower((string) $value), $reservedHosts, true)) {
+                    if (app(TenantResolver::class)->isReservedHost((string) $value)) {
                         $fail('The hostname is reserved by the platform.');
                     }
                 },

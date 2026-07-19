@@ -8,6 +8,7 @@ use App\Http\Requests\SiteRequest;
 use App\Libraries\QueryExceptionLibrary;
 use App\Models\Currency;
 use App\Models\Tenant;
+use App\Services\Currency\CurrencyCatalogService;
 use App\Services\Saas\TenantSettingsService;
 use App\Services\Tenancy\TenantContext;
 use Dipokhalder\EnvEditor\EnvEditor;
@@ -24,6 +25,7 @@ class SiteService
         EnvEditor $envEditor,
         private readonly TenantContext $tenantContext,
         private readonly TenantSettingsService $tenantSettingsService,
+        private readonly CurrencyCatalogService $currencyCatalogService,
     )
     {
         $this->envService = $envEditor;
@@ -58,9 +60,24 @@ class SiteService
 
             $data = $request->validated();
             $data['site_default_currency_symbol'] = $currency?->symbol ?? (string) ($data['site_default_currency_symbol'] ?? '$');
+            $data['site_default_currency_code'] = $currency?->code ?? config('currency.base_code', 'USD');
             $data['site_app_debug'] = $app_debug;
 
             if ($tenant = $this->merchantTenant()) {
+                $this->currencyCatalogService->ensureTenantCurrencies($tenant);
+
+                if ($currency instanceof Currency) {
+                    $tenantCurrencyId = $this->currencyCatalogService->currencyIdForCode($currency->code, $tenant);
+
+                    if ($tenantCurrencyId !== null) {
+                        $data['site_default_currency'] = $tenantCurrencyId;
+                    }
+
+                    $tenant->forceFill([
+                        'primary_currency_code' => strtoupper($currency->code),
+                    ])->save();
+                }
+
                 return $this->tenantSettingsService->syncGroupForTenant(
                     $tenant,
                     'site',

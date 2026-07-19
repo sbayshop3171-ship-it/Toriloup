@@ -16,6 +16,9 @@ use Illuminate\Http\Request;
 use App\Libraries\AppLibrary;
 use App\Models\ProductCategory;
 use App\Models\ProductVariation;
+use App\Models\Tenant;
+use App\Services\Currency\CurrencyConversionService;
+use App\Services\Currency\VisitorCurrencyResolver;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -543,6 +546,7 @@ class ProductService
                 }
             })->get();
 
+            [$baseMinPrice, $baseMaxPrice] = $this->basePriceRangeForRequest($request);
             $perPage     = $request->post('per_page', 30);
             $orderColumn = 'products.name';
             $orderType   = 'asc';
@@ -622,9 +626,9 @@ class ProductService
                             }
                         }
                     }
-                })->orderBy($orderColumn, $orderType)->where(function ($query) use ($request) {
-                    if ($request->min_price >= 0 && $request->max_price > 0) {
-                        $query->whereBetween('variation_price', [$request->min_price, $request->max_price]);
+                })->orderBy($orderColumn, $orderType)->where(function ($query) use ($baseMinPrice, $baseMaxPrice) {
+                    if ($baseMinPrice !== null && $baseMaxPrice !== null && $baseMaxPrice > 0) {
+                        $query->whereBetween('variation_price', [$baseMinPrice, $baseMaxPrice]);
                     }
                 })->paginate($perPage);
 
@@ -672,7 +676,7 @@ class ProductService
                     return $query->brand;
                 })->whereNotNull('id')->unique('id')->values()->all(),
                 'variations' => $variationArray,
-                'max_price'  => ceil($productCategory->max('variation_price') + 50),
+                'max_price'  => $this->displayPriceForRequest((float) ceil($productCategory->max('variation_price') + 50), $request),
             ]);
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
@@ -957,5 +961,44 @@ class ProductService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function displayPriceForRequest(float $amount, Request $request): float
+    {
+        return app(CurrencyConversionService::class)
+            ->priceForRequest($amount, $request, $this->tenantFromRequest($request))['display_amount'];
+    }
+
+    /**
+     * @return array{0: float|null, 1: float|null}
+     */
+    private function basePriceRangeForRequest(Request $request): array
+    {
+        if (!is_numeric($request->min_price) || !is_numeric($request->max_price)) {
+            return [null, null];
+        }
+
+        $minPrice = (float) $request->min_price;
+        $maxPrice = (float) $request->max_price;
+
+        if ($minPrice < 0 || $maxPrice <= 0) {
+            return [null, null];
+        }
+
+        $tenant = $this->tenantFromRequest($request);
+        $display = app(VisitorCurrencyResolver::class)->resolve($request, $tenant);
+        $converter = app(CurrencyConversionService::class);
+
+        return [
+            $converter->convert($minPrice, $display['code'], $display['base_code'], $tenant),
+            $converter->convert($maxPrice, $display['code'], $display['base_code'], $tenant),
+        ];
+    }
+
+    private function tenantFromRequest(Request $request): ?Tenant
+    {
+        $tenant = $request->attributes->get(config('tenancy.tenant_request_attribute', 'saas.tenant'));
+
+        return $tenant instanceof Tenant ? $tenant : null;
     }
 }

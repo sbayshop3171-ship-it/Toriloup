@@ -21,10 +21,10 @@
                         </div>
                         <div class="flex flex-wrap gap-3 mb-3">
                     <span class="font-semibold font-sans">
-                        {{ currencyFormat(cart.price, setting.site_digit_after_decimal_point, setting.site_default_currency_symbol, setting.site_currency_position) }}
+                        {{ currencyFormat(cart.price, cartCurrencyDecimal(cart), cartCurrencySymbol(cart), setting.site_currency_position) }}
                     </span>
                             <del v-if="cart.is_offer || cart.discount > 0" class="font-semibold font-sans text-[#FF6262]">
-                                {{ currencyFormat(cart.old_price, setting.site_digit_after_decimal_point, setting.site_default_currency_symbol, setting.site_currency_position) }}
+                                {{ currencyFormat(cart.old_price, cartCurrencyDecimal(cart), cartCurrencySymbol(cart), setting.site_currency_position) }}
                             </del>
                         </div>
 
@@ -78,6 +78,12 @@ export default {
         },
         carts: function () {
             return this.$store.getters['frontendCart/lists'];
+        },
+        displayCurrencySymbol: function () {
+            return this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol;
+        },
+        displayCurrencyDecimal: function () {
+            return this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point;
         }
     },
     methods: {
@@ -86,6 +92,12 @@ export default {
         },
         currencyFormat(amount, decimal, currency, position) {
             return appService.currencyFormat(amount, decimal, currency, position);
+        },
+        cartCurrencySymbol: function (cart) {
+            return cart.display_currency_symbol || this.displayCurrencySymbol;
+        },
+        cartCurrencyDecimal: function (cart) {
+            return cart.display_currency_minor_unit ?? this.displayCurrencyDecimal;
         },
         quantityUp: function (id, product, e) {
             let quantity = e.target.value;

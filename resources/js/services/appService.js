@@ -30,12 +30,33 @@ export default {
         else e.preventDefault();
     },
 
-    currencyFormat(amount, decimal, currency, position) {
+    currencyFormat(amount, decimal = 2, currency = "", position = currencyPositionEnum.LEFT) {
+        const parsedAmount = parseFloat(amount);
+        const safeAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+        const parsedDecimal = parseInt(decimal, 10);
+        const safeDecimal = Number.isFinite(parsedDecimal) ? parsedDecimal : 2;
+        const symbol = typeof currency === "object" && currency !== null
+            ? (currency.symbol || currency.code || "")
+            : (currency || "");
+
         if (position === currencyPositionEnum.LEFT) {
-            return currency + parseFloat(amount).toFixed(decimal);
+            return symbol + safeAmount.toFixed(safeDecimal);
         } else {
-            return parseFloat(amount).toFixed(decimal) + currency;
+            return safeAmount.toFixed(safeDecimal) + symbol;
         }
+    },
+
+    setCurrencyPreference(currencyCode) {
+        const code = String(currencyCode || "").trim().toUpperCase();
+
+        if (!code) {
+            return;
+        }
+
+        try {
+            const maxAge = 60 * 60 * 24 * 365;
+            document.cookie = `toriloup_currency=${encodeURIComponent(code)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        } catch (e) {}
     },
 
     floatFormat(amount, decimal = 2) {

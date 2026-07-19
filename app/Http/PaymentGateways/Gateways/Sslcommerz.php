@@ -27,7 +27,7 @@ class Sslcommerz extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Routing\Redirector|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD');
+            $currencyCode = $this->siteCurrencyCode('USD', $order);
 
             $array['store_id']         = $this->paymentGatewayOption['sslcommerz_store_id'];
             $array['store_passwd']     = $this->paymentGatewayOption['sslcommerz_store_password'];

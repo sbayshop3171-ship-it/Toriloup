@@ -7,29 +7,29 @@
         <ul class="flex flex-col gap-3 p-4 border-b border-[#EFF0F6]">
             <li class="flex items-center justify-between">
                 <span class="capitalize">{{ $t('label.subtotal') }}</span>
-                <span class="font-medium">{{ currencyFormat(subtotal, setting.site_digit_after_decimal_point,
+                <span class="font-medium">{{ currencyFormat(subtotal, displayCurrencyDecimal,
                     displayCurrencySymbol, setting.site_currency_position) }}</span>
             </li>
             <li class="flex items-center justify-between">
                 <span class="capitalize">{{ $t('label.tax') }}</span>
-                <span class="font-medium">{{ currencyFormat(totalTax, setting.site_digit_after_decimal_point,
+                <span class="font-medium">{{ currencyFormat(totalTax, displayCurrencyDecimal,
                     displayCurrencySymbol, setting.site_currency_position) }}</span>
             </li>
             <li class="flex items-center justify-between">
                 <span class="capitalize">{{ $t('label.shipping_charge') }}</span>
-                <span class="font-medium">{{ currencyFormat(shippingCharge, setting.site_digit_after_decimal_point,
+                <span class="font-medium">{{ currencyFormat(shippingCharge, displayCurrencyDecimal,
                     displayCurrencySymbol, setting.site_currency_position) }}</span>
             </li>
             <li class="flex items-center justify-between">
                 <span class="capitalize">{{ $t('label.discount') }}</span>
-                <span class="font-medium">{{ currencyFormat(discount, setting.site_digit_after_decimal_point,
+                <span class="font-medium">{{ currencyFormat(discount, displayCurrencyDecimal,
                     displayCurrencySymbol, setting.site_currency_position) }}</span>
             </li>
         </ul>
         <div class="p-4">
             <dl class="flex items-center justify-between">
                 <dt class="font-semibold capitalize">{{ $t('label.total') }}</dt>
-                <dd class="font-semibold">{{ currencyFormat(total, setting.site_digit_after_decimal_point,
+                <dd class="font-semibold">{{ currencyFormat(total, displayCurrencyDecimal,
                     displayCurrencySymbol, setting.site_currency_position) }}</dd>
             </dl>
         </div>
@@ -41,30 +41,15 @@ import appService from "../../../services/appService";
 
 export default {
     name: "SummeryComponent",
-    mounted() {
-        if (this.countries.length < 1) {
-            this.$store.dispatch("frontendCountryStateCity/countries").then().catch();
-        }
-    },
     computed: {
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
         },
-        countries: function () {
-            return this.$store.getters["frontendCountryStateCity/countries"] || [];
-        },
-        shippingAddress: function () {
-            return this.$store.getters["frontendCart/shippingAddress"] || {};
-        },
         displayCurrencySymbol: function () {
-            if (Object.keys(this.shippingAddress).length > 0) {
-                const selectedCountry = this.countries.find((country) => country.name === this.shippingAddress.country);
-                if (selectedCountry?.currency_symbol) {
-                    return selectedCountry.currency_symbol;
-                }
-            }
-
-            return this.setting.site_default_currency_symbol;
+            return this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol;
+        },
+        displayCurrencyDecimal: function () {
+            return this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point;
         },
         subtotal: function () {
             return this.$store.getters['frontendCart/subtotal'];

@@ -41,7 +41,7 @@ class Midtrans extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Routing\Redirector|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('IDR');
+            $currencyCode = $this->siteCurrencyCode('IDR', $order);
             if (env('DEMO')) {
                 $currencyCode = 'IDR';
             }

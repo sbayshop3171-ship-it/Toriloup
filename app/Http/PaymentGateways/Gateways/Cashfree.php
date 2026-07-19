@@ -42,7 +42,7 @@ class Cashfree extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Contracts\View\View|\Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('INR');
+            $currencyCode = $this->siteCurrencyCode('INR', $order);
 
             $cashfree = new CashfreeClient();
             $x_api_version = "2022-09-01";

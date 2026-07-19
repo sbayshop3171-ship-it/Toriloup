@@ -66,7 +66,7 @@ class Pesapal extends PaymentAbstract
         try {
             $token = $this->getAccessToken();
             if ($token) {
-                $currencyCode = $this->siteCurrencyCode('KES');
+                $currencyCode = $this->siteCurrencyCode('KES', $order);
 
                 $payload = [
                     "id" => $order->order_serial_no,

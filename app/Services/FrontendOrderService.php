@@ -9,6 +9,7 @@ use App\Models\Stock;
 use App\Models\Outlet;
 use App\Models\Address;
 use App\Models\Product;
+use App\Models\Tenant;
 use App\Enums\OrderType;
 use App\Models\StockTax;
 use App\Enums\AddressType;
@@ -21,6 +22,8 @@ use App\Events\SendOrderMail;
 use App\Events\SendOrderPush;
 use App\Models\ProductVariation;
 use App\Models\OrderOutletAddress;
+use App\Services\Currency\CurrencyConversionService;
+use App\Services\Currency\VisitorCurrencyResolver;
 use Illuminate\Support\Facades\DB;
 use App\Http\Requests\OrderRequest;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +34,11 @@ use App\Libraries\QueryExceptionLibrary;
 
 class FrontendOrderService
 {
+    public function __construct(
+        private readonly VisitorCurrencyResolver $visitorCurrencyResolver,
+        private readonly CurrencyConversionService $currencyConversionService,
+    ) {
+    }
 
     public object $order;
     protected array $frontendOrderFilter = [
@@ -96,6 +104,16 @@ class FrontendOrderService
     {
         try {
             DB::transaction(function () use ($request) {
+                $tenantAttribute = $request->attributes->get(config('tenancy.tenant_request_attribute', 'saas.tenant'));
+                $tenant = $tenantAttribute instanceof Tenant ? $tenantAttribute : null;
+                $displayCurrency = $this->visitorCurrencyResolver->resolve($request, $tenant);
+                $baseCurrencyCode = $this->visitorCurrencyResolver->baseCurrencyCode($tenant);
+                $displayExchangeRate = $this->currencyConversionService->exchangeRateBetween(
+                    $baseCurrencyCode,
+                    $displayCurrency['code'],
+                    $tenant
+                );
+                $quoteExpiresAt = now()->addMinutes((int) config('currency.quote_ttl_minutes', 20));
                 $oldOrder     = Order::where(['user_id' => Auth::user()->id, 'active' => Status::INACTIVE]);
                 $orderReplace = $oldOrder;
                 if (!blank($oldOrder->get())) {
@@ -119,7 +137,28 @@ class FrontendOrderService
                         'user_id'        => Auth::user()->id,
                         'status'         => OrderStatus::PENDING,
                         'payment_status' => PaymentStatus::UNPAID,
-                        'order_datetime' => date('Y-m-d H:i:s')
+                        'order_datetime' => date('Y-m-d H:i:s'),
+                        'base_currency_code' => $baseCurrencyCode,
+                        'display_currency_code' => $displayCurrency['code'],
+                        'display_currency_symbol' => $displayCurrency['symbol'],
+                        'display_currency_minor_unit' => $displayCurrency['minor_unit'],
+                        'display_exchange_rate' => $displayExchangeRate,
+                        'display_rate_source' => $displayCurrency['rate_source'],
+                        'display_rate_synced_at' => $displayCurrency['rate_synced_at'],
+                        'charge_currency_code' => $displayCurrency['code'],
+                        'fx_quote_expires_at' => $quoteExpiresAt,
+                        'currency_snapshot_json' => [
+                            'base_currency_code' => $baseCurrencyCode,
+                            'display_currency_code' => $displayCurrency['code'],
+                            'display_currency_symbol' => $displayCurrency['symbol'],
+                            'display_currency_minor_unit' => $displayCurrency['minor_unit'],
+                            'display_exchange_rate' => $displayExchangeRate,
+                            'display_rate_source' => $displayCurrency['rate_source'],
+                            'display_rate_synced_at' => $displayCurrency['rate_synced_at'],
+                            'currency_source' => $displayCurrency['source'],
+                            'quote_locked_at' => now()->toDateTimeString(),
+                            'quote_expires_at' => $quoteExpiresAt->toDateTimeString(),
+                        ],
                     ]
                 );
 
@@ -135,6 +174,10 @@ class FrontendOrderService
                             'variation_names' => $product->variation_names,
                             'sku'             => $product->sku,
                             'price'           => $product->price,
+                            'base_price'      => $product->base_price ?? null,
+                            'base_currency_code' => $product->base_currency_code ?? $baseCurrencyCode,
+                            'display_currency_code' => $product->display_currency_code ?? $displayCurrency['code'],
+                            'display_exchange_rate' => $product->display_exchange_rate ?? $displayExchangeRate,
                             'quantity'        => -$product->quantity,
                             'discount'        => $product->discount,
                             'tax'             => number_format($product->total_tax, env('CURRENCY_DECIMAL_POINT'), '.', ''),

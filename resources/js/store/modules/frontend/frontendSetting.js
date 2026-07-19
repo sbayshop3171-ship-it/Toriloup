@@ -42,6 +42,7 @@ export const frontendSetting = {
                 }
                 axios.get(url, { cache: false }).then((res) => {
                     context.commit("lists", res.data.data);
+                    context.dispatch("frontendCart/reprice", { setting: res.data.data }, { root: true }).catch(() => {});
                     resolve(res);
                 }).catch((err) => {
                     reject(err);

@@ -24,7 +24,7 @@ class CurrencyController extends AdminController implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('permission:settings', only: ['index', 'store', 'update', 'show', 'destroy']),
+            new Middleware('permission:settings', only: ['index', 'store', 'update', 'show', 'destroy', 'sync']),
         ];
     }
 
@@ -71,6 +71,18 @@ class CurrencyController extends AdminController implements HasMiddleware
             return new CurrencyResource($currency);
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function sync(): \Illuminate\Http\JsonResponse
+    {
+        try {
+            return response()->json([
+                'status' => true,
+                'data' => $this->currencyService->sync(),
+            ]);
+        } catch (Exception $exception) {
+            return response()->json(['status' => false, 'message' => $exception->getMessage()], 422);
         }
     }
 }

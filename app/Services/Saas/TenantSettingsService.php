@@ -196,6 +196,7 @@ class TenantSettingsService
             'site_time_format' => 'H:i',
             'site_default_timezone' => 'UTC',
             'site_default_currency' => 1,
+            'site_default_currency_code' => 'USD',
             'site_default_language' => 1,
             'site_app_debug' => 10,
             'site_auto_update' => 10,

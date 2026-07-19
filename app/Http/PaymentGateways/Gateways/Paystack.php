@@ -44,7 +44,7 @@ class Paystack extends PaymentAbstract
     public function payment($order, $request)
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('NGN');
+            $currencyCode = $this->siteCurrencyCode('NGN', $order);
 
             $reference = 'ps_' . uniqid() . '_' . time();
             $payload = [

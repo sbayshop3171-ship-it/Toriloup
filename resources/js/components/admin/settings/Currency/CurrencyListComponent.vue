@@ -6,6 +6,10 @@
             <h3 class="db-card-title">{{ $t("menu.currencies") }}</h3>
             <div class="db-card-filter">
                 <TableLimitComponent :method="list" :search="props.search" :page="paginationPage"/>
+                <button type="button" class="db-btn py-2 text-white bg-secondary" @click="syncRates">
+                    <i class="lab lab-line-refresh"></i>
+                    <span>Sync Rates</span>
+                </button>
                 <CurrencyCreateComponent :props="props"/>
             </div>
         </div>
@@ -26,6 +30,12 @@
                     </th>
                     <th class="db-table-head-th">
                         {{ $t("label.exchange_rate") }}
+                    </th>
+                    <th class="db-table-head-th">
+                        Managed
+                    </th>
+                    <th class="db-table-head-th">
+                        Last Sync
                     </th>
                     <th class="db-table-head-th">
                         {{ $t("label.action") }}
@@ -54,19 +64,30 @@
                     <td class="db-table-body-td">
                         {{ currency.exchange_rate }}
                     </td>
+                    <td class="db-table-body-td">
+                        <span
+                            class="px-2 py-1 rounded-full text-xs font-semibold"
+                            :class="currency.is_auto_managed ? 'bg-[#ECFDF3] text-[#047857]' : 'bg-[#F3F4F6] text-[#4B5563]'">
+                            {{ currency.is_auto_managed ? 'Auto' : 'Manual' }}
+                        </span>
+                    </td>
+                    <td class="db-table-body-td">
+                        <span class="block text-xs font-medium text-heading">{{ currency.rate_source || '-' }}</span>
+                        <span class="block text-xs text-text">{{ currency.rate_synced_at || '-' }}</span>
+                    </td>
 
                     <td class="db-table-body-td">
                         <div class="flex justify-start items-center sm:items-start sm:justify-start gap-1.5">
-                            <SmModalEditComponent @click="edit(currency)"/>
+                            <SmModalEditComponent @click="edit(currency)" v-if="!currency.is_auto_managed"/>
                             <SmDeleteComponent @click="destroy(currency.id)"
-                                               v-if="site_default_currency != currency.id"/>
+                                               v-if="site_default_currency != currency.id && !currency.is_auto_managed"/>
                         </div>
                     </td>
                 </tr>
                 </tbody>
                 <tbody class="db-table-body" v-else>
                         <tr class="db-table-body-tr">
-                            <td class="db-table-body-td text-center" colspan="6">
+                            <td class="db-table-body-td text-center" colspan="8">
                                 <div class="p-4">
                                     <div class="max-w-[300px] mx-auto mt-2">
                                         <img class="w-full h-full" :src="ENV.API_URL+'/images/default/not-found/not_found.png'" alt="Not Found">
@@ -132,8 +153,10 @@ export default {
                     name: "",
                     symbol: "",
                     code: "",
+                    minor_unit: 2,
                     is_cryptocurrency: askEnum.NO,
                     exchange_rate: "",
+                    is_enabled: true,
                 },
                 search: {
                     paginate: 1,
@@ -196,10 +219,23 @@ export default {
                 name: tax.name,
                 symbol: tax.symbol,
                 code: tax.code,
+                minor_unit: tax.minor_unit,
                 is_cryptocurrency: tax.is_cryptocurrency,
                 exchange_rate: tax.exchange_rate,
+                is_enabled: tax.is_enabled,
             };
             this.loading.isActive = false;
+        },
+        syncRates: function () {
+            this.loading.isActive = true;
+            this.$store.dispatch("currency/sync", { search: this.props.search }).then((res) => {
+                this.loading.isActive = false;
+                const source = res.data.data?.source ? ` (${res.data.data.source})` : "";
+                alertService.success(`Currency rates synced${source}.`);
+            }).catch((err) => {
+                this.loading.isActive = false;
+                alertService.error(err.response?.data?.message || "Currency rates could not be synced.");
+            });
         },
         destroy: function (id) {
             appService

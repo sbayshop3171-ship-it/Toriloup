@@ -4,6 +4,73 @@ import shippingMethodEnum from "../../../enums/modules/shippingMethodEnum";
 import ShippingTypeEnum from "../../../enums/modules/shippingTypeEnum";
 import AskEnum from "../../../enums/modules/askEnum";
 
+const numeric = function (value, fallback = 0) {
+    const parsed = parseFloat(value);
+
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const currencyOption = function (setting, code) {
+    const normalized = String(code || "").toUpperCase();
+    const options = Array.isArray(setting?.currency_options) ? setting.currency_options : [];
+
+    return options.find((currency) => String(currency.code || "").toUpperCase() === normalized) || null;
+};
+
+const displayCurrencyCode = function (setting, fallback = "USD") {
+    return String(setting?.display_currency?.code || setting?.site_default_currency_code || setting?.site_base_currency_code || fallback).toUpperCase();
+};
+
+const currencyRate = function (setting, code) {
+    const option = currencyOption(setting, code);
+
+    if (option) {
+        return Math.max(numeric(option.exchange_rate, 1), 0.00000001);
+    }
+
+    if (String(setting?.display_currency?.code || "").toUpperCase() === String(code || "").toUpperCase()) {
+        return Math.max(numeric(setting?.display_currency?.exchange_rate, 1), 0.00000001);
+    }
+
+    return 1;
+};
+
+const minorUnit = function (setting, code) {
+    const option = currencyOption(setting, code);
+    const parsed = parseInt(option?.minor_unit ?? setting?.display_currency?.minor_unit ?? setting?.site_digit_after_decimal_point ?? 2, 10);
+
+    return Number.isFinite(parsed) ? parsed : 2;
+};
+
+const exchangeRateBetween = function (setting, fromCode, toCode) {
+    return currencyRate(setting, toCode) / currencyRate(setting, fromCode);
+};
+
+const convertAmount = function (amount, setting, fromCode, toCode) {
+    const decimals = minorUnit(setting, toCode);
+    const converted = numeric(amount) * exchangeRateBetween(setting, fromCode, toCode);
+
+    return Number(converted.toFixed(decimals));
+};
+
+const repriceShipping = function (shipping, setting, fromCode, toCode) {
+    if (!shipping || typeof shipping !== "object") {
+        return shipping;
+    }
+
+    const sourceAmount = shipping.base_shipping_cost ?? shipping.shipping_cost;
+    const sourceCurrency = shipping.base_currency_code || fromCode;
+
+    return {
+        ...shipping,
+        base_shipping_cost: numeric(sourceAmount),
+        base_currency_code: sourceCurrency,
+        shipping_cost: convertAmount(sourceAmount, setting, sourceCurrency, toCode),
+        display_currency_code: toCode,
+        display_exchange_rate: exchangeRateBetween(setting, sourceCurrency, toCode),
+    };
+};
+
 
 export const frontendCart = {
     namespaced: true,
@@ -131,6 +198,15 @@ export const frontendCart = {
                             discount_percentage: payload.discount_percentage,
                             price: payload.price,
                             old_price: payload.old_price,
+                            base_price: payload.base_price,
+                            old_base_price: payload.old_base_price,
+                            base_currency_code: payload.base_currency_code,
+                            display_currency_code: payload.display_currency_code,
+                            display_currency_symbol: payload.display_currency_symbol,
+                            display_currency_minor_unit: payload.display_currency_minor_unit,
+                            display_exchange_rate: payload.display_exchange_rate,
+                            display_rate_source: payload.display_rate_source,
+                            display_rate_synced_at: payload.display_rate_synced_at,
                             total_tax: 0,
                             subtotal: 0,
                             total: 0,
@@ -215,8 +291,55 @@ export const frontendCart = {
         resetCart: function (context) {
             context.commit('resetCart');
         },
+        reprice: function (context, payload = {}) {
+            context.commit("reprice", payload);
+            context.commit("taxCalculation");
+            context.commit("shippingCharge", {
+                setting: context.rootState.frontendSetting.lists,
+                area: context.rootState.frontendOrderArea.lists
+            });
+            context.commit("subtotal");
+        },
     },
     mutations: {
+        reprice: function (state, payload) {
+            const setting = payload?.setting || {};
+            const targetCode = displayCurrencyCode(setting);
+            const symbol = setting?.display_currency?.symbol || setting?.site_default_currency_symbol || targetCode;
+            const decimals = minorUnit(setting, targetCode);
+            let currencyChanged = false;
+
+            _.forEach(state.lists, (list, listKey) => {
+                const currentCode = String(list.display_currency_code || "").toUpperCase();
+
+                if (currentCode && currentCode !== targetCode) {
+                    currencyChanged = true;
+                }
+
+                const sourceCode = list.base_currency_code || list.display_currency_code || setting?.site_base_currency_code || setting?.site_default_currency_code || targetCode;
+                const basePrice = list.base_price ?? list.price;
+                const oldBasePrice = list.old_base_price ?? list.old_price ?? basePrice;
+
+                state.lists[listKey].base_price = numeric(basePrice);
+                state.lists[listKey].old_base_price = numeric(oldBasePrice);
+                state.lists[listKey].base_currency_code = sourceCode;
+                state.lists[listKey].price = convertAmount(basePrice, setting, sourceCode, targetCode);
+                state.lists[listKey].old_price = convertAmount(oldBasePrice, setting, sourceCode, targetCode);
+                state.lists[listKey].total_price = state.lists[listKey].price * state.lists[listKey].quantity;
+                state.lists[listKey].display_currency_code = targetCode;
+                state.lists[listKey].display_currency_symbol = symbol;
+                state.lists[listKey].display_currency_minor_unit = decimals;
+                state.lists[listKey].display_exchange_rate = exchangeRateBetween(setting, sourceCode, targetCode);
+                state.lists[listKey].display_rate_source = setting?.display_currency?.rate_source || null;
+                state.lists[listKey].display_rate_synced_at = setting?.display_currency?.rate_synced_at || null;
+                state.lists[listKey].shipping = repriceShipping(state.lists[listKey].shipping, setting, sourceCode, targetCode);
+            });
+
+            if (currencyChanged && Object.keys(state.coupon).length > 0) {
+                state.coupon = {};
+                state.discount = 0;
+            }
+        },
         subtotal: function (state) {
             state.total = 0;
             if (state.lists.length > 0) {

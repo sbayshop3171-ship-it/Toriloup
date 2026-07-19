@@ -158,6 +158,19 @@ export default {
             if (this.shippingAndBillingCheck) {
                 this.$store.dispatch('frontendCart/billingAddress', e).then().catch();
             }
+            if (e?.id) {
+                this.$store.dispatch('frontendSetting/lists', { shipping_id: e.id }).then((res) => {
+                    const displayCurrency = res.data.data.display_currency || null;
+                    this.$store.dispatch("globalState/set", {
+                        currency_code: displayCurrency?.code || res.data.data.site_default_currency_code,
+                        display_currency: displayCurrency,
+                        currency_manual: this.$store.getters['globalState/lists'].currency_manual === true,
+                    }).catch();
+                    this.$store.dispatch('frontendOrderArea/lists', { shipping_id: e.id }).finally(() => {
+                        this.$store.dispatch("frontendCart/reprice", { setting: this.setting }).catch();
+                    });
+                }).catch();
+            }
         },
         billingAddress: function (e) {
             this.$store.dispatch('frontendCart/billingAddress', e).then().catch();

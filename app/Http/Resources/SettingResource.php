@@ -4,6 +4,10 @@ namespace App\Http\Resources;
 
 
 use App\Models\ThemeSetting;
+use App\Models\Tenant;
+use App\Services\Currency\CurrencyCatalogService;
+use App\Services\Currency\CurrencyConversionService;
+use App\Services\Currency\VisitorCurrencyResolver;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,6 +24,15 @@ class SettingResource extends JsonResource
 
     public function toArray($request): array
     {
+        $tenant = $this->tenantFromRequest($request);
+        $currencyResolver = app(VisitorCurrencyResolver::class);
+        $displayCurrency = $currencyResolver->resolve($request, $tenant, $this->info);
+        $baseCurrencyCode = $currencyResolver->baseCurrencyCode($tenant, $this->info);
+        $baseCurrency = app(CurrencyCatalogService::class)->findByCode($baseCurrencyCode, $tenant);
+        $currencyConversion = app(CurrencyConversionService::class);
+        $flatRateShipping = $currencyConversion->priceForRequest((float) ($this->info['shipping_setup_flat_rate_wise_cost'] ?? 0), $request, $tenant, $this->info);
+        $areaDefaultShipping = $currencyConversion->priceForRequest((float) ($this->info['shipping_setup_area_wise_default_cost'] ?? 0), $request, $tenant, $this->info);
+
         return [
             'company_name'                          => $this->info['company_name'],
             'company_email'                         => $this->info['company_email'],
@@ -28,6 +41,12 @@ class SettingResource extends JsonResource
             'company_country_code'                  => $this->info['company_country_code'],
             'company_address'                       => $this->info['company_address'],
             'site_default_language'                 => $this->info['site_default_language'],
+            'site_default_currency'                 => $this->info['site_default_currency'] ?? null,
+            'site_default_currency_code'            => $baseCurrencyCode,
+            'site_base_currency_code'               => $baseCurrencyCode,
+            'site_base_currency_symbol'             => $baseCurrency?->symbol ?? ($this->info['site_default_currency_symbol'] ?? '$'),
+            'display_currency'                      => $displayCurrency,
+            'currency_options'                      => app(CurrencyCatalogService::class)->serializeOptions($tenant),
             'site_android_app_link'                 => $this->info['site_android_app_link'],
             'site_ios_app_link'                     => $this->info['site_ios_app_link'],
             'site_copyright'                        => $this->info['site_copyright'],
@@ -40,8 +59,10 @@ class SettingResource extends JsonResource
             'site_online_payment_gateway'           => $this->info['site_online_payment_gateway'],
             'site_cash_on_delivery'                 => $this->info['site_cash_on_delivery'],
             'shipping_setup_method'                 => $this->info['shipping_setup_method'],
-            'shipping_setup_flat_rate_wise_cost'    => $this->info['shipping_setup_flat_rate_wise_cost'],
-            'shipping_setup_area_wise_default_cost' => $this->info['shipping_setup_area_wise_default_cost'],
+            'shipping_setup_flat_rate_wise_cost'    => $flatRateShipping['display_amount'],
+            'shipping_setup_flat_rate_base_cost'    => $flatRateShipping['base_amount'],
+            'shipping_setup_area_wise_default_cost' => $areaDefaultShipping['display_amount'],
+            'shipping_setup_area_wise_default_base_cost' => $areaDefaultShipping['base_amount'],
             'theme_logo'                            => $this->tenantAwareLogo($request, 'theme_logo', 'logo'),
             'theme_footer_logo'                     => $this->tenantAwareLogo($request, 'theme_footer_logo', 'footerLogo'),
             'theme_favicon_logo'                    => $this->themeImage('theme_favicon_logo')->faviconLogo,
@@ -102,5 +123,21 @@ class SettingResource extends JsonResource
         $tenantAttribute = config('tenancy.tenant_request_attribute', 'saas.tenant');
 
         return $request?->attributes->has($tenantAttribute) || app()->bound('currentTenant');
+    }
+
+    private function tenantFromRequest($request): ?Tenant
+    {
+        $tenantAttribute = config('tenancy.tenant_request_attribute', 'saas.tenant');
+        $tenant = $request?->attributes->get($tenantAttribute);
+
+        if ($tenant instanceof Tenant) {
+            return $tenant;
+        }
+
+        if (app()->bound('currentTenant') && app('currentTenant') instanceof Tenant) {
+            return app('currentTenant');
+        }
+
+        return null;
     }
 }

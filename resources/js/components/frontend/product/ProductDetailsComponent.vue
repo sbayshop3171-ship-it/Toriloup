@@ -45,14 +45,14 @@
                     <h3 class="flex flex-wrap items-start gap-4 mb-5">
                         <span class="text-2xl font-bold">
                             {{
-                                currencyFormat(temp.price, setting.site_digit_after_decimal_point,
-                                    setting.site_default_currency_symbol, setting.site_currency_position)
+                                currencyFormat(temp.price, activeCurrencyDecimal,
+                                    activeCurrencySymbol, setting.site_currency_position)
                             }}
                         </span>
                         <del v-if="temp.isOffer" class="text-lg font-bold text-shopperz-red">
                             {{
-                                currencyFormat(temp.oldPrice, setting.site_digit_after_decimal_point,
-                                    setting.site_default_currency_symbol, setting.site_currency_position)
+                                currencyFormat(temp.oldPrice, activeCurrencyDecimal,
+                                    activeCurrencySymbol, setting.site_currency_position)
                             }}
                         </del>
                         <span v-if="temp.isOffer && offerPercent > 0"
@@ -112,8 +112,8 @@
                         <dt class="capitalize text-lg font-semibold">{{ $t('label.total_price') }}:</dt>
                         <dd class="flex items-center gap-6 text-green-500 font-semibold text-lg">
                             {{
-                                currencyFormat(temp.totalPrice, setting.site_digit_after_decimal_point,
-                                    setting.site_default_currency_symbol, setting.site_currency_position)
+                                currencyFormat(temp.totalPrice, activeCurrencyDecimal,
+                                    activeCurrencySymbol, setting.site_currency_position)
                             }}
                         </dd>
                     </dl>
@@ -351,7 +351,16 @@ export default {
                 price: 0,
                 oldPrice: 0,
                 totalPrice: 0,
-                maximum_purchase_quantity: 0
+                maximum_purchase_quantity: 0,
+                basePrice: 0,
+                oldBasePrice: 0,
+                baseCurrencyCode: null,
+                displayCurrencyCode: null,
+                displayCurrencySymbol: null,
+                displayCurrencyMinorUnit: null,
+                displayExchangeRate: null,
+                displayRateSource: null,
+                displayRateSyncedAt: null
             },
             temp: {
                 name: "",
@@ -370,7 +379,16 @@ export default {
                 price: 0,
                 oldPrice: 0,
                 totalPrice: 0,
-                maximum_purchase_quantity: 0
+                maximum_purchase_quantity: 0,
+                basePrice: 0,
+                oldBasePrice: 0,
+                baseCurrencyCode: null,
+                displayCurrencyCode: null,
+                displayCurrencySymbol: null,
+                displayCurrencyMinorUnit: null,
+                displayExchangeRate: null,
+                displayRateSource: null,
+                displayRateSyncedAt: null
             },
             previewImg:null
         }
@@ -404,6 +422,12 @@ export default {
         offerPercent: function () {
             return Math.round(Number(this.temp.discountPercentage || 0));
         },
+        activeCurrencySymbol: function () {
+            return this.temp.displayCurrencySymbol || this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol;
+        },
+        activeCurrencyDecimal: function () {
+            return this.temp.displayCurrencyMinorUnit ?? this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point;
+        },
     },
     mounted() {
         this.show();
@@ -416,6 +440,59 @@ export default {
         },
         currencyFormat: function (amount, decimal, currency, position) {
             return appService.currencyFormat(amount, decimal, currency, position);
+        },
+        currencySnapshot: function (source) {
+            return {
+                basePrice: source.base_price ?? source.price ?? 0,
+                oldBasePrice: source.old_base_price ?? source.old_price ?? source.base_price ?? source.price ?? 0,
+                baseCurrencyCode: source.base_currency_code || this.setting.site_base_currency_code || this.setting.site_default_currency_code,
+                displayCurrencyCode: source.display_currency_code || this.setting.display_currency?.code,
+                displayCurrencySymbol: source.display_currency_symbol || this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol,
+                displayCurrencyMinorUnit: source.display_currency_minor_unit ?? this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point,
+                displayExchangeRate: source.display_exchange_rate || this.setting.display_currency?.exchange_rate || 1,
+                displayRateSource: source.display_rate_source || this.setting.display_currency?.rate_source || null,
+                displayRateSyncedAt: source.display_rate_synced_at || this.setting.display_currency?.rate_synced_at || null,
+            };
+        },
+        applyCurrencySnapshot: function (target, source) {
+            const snapshot = this.currencySnapshot(source);
+
+            target.basePrice = snapshot.basePrice;
+            target.oldBasePrice = snapshot.oldBasePrice;
+            target.baseCurrencyCode = snapshot.baseCurrencyCode;
+            target.displayCurrencyCode = snapshot.displayCurrencyCode;
+            target.displayCurrencySymbol = snapshot.displayCurrencySymbol;
+            target.displayCurrencyMinorUnit = snapshot.displayCurrencyMinorUnit;
+            target.displayExchangeRate = snapshot.displayExchangeRate;
+            target.displayRateSource = snapshot.displayRateSource;
+            target.displayRateSyncedAt = snapshot.displayRateSyncedAt;
+        },
+        resetTempFromInit: function () {
+            this.temp.isVariation = this.initProduct.isVariation;
+            this.temp.variationId = this.initProduct.variationId;
+            this.temp.sku = this.initProduct.sku;
+            this.temp.stock = this.initProduct.stock;
+            this.temp.quantity = this.initProduct.quantity;
+            this.temp.discount = this.initProduct.discount;
+            this.temp.isOffer = this.initProduct.isOffer;
+            this.temp.discountPercentage = this.initProduct.discountPercentage;
+            this.temp.price = this.initProduct.price;
+            this.temp.oldPrice = this.initProduct.oldPrice;
+            this.temp.totalPrice = this.initProduct.price;
+            this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
+            this.applyCurrencySnapshot(this.temp, {
+                base_price: this.initProduct.basePrice,
+                old_base_price: this.initProduct.oldBasePrice,
+                base_currency_code: this.initProduct.baseCurrencyCode,
+                display_currency_code: this.initProduct.displayCurrencyCode,
+                display_currency_symbol: this.initProduct.displayCurrencySymbol,
+                display_currency_minor_unit: this.initProduct.displayCurrencyMinorUnit,
+                display_exchange_rate: this.initProduct.displayExchangeRate,
+                display_rate_source: this.initProduct.displayRateSource,
+                display_rate_synced_at: this.initProduct.displayRateSyncedAt,
+                price: this.initProduct.price,
+                old_price: this.initProduct.oldPrice,
+            });
         },
         multiTargets: function (event, commonBtnClass, commonDivClass, targetID) {
             targetService.multiTargets(event, commonBtnClass, commonDivClass, targetID)
@@ -448,6 +525,7 @@ export default {
                 this.loading.isActive = true;
                 this.props.search.slug = this.$route.params.slug;
                 this.$store.dispatch("frontendProduct/show", this.props.search).then((res) => {
+                    const productSnapshot = this.currencySnapshot(res.data.data);
                     this.initProduct = {
                         isVariation: false,
                         variationId: null,
@@ -460,7 +538,8 @@ export default {
                         price: res.data.data.price,
                         oldPrice: res.data.data.old_price,
                         totalPrice: res.data.data.price,
-                        maximum_purchase_quantity: res.data.data.maximum_purchase_quantity
+                        maximum_purchase_quantity: res.data.data.maximum_purchase_quantity,
+                        ...productSnapshot
                     };
                     this.temp = {
                         name: res.data.data.name,
@@ -479,7 +558,8 @@ export default {
                         price: res.data.data.price,
                         oldPrice: res.data.data.old_price,
                         totalPrice: res.data.data.price,
-                        maximum_purchase_quantity: res.data.data.maximum_purchase_quantity
+                        maximum_purchase_quantity: res.data.data.maximum_purchase_quantity,
+                        ...productSnapshot
                     };
 
                     this.$store.dispatch("frontendProductCategory/ancestorsAndSelf", res.data.data.category_slug).then((categoryRes) => {
@@ -540,18 +620,7 @@ export default {
             this.enableAddToCardButton = true;
             this.selectedVariation = null;
 
-            this.temp.isVariation = this.initProduct.isVariation;
-            this.temp.variationId = this.initProduct.variationId;
-            this.temp.sku = this.initProduct.sku;
-            this.temp.stock = this.initProduct.stock;
-            this.temp.quantity = this.initProduct.quantity;
-            this.temp.discount = this.initProduct.discount;
-            this.temp.isOffer = this.initProduct.isOffer;
-            this.temp.discountPercentage = this.initProduct.discountPercentage;
-            this.temp.price = this.initProduct.price;
-            this.temp.oldPrice = this.initProduct.oldPrice;
-            this.temp.totalPrice = this.initProduct.price;
-            this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
+            this.resetTempFromInit();
 
             if (variation) {
 
@@ -569,6 +638,7 @@ export default {
                 this.temp.oldPrice = variation.old_price;
                 this.temp.totalPrice = variation.price;
                 this.temp.maximum_purchase_quantity = variation.maximum_purchase_quantity;
+                this.applyCurrencySnapshot(this.temp, variation);
 
                 if (variation.stock > 0) {
                     this.enableAddToCardButton = false;
@@ -657,6 +727,15 @@ export default {
                 discount_percentage: this.temp.discountPercentage,
                 price: this.temp.price,
                 old_price: this.temp.oldPrice,
+                base_price: this.temp.basePrice,
+                old_base_price: this.temp.oldBasePrice,
+                base_currency_code: this.temp.baseCurrencyCode,
+                display_currency_code: this.temp.displayCurrencyCode,
+                display_currency_symbol: this.temp.displayCurrencySymbol,
+                display_currency_minor_unit: this.temp.displayCurrencyMinorUnit,
+                display_exchange_rate: this.temp.displayExchangeRate,
+                display_rate_source: this.temp.displayRateSource,
+                display_rate_synced_at: this.temp.displayRateSyncedAt,
                 total_price: this.temp.totalPrice,
                 maximum_purchase_quantity: this.temp.maximum_purchase_quantity
             }
@@ -670,18 +749,7 @@ export default {
                         this.variationComponent = true;
                         this.productArray = {};
                         this.selectedVariation = null;
-                        this.temp.isVariation = this.initProduct.isVariation;
-                        this.temp.variationId = this.initProduct.variationId;
-                        this.temp.sku = this.initProduct.sku;
-                        this.temp.stock = this.initProduct.stock;
-                        this.temp.quantity = this.initProduct.quantity;
-                        this.temp.discount = this.initProduct.discount;
-                        this.temp.isOffer = this.initProduct.isOffer;
-                        this.temp.discountPercentage = this.initProduct.discountPercentage;
-                        this.temp.price = this.initProduct.price;
-                        this.temp.oldPrice = this.initProduct.oldPrice;
-                        this.temp.totalPrice = this.initProduct.price;
-                        this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
+                        this.resetTempFromInit();
                         if (redirectToCheckout) {
                             this.goToCheckout();
                         }
@@ -689,15 +757,7 @@ export default {
                         alertService.error(this.$t('message.maximum_quantity'));
                         this.variationComponent = true;
                         this.selectedVariation = null;
-                        this.temp.stock = this.initProduct.stock;
-                        this.temp.quantity = this.initProduct.quantity;
-                        this.temp.discount = this.initProduct.discount;
-                        this.temp.isOffer = this.initProduct.isOffer;
-                        this.temp.discountPercentage = this.initProduct.discountPercentage;
-                        this.temp.price = this.initProduct.price;
-                        this.temp.oldPrice = this.initProduct.oldPrice;
-                        this.temp.totalPrice = this.initProduct.price;
-                        this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
+                        this.resetTempFromInit();
                     });
                 }).catch((err) => {
                 });
@@ -707,18 +767,7 @@ export default {
                     this.enableAddToCardButton = false;
                     this.productArray = {};
                     this.selectedVariation = null;
-                    this.temp.isVariation = this.initProduct.isVariation;
-                    this.temp.variationId = this.initProduct.variationId;
-                    this.temp.sku = this.initProduct.sku;
-                    this.temp.stock = this.initProduct.stock;
-                    this.temp.quantity = this.initProduct.quantity;
-                    this.temp.discount = this.initProduct.discount;
-                    this.temp.isOffer = this.initProduct.isOffer;
-                    this.temp.discountPercentage = this.initProduct.discountPercentage;
-                    this.temp.price = this.initProduct.price;
-                    this.temp.oldPrice = this.initProduct.oldPrice;
-                    this.temp.totalPrice = this.initProduct.price;
-                    this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
+                    this.resetTempFromInit();
                     if (redirectToCheckout) {
                         this.goToCheckout();
                     }
@@ -726,15 +775,7 @@ export default {
                     alertService.error(this.$t('message.maximum_quantity'));
                     this.enableAddToCardButton = false;
                     this.selectedVariation = null;
-                    this.temp.stock = this.initProduct.stock;
-                    this.temp.quantity = this.initProduct.quantity;
-                    this.temp.discount = this.initProduct.discount;
-                    this.temp.isOffer = this.initProduct.isOffer;
-                    this.temp.discountPercentage = this.initProduct.discountPercentage;
-                    this.temp.price = this.initProduct.price;
-                    this.temp.oldPrice = this.initProduct.oldPrice;
-                    this.temp.totalPrice = this.initProduct.price;
-                    this.temp.maximum_purchase_quantity = this.initProduct.maximum_purchase_quantity;
+                    this.resetTempFromInit();
                 });
             }
         }

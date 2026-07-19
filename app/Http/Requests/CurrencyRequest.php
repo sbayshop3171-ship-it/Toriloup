@@ -33,8 +33,10 @@ class CurrencyRequest extends FormRequest
             ],
             'symbol'            => ['required', 'string', 'max:190'],
             'code'              => ['required', 'string', 'max:20'],
+            'minor_unit'        => ['nullable', 'integer', 'min:0', 'max:6'],
             'is_cryptocurrency' => ['required', 'numeric', 'max:15'],
             'exchange_rate'     => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'is_enabled'        => ['nullable', 'boolean'],
         ];
     }
 }

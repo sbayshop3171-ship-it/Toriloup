@@ -32,7 +32,7 @@ class Payfast extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD');
+            $currencyCode = $this->siteCurrencyCode('USD', $order);
 
             $merchantId  = $this->paymentGatewayOption['payfast_merchant_id'];
             $merchantKey = $this->paymentGatewayOption['payfast_merchant_key'];

@@ -113,6 +113,7 @@ export default {
         this.theme = this.resolveTheme(this.$route);
         this.ensureMerchantSetupForRoute(this.$route);
         this.$store.dispatch('frontendSetting/lists').then(res => {
+            const displayCurrency = res.data.data.display_currency || null;
             this.$store.dispatch("globalState/init", {
                 language_id: res.data.data.site_default_language,
                 search_restaurant: "",
@@ -120,6 +121,12 @@ export default {
                 latitude: null,
                 longitude: null
             });
+            const existingGlobalState = this.$store.getters['globalState/lists'];
+            this.$store.dispatch("globalState/set", {
+                currency_code: displayCurrency?.code || res.data.data.site_default_currency_code,
+                display_currency: displayCurrency,
+                currency_manual: existingGlobalState.currency_manual === true,
+            }).catch();
         }).catch();
 
         if (this.shouldVerifyAuth()) {

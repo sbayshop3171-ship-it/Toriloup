@@ -8,7 +8,10 @@ use Exception;
 use Carbon\Carbon;
 use App\Models\Coupon;
 use App\Models\OrderCoupon;
+use App\Models\Tenant;
 use App\Libraries\AppLibrary;
+use App\Services\Currency\CurrencyConversionService;
+use App\Services\Currency\VisitorCurrencyResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Requests\CouponRequest;
@@ -201,8 +204,9 @@ class CouponService
         try {
             $coupon = Coupon::where(['code' => $request->code])->first();
             if ($coupon) {
-                if ($coupon->minimum_order > $request->total) {
-                    throw new Exception(trans('all.message.minimum_order_amount') . AppLibrary::convertAmountFormat($coupon->minimum_order), 422);
+                $baseTotal = $this->baseAmountForRequest((float) $request->total, $request);
+                if ($coupon->minimum_order > $baseTotal) {
+                    throw new Exception(trans('all.message.minimum_order_amount') . $this->displayCurrencyAmount((float) $coupon->minimum_order, $request), 422);
                 } else {
                     if (strtotime($coupon->end_date) >= strtotime(Carbon::now())) {
                         $ordered_coupon_count = OrderCoupon::where(['user_id' => auth()->user()->id, 'coupon_id' => $coupon->id])->count();
@@ -221,5 +225,28 @@ class CouponService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function baseAmountForRequest(float $amount, CouponCheckRequest $request): float
+    {
+        $tenant = $this->tenantFromRequest($request);
+        $display = app(VisitorCurrencyResolver::class)->resolve($request, $tenant);
+
+        return app(CurrencyConversionService::class)->convert($amount, $display['code'], $display['base_code'], $tenant);
+    }
+
+    private function displayCurrencyAmount(float $baseAmount, CouponCheckRequest $request): string
+    {
+        $tenant = $this->tenantFromRequest($request);
+        $display = app(CurrencyConversionService::class)->priceForRequest($baseAmount, $request, $tenant);
+
+        return $display['formatted'];
+    }
+
+    private function tenantFromRequest(CouponCheckRequest $request): ?Tenant
+    {
+        $tenant = $request->attributes->get(config('tenancy.tenant_request_attribute', 'saas.tenant'));
+
+        return $tenant instanceof Tenant ? $tenant : null;
     }
 }

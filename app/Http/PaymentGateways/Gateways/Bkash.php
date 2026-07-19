@@ -36,7 +36,7 @@ class Bkash extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('BDT');
+            $currencyCode = $this->siteCurrencyCode('BDT', $order);
 
             Config::set('bkash.callbackURL', route('payment.success', ['order' => $order, 'paymentGateway' => 'bkash']));
 

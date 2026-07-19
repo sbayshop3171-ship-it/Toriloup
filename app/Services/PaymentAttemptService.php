@@ -189,7 +189,7 @@ class PaymentAttemptService
     {
         $order->loadMissing('tenant');
 
-        return $order->tenant?->primary_currency_code ?: env('CURRENCY_CODE');
+        return $order->charge_currency_code ?: $order->display_currency_code ?: $order->tenant?->primary_currency_code ?: env('CURRENCY', 'USD');
     }
 
     private function isTerminal(string $status): bool

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Currency;
+use App\Models\Order;
 use Dipokhalder\Settings\Facades\Settings;
 
 abstract class PaymentAbstract
@@ -28,8 +29,14 @@ abstract class PaymentAbstract
 
     abstract public function cancel($order, $request);
 
-    protected function siteCurrencyCode(string $fallback = 'USD'): string
+    protected function siteCurrencyCode(string $fallback = 'USD', ?Order $order = null): string
     {
+        $orderCurrency = $order?->charge_currency_code ?: $order?->display_currency_code;
+
+        if (filled($orderCurrency)) {
+            return strtoupper((string) $orderCurrency);
+        }
+
         $currencyId = Settings::group('site')->get('site_default_currency');
 
         if (filled($currencyId)) {

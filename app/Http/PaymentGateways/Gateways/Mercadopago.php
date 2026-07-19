@@ -34,7 +34,7 @@ class Mercadopago extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('ARS');
+            $currencyCode = $this->siteCurrencyCode('ARS', $order);
             $data = [
                 'items' => [
                     [

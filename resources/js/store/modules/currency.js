@@ -95,6 +95,22 @@ export const currency = {
                     });
             });
         },
+        sync: function (context, payload = {}) {
+            return new Promise((resolve, reject) => {
+                axios
+                    .post("admin/setting/currency/sync")
+                    .then((res) => {
+                        context
+                            .dispatch("lists", payload.search)
+                            .then()
+                            .catch();
+                        resolve(res);
+                    })
+                    .catch((err) => {
+                        reject(err);
+                    });
+            });
+        },
         reset: function (context) {
             context.commit("reset");
         },

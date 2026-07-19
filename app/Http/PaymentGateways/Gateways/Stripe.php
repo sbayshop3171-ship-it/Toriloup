@@ -32,7 +32,7 @@ class Stripe extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD');
+            $currencyCode = $this->siteCurrencyCode('USD', $order);
             
 	    $amount = number_format((float) $order->total, 2, '.', '');
             $response = $this->gateway->charges->create([

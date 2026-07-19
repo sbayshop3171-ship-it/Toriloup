@@ -59,6 +59,13 @@ axios.interceptors.request.use(
 
             if (vuex.globalState) {
                 config.headers['x-localization'] = vuex.globalState.lists.language_code;
+                const currencyCode = vuex.globalState.lists.currency_manual === true
+                    ? (vuex.globalState.lists.currency_code || vuex.globalState.lists.display_currency?.code)
+                    : null;
+
+                if (currencyCode) {
+                    config.headers['X-Currency-Code'] = String(currencyCode).toUpperCase();
+                }
             }
         }
         return config;

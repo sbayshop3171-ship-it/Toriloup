@@ -29,6 +29,7 @@ class SiteResource extends JsonResource
             "site_time_format"                           => $this->info['site_time_format'],
             "site_default_timezone"                      => $this->info['site_default_timezone'],
             "site_default_currency"                      => $this->info['site_default_currency'],
+            "site_default_currency_code"                 => $this->info['site_default_currency_code'] ?? null,
             "site_default_currency_symbol"               => $this->info['site_default_currency_symbol'],
             "site_currency_position"                     => $this->info['site_currency_position'],
             "site_digit_after_decimal_point"             => $this->info['site_digit_after_decimal_point'],
