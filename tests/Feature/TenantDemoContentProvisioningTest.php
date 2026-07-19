@@ -23,6 +23,7 @@ use App\Http\Requests\ProductRequest;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -42,6 +43,46 @@ class TenantDemoContentProvisioningTest extends TestCase
             'saas.merchant_host' => 'merchant.company.com',
             'saas.fallback_subdomain_suffix' => 'company.com',
             'media-library.queue_conversions_by_default' => false,
+        ]);
+    }
+
+    public function test_merchant_registration_succeeds_when_demo_seed_tracking_table_is_unavailable(): void
+    {
+        Storage::fake('public');
+        Schema::shouldReceive('hasTable')
+            ->with('tenant_demo_content_seeds')
+            ->once()
+            ->andReturn(false);
+
+        $this->createOwnerDemoCatalog();
+
+        $response = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                'owner_name' => 'Missing Seed Table Merchant',
+                'store_name' => 'Missing Seed Table Store',
+                'email' => 'missing-seed-table@example.com',
+                'password' => 'password',
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('tenant.slug', 'missing-seed-table-store')
+            ->assertJsonPath('domain.hostname', 'missing-seed-table-store.company.com');
+
+        $tenant = Tenant::query()->where('slug', 'missing-seed-table-store')->firstOrFail();
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenant->id,
+            'status' => 'active',
+        ]);
+        $this->assertGreaterThan(
+            0,
+            Product::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count()
+        );
+        $this->assertDatabaseMissing('tenant_demo_content_seeds', [
+            'tenant_id' => $tenant->id,
         ]);
     }
 

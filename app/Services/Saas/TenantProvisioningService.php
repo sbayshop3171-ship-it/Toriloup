@@ -36,12 +36,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role as SpatieRole;
 
 class TenantProvisioningService
 {
+    private ?bool $tenantDemoContentSeedTableExists = null;
+
     public function __construct(
         private readonly PlatformRoleRegistryService $platformRoleRegistryService,
         private readonly TenantSettingsService $tenantSettingsService,
@@ -306,11 +309,16 @@ class TenantProvisioningService
             ->orderBy('id')
             ->get()
             ->each(function (Tenant $tenant) use (&$stats): void {
-                $before = TenantDemoContentSeed::query()->where('tenant_id', $tenant->id)->count();
+                $trackingEnabled = $this->tenantDemoSeedTrackingEnabled();
+                $before = $trackingEnabled
+                    ? TenantDemoContentSeed::query()->where('tenant_id', $tenant->id)->count()
+                    : 0;
 
                 DB::transaction(fn () => $this->seedStorefrontDefaults($tenant));
 
-                $after = TenantDemoContentSeed::query()->where('tenant_id', $tenant->id)->count();
+                $after = $trackingEnabled
+                    ? TenantDemoContentSeed::query()->where('tenant_id', $tenant->id)->count()
+                    : $before;
                 $stats['tenants']++;
                 $stats['seeded_records'] += max($after - $before, 0);
             });
@@ -811,6 +819,16 @@ class TenantProvisioningService
         array $mediaCollections = []
     ): ?Model {
         $modelClass = $source::class;
+
+        if (!$this->tenantDemoSeedTrackingEnabled()) {
+            /** @var Model $copy */
+            $copy = $modelClass::withoutGlobalScopes()->firstOrCreate($identity, $attributes);
+
+            $this->copyMediaCollections($source, $copy, $mediaCollections);
+
+            return $copy;
+        }
+
         $seed = TenantDemoContentSeed::query()
             ->where('tenant_id', $tenant->id)
             ->where('source_type', $modelClass)
@@ -835,6 +853,15 @@ class TenantProvisioningService
         ]);
 
         return $copy;
+    }
+
+    private function tenantDemoSeedTrackingEnabled(): bool
+    {
+        if ($this->tenantDemoContentSeedTableExists !== null) {
+            return $this->tenantDemoContentSeedTableExists;
+        }
+
+        return $this->tenantDemoContentSeedTableExists = Schema::hasTable((new TenantDemoContentSeed())->getTable());
     }
 
     private function seedTarget(TenantDemoContentSeed $seed): ?Model
