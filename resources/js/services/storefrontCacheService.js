@@ -113,6 +113,10 @@ function isCacheable(config) {
         return false;
     }
 
+    if (url.startsWith("frontend/setting")) {
+        return false;
+    }
+
     if (method === "get") {
         return true;
     }
@@ -123,7 +127,7 @@ function isCacheable(config) {
 function ttlFor(config) {
     const url = requestUrl(config);
 
-    if (/frontend\/(setting|slider|benefit|product-category|product-brand|product-section|promotion|page|outlet|order-area|payment-gateway)/.test(url)) {
+    if (/frontend\/(slider|benefit|product-category|product-brand|product-section|promotion|page|outlet|order-area|payment-gateway)/.test(url)) {
         return LONG_TTL;
     }
 

@@ -136,6 +136,72 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertJsonPath('message', 'Forbidden. storefront token required.');
     }
 
+    public function test_signup_otp_endpoints_skip_when_site_verification_is_disabled(): void
+    {
+        $tenant = $this->createTenant('signup-otp-store');
+
+        Settings::group('site')->set([
+            'site_email_verification' => Activity::DISABLE,
+            'site_phone_verification' => Activity::DISABLE,
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->postJson("http://{$tenant->slug}.company.com/api/storefront/auth/signup/otp-email", [
+                'email' => 'signup-otp-skip@test.com',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('verification', false);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->postJson("http://{$tenant->slug}.company.com/api/storefront/auth/signup/otp-phone", [
+                'country_code' => '+880',
+                'phone' => '01711111111',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('verification', false);
+
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => 'signup-otp-skip@test.com',
+        ]);
+        $this->assertDatabaseMissing('otps', [
+            'code' => '+880',
+            'phone' => '01711111111',
+        ]);
+    }
+
+    public function test_storefront_signup_registers_without_otp_when_email_verification_is_disabled(): void
+    {
+        $tenant = $this->createTenant('signup-register-store');
+        $this->ensureCustomerRole();
+
+        Settings::group('site')->set([
+            'site_email_verification' => Activity::DISABLE,
+            'site_phone_verification' => Activity::DISABLE,
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->postJson("http://{$tenant->slug}.company.com/api/storefront/auth/signup/register", [
+                'name' => 'Signup Disabled',
+                'email' => 'signup-disabled@test.com',
+                'password' => 'secret123',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', true);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'signup-disabled@test.com',
+            'is_guest' => Ask::NO,
+        ]);
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => 'signup-disabled@test.com',
+        ]);
+    }
+
     public function test_storefront_payment_gateways_follow_merchant_enabled_methods(): void
     {
         $tenant = $this->createTenant('payment-method-store');
@@ -387,15 +453,7 @@ class StorefrontCustomerFlowTest extends TestCase
 
     private function createCustomerUser(string $email): User
     {
-        $role = Role::query()->find(LegacyRole::CUSTOMER);
-
-        if ($role === null) {
-            $role = new Role();
-            $role->id = LegacyRole::CUSTOMER;
-            $role->name = 'customer';
-            $role->guard_name = 'web';
-            $role->save();
-        }
+        $role = $this->ensureCustomerRole();
 
         $user = User::factory()->create([
             'name' => 'Storefront Customer',
@@ -409,6 +467,21 @@ class StorefrontCustomerFlowTest extends TestCase
         $user->assignRole($role);
 
         return $user;
+    }
+
+    private function ensureCustomerRole(): Role
+    {
+        $role = Role::query()->find(LegacyRole::CUSTOMER);
+
+        if ($role === null) {
+            $role = new Role();
+            $role->id = LegacyRole::CUSTOMER;
+            $role->name = 'customer';
+            $role->guard_name = 'sanctum';
+            $role->save();
+        }
+
+        return $role;
     }
 
     private function createTenant(string $slug): Tenant

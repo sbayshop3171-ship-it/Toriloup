@@ -160,62 +160,85 @@ export default {
             this.flag = e.flag_emoji;
             this.form.country_code = e.calling_code;
         },
+        isDemoMode: function () {
+            return ['true', 'TRUE', 'True', '1', 1, true].includes(this.demo);
+        },
+        verificationEnabled: function (value) {
+            return Number(value) === askEnum.YES;
+        },
+        sendPhoneOtp: function () {
+            this.$store.dispatch("frontendSignup/otpPhone", this.form).then((res) => {
+                if (res.data.verification === false) {
+                    this.saveUser();
+                    return;
+                }
+
+                this.loading.isActive = false;
+                alertService.success(res.data.message, 'bottom-center');
+                this.$router.push({ name: "auth.signupVerify" });
+            }).catch((err) => {
+                this.loading.isActive = false;
+                alertService.error(err.response.data.message);
+            });
+        },
+        sendEmailOtp: function () {
+            this.$store.dispatch("frontendSignup/otpEmail", this.form).then((res) => {
+                if (res.data.verification === false) {
+                    this.saveUser();
+                    return;
+                }
+
+                this.loading.isActive = false;
+                alertService.success(res.data.message, 'bottom-center');
+                this.$router.push({ name: "auth.signupVerify" });
+            }).catch((err) => {
+                this.loading.isActive = false;
+                alertService.error(err.response.data.message);
+            });
+        },
+        saveUser: function () {
+            this.$store.dispatch("frontendSignup/signup", this.form).then((res) => {
+                this.loading.isActive = false;
+                this.$store.dispatch("signupLoginVerify", this.form).then((res) => {
+                    this.loading.isActive = false;
+                    alertService.success(res.data.message, 'bottom-center');
+                    this.$store.dispatch("frontendSignup/reset");
+                    this.$router.push({
+                        name: "frontend.home",
+                    });
+                }).catch((err) => {
+                    this.loading.isActive = false;
+                    this.errors = err.response.data.message;
+                });
+                this.$router.push({ name: "frontend.home" });
+                this.form = {
+                    name: "",
+                    email: "",
+                    phone: "",
+                    code: "",
+                    password: ""
+                };
+                this.errors = {};
+            }).catch((err) => {
+                this.loading.isActive = false;
+                this.errors = err.response.data.errors;
+            })
+        },
         signup: function () {
             try {
 
 
                 this.loading.isActive = true;
                 this.$store.dispatch("frontendSignup/signupValidation", this.form).then((res) => {
-                    // form is valid
-                    if (this.setting.site_phone_verification === askEnum.YES && this.form.phone !== "" && (this.demo !== 'true' || this.demo !== 'TRUE' || this.demo !== 'True' || this.demo !== '1' || this.demo !== 1)) {
-                        // otp to phone
-                        this.$store.dispatch("frontendSignup/otpPhone", this.form).then((res) => {
-                            this.loading.isActive = false;
-                            alertService.success(res.data.message, 'bottom-center');
-                            this.$router.push({ name: "auth.signupVerify" });
-                        }).catch((err) => {
-                            this.loading.isActive = false;
-                            alertService.error(err.response.data.message);
-                        });
-                    } else if (this.setting.site_email_verification === askEnum.YES && this.form.email !== "" && (this.demo !== 'true' || this.demo !== 'TRUE' || this.demo !== 'True' || this.demo !== '1' || this.demo !== 1)) {
-                        //otp to email
-                        this.$store.dispatch("frontendSignup/otpEmail", this.form).then((res) => {
-                            this.loading.isActive = false;
-                            alertService.success(res.data.message, 'bottom-center');
-                            this.$router.push({ name: "auth.signupVerify" });
-                        }).catch((err) => {
-                            this.loading.isActive = false;
-                            alertService.error(err.response.data.message);
-                        });
-                    } else {
-                        // save user
-                        this.$store.dispatch("frontendSignup/signup", this.form).then((res) => {
-                            this.loading.isActive = false;
-                            this.$store.dispatch("signupLoginVerify", this.form).then((res) => {
-                                this.loading.isActive = false;
-                                alertService.success(res.data.message, 'bottom-center');
-                                this.$store.dispatch("frontendSignup/reset");
-                                this.$router.push({
-                                    name: "frontend.home",
-                                });
-                            }).catch((err) => {
-                                this.loading.isActive = false;
-                                this.errors = err.response.data.message;
-                            });
-                            this.$router.push({ name: "frontend.home" });
-                            this.form = {
-                                name: "",
-                                email: "",
-                                phone: "",
-                                code: "",
-                                password: ""
-                            };
-                            this.errors = {};
-                        }).catch((err) => {
-                            this.loading.isActive = false;
-                            this.errors = err.response.data.errors;
-                        })
-                    }
+                    this.$store.dispatch('frontendSetting/lists').finally(() => {
+                        if (this.verificationEnabled(this.setting.site_phone_verification) && this.form.phone !== "" && !this.isDemoMode()) {
+                            this.sendPhoneOtp();
+                        } else if (this.verificationEnabled(this.setting.site_email_verification) && this.form.email !== "" && !this.isDemoMode()) {
+                            this.sendEmailOtp();
+                        } else {
+                            this.saveUser();
+                        }
+                    });
                 }).catch((err) => {
                     this.loading.isActive = false;
                     this.errors = err.response.data.errors;

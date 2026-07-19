@@ -47,6 +47,7 @@ import LoadingComponent from "../components/LoadingComponent";
 import alertService from "../../../services/alertService";
 import ENV from "../../../config/env";
 import _ from "lodash";
+import askEnum from "../../../enums/modules/askEnum";
 
 export default {
     name: "SignupVerifyComponent",
@@ -70,20 +71,43 @@ export default {
         };
     },
     mounted() {
-        this.phoneOrEmailChecking();
+        this.$store.dispatch('frontendSetting/lists').finally(() => {
+            this.phoneOrEmailChecking();
+        });
+    },
+    computed: {
+        setting: function () {
+            return this.$store.getters['frontendSetting/lists'];
+        },
     },
     methods: {
+        verificationEnabled: function (value) {
+            return Number(value) === askEnum.YES;
+        },
         phoneOrEmailChecking: function () {
             this.loading.isActive = true;
             const otpPhone = this.$store.getters['frontendSignup/phone'];
             const otpEmail = this.$store.getters['frontendSignup/email'];
-            if (Object.keys(otpPhone).length > 0 && otpPhone.otp.phone !== "") {
-                this.props.form.phone = otpPhone.otp.phone;
-                this.props.form.country_code = otpPhone.otp.country_code;
+            const phoneOtp = otpPhone?.otp || {};
+            const emailOtp = otpEmail?.otp || {};
+
+            if (phoneOtp.phone) {
+                if (!this.verificationEnabled(this.setting.site_phone_verification)) {
+                    this.signup();
+                    return;
+                }
+
+                this.props.form.phone = phoneOtp.phone;
+                this.props.form.country_code = phoneOtp.country_code;
                 this.props.form.email = "";
                 this.loading.isActive = false;
-            } else if (Object.keys(otpEmail).length > 0 && otpPhone.otp.email !== "") {
-                this.props.form.email = otpPhone.otp.email;
+            } else if (emailOtp.email) {
+                if (!this.verificationEnabled(this.setting.site_email_verification)) {
+                    this.signup();
+                    return;
+                }
+
+                this.props.form.email = emailOtp.email;
                 this.props.form.phone = "";
                 this.props.form.country_code = "";
                 this.loading.isActive = false;
@@ -153,6 +177,12 @@ export default {
         signup: function () {
             try {
                 const form = this.$store.getters['frontendSignup/formData'];
+                if (!form || Object.keys(form).length === 0) {
+                    this.loading.isActive = false;
+                    this.$router.push({ name: 'auth.signup' });
+                    return;
+                }
+
                 this.$store.dispatch("frontendSignup/signup", form).then(async (res) => {
                     await this.$store.dispatch("signupLoginVerify", form).then((res) => {
                         this.loading.isActive = false;

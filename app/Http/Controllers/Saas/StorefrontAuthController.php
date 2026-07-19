@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\SignupController;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SignupRequest;
 use App\Models\User;
 use App\Services\Saas\SurfaceTokenService;
 use App\Services\Saas\TenantProvisioningService;
@@ -38,7 +39,7 @@ class StorefrontAuthController extends Controller
         return $this->augmentResponse($request, $response);
     }
 
-    public function register(Request $request, SignupController $signupController)
+    public function register(SignupRequest $request, SignupController $signupController)
     {
         $response = $signupController->register($request);
         $this->syncShadowCustomerFromRequest($request);

@@ -12,7 +12,7 @@ export const frontendSignup = {
             return state.phone;
         },
         email: function (state) {
-            return state.phone;
+            return state.email;
         },
         formData: function (state) {
             return state.formData;

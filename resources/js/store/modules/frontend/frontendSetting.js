@@ -40,7 +40,7 @@ export const frontendSetting = {
                 if (payload) {
                     url = url + appService.requestHandler(payload);
                 }
-                axios.get(url).then((res) => {
+                axios.get(url, { cache: false }).then((res) => {
                     context.commit("lists", res.data.data);
                     resolve(res);
                 }).catch((err) => {

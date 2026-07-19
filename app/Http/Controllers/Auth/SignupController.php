@@ -44,12 +44,39 @@ class SignupController extends Controller
         $this->menuService = $menuService;
     }
 
+    private function isDemoMode(): bool
+    {
+        return filter_var(env('DEMO'), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function phoneVerificationEnabled(): bool
+    {
+        return (int) Settings::group('site')->get('site_phone_verification') === Activity::ENABLE;
+    }
+
+    private function emailVerificationEnabled(): bool
+    {
+        return (int) Settings::group('site')->get('site_email_verification') === Activity::ENABLE;
+    }
+
     public function otpPhone(
         SignupPhoneRequest $request
     ): \Illuminate\Http\Response|\Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\Routing\ResponseFactory {
         try {
+            if (!$this->phoneVerificationEnabled() || $this->isDemoMode()) {
+                return response([
+                    'status' => true,
+                    'verification' => false,
+                    'message' => trans("all.message.user_verify_success")
+                ]);
+            }
+
             $this->otpManagerService->otpPhone($request);
-            return response(['status' => true, 'message' => trans("all.message.check_your_phone_for_code")]);
+            return response([
+                'status' => true,
+                'verification' => true,
+                'message' => trans("all.message.check_your_phone_for_code")
+            ]);
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }
@@ -59,8 +86,20 @@ class SignupController extends Controller
         SignupEmailRequest $request
     ): \Illuminate\Http\Response|\Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\Routing\ResponseFactory {
         try {
+            if (!$this->emailVerificationEnabled() || $this->isDemoMode()) {
+                return response([
+                    'status' => true,
+                    'verification' => false,
+                    'message' => trans("all.message.user_verify_success")
+                ]);
+            }
+
             $this->otpManagerService->otpEmail($request);
-            return response(['status' => true, 'message' => trans("all.message.check_your_email_for_code")]);
+            return response([
+                'status' => true,
+                'verification' => true,
+                'message' => trans("all.message.check_your_email_for_code")
+            ]);
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }
@@ -102,9 +141,7 @@ class SignupController extends Controller
     {
 
         if (
-            !blank($request->phone) && Settings::group('site')->get('site_phone_verification') === Ask::YES &&
-            (env('DEMO') !== "true" && env('DEMO') !== "TRUE" && env('DEMO') !== "True" &&
-                env('DEMO') !== true && env('DEMO') !== TRUE && env('DEMO') !== True && env('DEMO') !== '1' && env('DEMO') !== 1)
+            !blank($request->phone) && $this->phoneVerificationEnabled() && !$this->isDemoMode()
         ) {
 
             $otp = DB::table('otps')->where([
@@ -117,9 +154,7 @@ class SignupController extends Controller
                 return response(['status' => true, 'message' => trans('all.message.phone_not_verified')]);
             }
         } else if (
-            !blank($request->email) && Settings::group('site')->get('site_email_verification') === Ask::YES &&
-            (env('DEMO') !== "true" && env('DEMO') !== "TRUE" && env('DEMO') !== "True" &&
-                env('DEMO') !== true && env('DEMO') !== TRUE && env('DEMO') !== True && env('DEMO') !== '1' && env('DEMO') !== 1)
+            !blank($request->email) && $this->emailVerificationEnabled() && !$this->isDemoMode()
         ) {
 
             $otp = DB::table('password_reset_tokens')->where([
