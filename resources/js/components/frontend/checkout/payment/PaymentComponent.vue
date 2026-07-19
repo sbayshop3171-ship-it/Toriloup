@@ -10,7 +10,7 @@
                 <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 p-4">
                     <div v-if="Object.keys(cashOnDelivery).length > 0"
                         :key="cashOnDelivery.id"
-                        @click.prevent="selectPaymentMethod(cashOnDelivery, true, $event)"
+                        @click.prevent="selectPaymentMethod(cashOnDelivery)"
                         :class="paymentMethodCardClass(cashOnDelivery)"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img class="h-6" :src="cashOnDelivery.image" alt="payment" loading="eager" decoding="async" fetchpriority="high" />
@@ -19,7 +19,7 @@
 
                     <div v-if="Object.keys(credit).length > 0 && profile.balance >= total"
                         :key="credit.id"
-                        @click.prevent="selectPaymentMethod(credit, true, $event)"
+                        @click.prevent="selectPaymentMethod(credit)"
                         :class="paymentMethodCardClass(credit)"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img class="h-6" :src="credit.image" alt="payment" loading="eager" decoding="async" fetchpriority="high" />
@@ -28,7 +28,7 @@
 
                     <div v-for="(paymentGateway, index) in paymentGateways"
                         :key="paymentGateway.id"
-                        @click.prevent="selectPaymentMethod(paymentGateway, true, $event)"
+                        @click.prevent="selectPaymentMethod(paymentGateway)"
                         :class="paymentMethodCardClass(paymentGateway)"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img
@@ -171,16 +171,12 @@ export default {
         });
     },
     methods: {
-        selectPaymentMethod: function (paymentMethod, autoConfirm = false, event = null) {
+        selectPaymentMethod: function (paymentMethod) {
             if (this.isSubmitting) {
                 return;
             }
 
             this.$store.dispatch("frontendCart/paymentMethod", paymentMethod);
-
-            if (autoConfirm) {
-                this.$nextTick(() => this.confirmOrder(event));
-            }
         },
         paymentMethodCardClass: function (paymentMethod) {
             return [
