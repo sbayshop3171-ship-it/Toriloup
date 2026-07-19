@@ -87,7 +87,7 @@
             </button>
             <div v-if="!isAdminLoginRoute" class="flex items-center justify-center gap-1.5">
                 <span class="font-medium text-text">{{ $t('message.dont_have_account') }}</span>
-                <router-link class="capitalize font-bold text-primary" :to="{ name: 'auth.signup' }">
+                <router-link class="capitalize font-bold text-primary" :to="{ name: 'auth.signup', query: authRouteQuery }">
                     {{ $t('label.sign_up') }}
                 </router-link>
             </div>
@@ -137,6 +137,7 @@ import appService from "../../../services/appService";
 import ENV from "../../../config/env";
 import roleEnum from "../../../enums/modules/roleEnum";
 import { detectWorkspaceHost, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
+import { authRedirectQuery, resolvePostAuthRedirect } from "../../../services/authRedirectService";
 
 export default {
     name: "LoginComponent",
@@ -208,6 +209,9 @@ export default {
 
             return `${baseClass} min-h-[calc(100vh_-_160px)]`;
         },
+        authRouteQuery: function () {
+            return authRedirectQuery(this.$route);
+        },
     },
     mounted() {
         this.loading.isActive = true;
@@ -267,11 +271,7 @@ export default {
                         }
 
                         this.$store.dispatch("frontendWishlist/lists").then().catch();
-                        if (this.carts.length > 0) {
-                            router.push({ name: "frontend.checkout" });
-                        } else {
-                            router.push({ name: "frontend.home" });
-                        }
+                        router.push(resolvePostAuthRedirect(this.$route, this.carts));
                     }
 
                     setTimeout(() => {

@@ -71,7 +71,7 @@
             </button>
             <div class="flex items-center justify-center gap-1.5">
                 <span class="font-medium text-text">{{ $t('message.already_have_account') }}</span>
-                <router-link class="capitalize font-bold text-primary" :to="{ name: 'auth.login' }">
+                <router-link class="capitalize font-bold text-primary" :to="{ name: 'auth.login', query: authRouteQuery }">
                     {{ $t('label.sign_in') }}
                 </router-link>
             </div>
@@ -86,7 +86,7 @@ import appService from "../../../services/appService";
 import ENV from "../../../config/env";
 import askEnum from "../../../enums/modules/askEnum"
 import alertService from "../../../services/alertService";
-import router from "../../../router";
+import { authRedirectQuery, resolvePostAuthRedirect } from "../../../services/authRedirectService";
 export default {
     name: "LoginComponent",
     components: { LoadingComponent },
@@ -120,6 +120,9 @@ export default {
         },
         carts: function () {
             return this.$store.getters['frontendCart/lists'];
+        },
+        authRouteQuery: function () {
+            return authRedirectQuery(this.$route);
         },
     },
     mounted() {
@@ -175,7 +178,7 @@ export default {
 
                 this.loading.isActive = false;
                 alertService.success(res.data.message, 'bottom-center');
-                this.$router.push({ name: "auth.signupVerify" });
+                this.$router.push({ name: "auth.signupVerify", query: this.authRouteQuery });
             }).catch((err) => {
                 this.loading.isActive = false;
                 alertService.error(err.response.data.message);
@@ -190,35 +193,38 @@ export default {
 
                 this.loading.isActive = false;
                 alertService.success(res.data.message, 'bottom-center');
-                this.$router.push({ name: "auth.signupVerify" });
+                this.$router.push({ name: "auth.signupVerify", query: this.authRouteQuery });
             }).catch((err) => {
                 this.loading.isActive = false;
                 alertService.error(err.response.data.message);
             });
         },
         saveUser: function () {
-            this.$store.dispatch("frontendSignup/signup", this.form).then((res) => {
-                this.loading.isActive = false;
-                this.$store.dispatch("signupLoginVerify", this.form).then((res) => {
+            const signupForm = { ...this.form };
+
+            this.$store.dispatch("frontendSignup/signup", signupForm).then((res) => {
+                this.$store.dispatch("signupLoginVerify", {
+                    ...signupForm,
+                    context: "storefront",
+                }).then((res) => {
                     this.loading.isActive = false;
                     alertService.success(res.data.message, 'bottom-center');
                     this.$store.dispatch("frontendSignup/reset");
-                    this.$router.push({
-                        name: "frontend.home",
-                    });
+                    this.form = {
+                        name: "",
+                        email: "",
+                        phone: "",
+                        country_code: "",
+                        password: ""
+                    };
+                    this.errors = {};
+                    this.$router.push(resolvePostAuthRedirect(this.$route, this.carts));
                 }).catch((err) => {
                     this.loading.isActive = false;
-                    this.errors = err.response.data.message;
+                    this.errors = err.response?.data?.errors || {
+                        validation: err.response?.data?.message || "Signup login failed.",
+                    };
                 });
-                this.$router.push({ name: "frontend.home" });
-                this.form = {
-                    name: "",
-                    email: "",
-                    phone: "",
-                    code: "",
-                    password: ""
-                };
-                this.errors = {};
             }).catch((err) => {
                 this.loading.isActive = false;
                 this.errors = err.response.data.errors;

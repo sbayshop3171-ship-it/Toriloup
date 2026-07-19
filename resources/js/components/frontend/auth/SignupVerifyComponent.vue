@@ -34,7 +34,7 @@
             <button type="submit"
                 class="font-bold text-center w-full h-12 leading-12 rounded-full bg-primary text-white mb-6">
                 {{ $t('button.verify') }}</button>
-            <router-link class="block text-center font-bold text-primary" :to="{ name: 'auth.login' }">
+            <router-link class="block text-center font-bold text-primary" :to="{ name: 'auth.login', query: authRouteQuery }">
                 {{ $t('label.back_to_sign_in') }}
             </router-link>
         </form>
@@ -48,6 +48,7 @@ import alertService from "../../../services/alertService";
 import ENV from "../../../config/env";
 import _ from "lodash";
 import askEnum from "../../../enums/modules/askEnum";
+import { authRedirectQuery, resolvePostAuthRedirect } from "../../../services/authRedirectService";
 
 export default {
     name: "SignupVerifyComponent",
@@ -78,6 +79,12 @@ export default {
     computed: {
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
+        },
+        carts: function () {
+            return this.$store.getters['frontendCart/lists'];
+        },
+        authRouteQuery: function () {
+            return authRedirectQuery(this.$route);
         },
     },
     methods: {
@@ -114,7 +121,7 @@ export default {
 
             }
             else {
-                this.$router.push({ name: 'auth.signup' });
+                this.$router.push({ name: 'auth.signup', query: this.authRouteQuery });
             }
             this.loading.isActive = false;
         },
@@ -154,14 +161,20 @@ export default {
             try {
                 this.loading.isActive = true;
                 if (this.props.form.country_code !== "" && this.props.form.phone !== "") {
-                    this.$store.dispatch("verifyPhone", this.props.form).then((res) => {
+                    this.$store.dispatch("verifyPhone", {
+                        ...this.props.form,
+                        context: "storefront",
+                    }).then((res) => {
                         this.signup();
                     }).catch((err) => {
                         this.loading.isActive = false;
                         this.errors = err.response.data.message;
                     });
                 } else {
-                    this.$store.dispatch("verifyEmail", this.props.form).then((res) => {
+                    this.$store.dispatch("verifyEmail", {
+                        ...this.props.form,
+                        context: "storefront",
+                    }).then((res) => {
                         this.signup();
                     }).catch((err) => {
                         this.loading.isActive = false;
@@ -179,28 +192,29 @@ export default {
                 const form = this.$store.getters['frontendSignup/formData'];
                 if (!form || Object.keys(form).length === 0) {
                     this.loading.isActive = false;
-                    this.$router.push({ name: 'auth.signup' });
+                    this.$router.push({ name: 'auth.signup', query: this.authRouteQuery });
                     return;
                 }
 
-                this.$store.dispatch("frontendSignup/signup", form).then(async (res) => {
-                    await this.$store.dispatch("signupLoginVerify", form).then((res) => {
+                this.$store.dispatch("frontendSignup/signup", form).then((res) => {
+                    this.$store.dispatch("signupLoginVerify", {
+                        ...form,
+                        context: "storefront",
+                    }).then((res) => {
                         this.loading.isActive = false;
                         alertService.success(res.data.message);
+                        this.$store.dispatch("frontendSignup/reset");
+                        this.props.form = {
+                            email: "",
+                            phone: "",
+                            token: "",
+                            country_code: "",
+                        };
+                        this.errors = '';
+                        this.$router.push(resolvePostAuthRedirect(this.$route, this.carts));
                     }).catch((err) => {
                         this.loading.isActive = false;
-                        this.errors = err.response.data.message;
-                    });
-                    this.$store.dispatch("frontendSignup/reset");
-                    this.props.form = {
-                        email: "",
-                        phone: "",
-                        token: "",
-                        country_code: "",
-                    };
-                    this.errors = '';
-                    this.$router.push({
-                        name: "frontend.home",
+                        this.errors = err.response?.data?.message || "Signup login failed.";
                     });
                 }).catch((err) => {
                     this.loading.isActive = false;

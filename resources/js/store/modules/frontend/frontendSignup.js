@@ -1,5 +1,9 @@
 import axios from "axios";
 
+const storefrontSignupEndpoint = function (action) {
+    return `storefront/auth/signup/${action}`;
+};
+
 export const frontendSignup = {
     namespaced: true,
     state: {
@@ -21,7 +25,7 @@ export const frontendSignup = {
     actions: {
         otpPhone: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/signup/otp-phone";
+                let url = storefrontSignupEndpoint("otp-phone");
                 axios.post(url,payload).then((res) => {
                     context.commit("phone", payload);
                     resolve(res);
@@ -32,7 +36,7 @@ export const frontendSignup = {
         },
         otpEmail: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/signup/otp-email";
+                let url = storefrontSignupEndpoint("otp-email");
                 axios.post(url,payload).then((res) => {
                     context.commit("email", payload);
                     resolve(res);
@@ -43,7 +47,7 @@ export const frontendSignup = {
         },
         signupValidation: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/signup/register-validation";
+                let url = storefrontSignupEndpoint("register-validation");
                 axios.post(url,payload).then((res) => {
                     context.commit("formData", payload);
                     context.commit("phone", payload);
@@ -56,7 +60,7 @@ export const frontendSignup = {
         },
         signup: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/signup/register";
+                let url = storefrontSignupEndpoint("register");
                 axios.post(url,payload).then((res) => {
                     context.commit("phone", payload);
                     context.commit("email", payload);

@@ -262,7 +262,7 @@ export const auth = {
         },
         verifyPhone: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/signup/verify-phone";
+                let url = authEndpoint(payload?.context, "signup/verify-phone");
                 axios
                     .post(url, payload)
                     .then((res) => {
@@ -275,7 +275,7 @@ export const auth = {
         },
         verifyEmail: function (context, payload) {
             return new Promise((resolve, reject) => {
-                let url = "auth/signup/verify-email";
+                let url = authEndpoint(payload?.context, "signup/verify-email");
                 axios
                     .post(url, payload)
                     .then((res) => {
@@ -289,7 +289,7 @@ export const auth = {
         signupLoginVerify: function (context, payload) {
             return new Promise((resolve, reject) => {
                 axios
-                    .post("auth/signup/login-verify", payload)
+                    .post(authEndpoint(payload?.context, "signup/login-verify"), payload)
                     .then((res) => {
                         context.commit("authLogin", res.data);
                         resolve(res);

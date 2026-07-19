@@ -245,6 +245,59 @@ class StorefrontCustomerFlowTest extends TestCase
         ]);
     }
 
+    public function test_storefront_signup_login_verify_returns_storefront_token_for_customer_session(): void
+    {
+        $tenant = $this->createTenant('signup-session-store');
+        $this->ensureCustomerRole();
+
+        Settings::group('site')->set([
+            'site_email_verification' => Activity::DISABLE,
+            'site_phone_verification' => Activity::DISABLE,
+        ]);
+
+        $payload = [
+            'name' => 'Signup Session',
+            'email' => 'signup-session@test.com',
+            'password' => 'secret123',
+        ];
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->postJson("http://{$tenant->slug}.company.com/api/storefront/auth/signup/register", $payload)
+            ->assertOk()
+            ->assertJsonPath('status', true);
+
+        $response = $this
+            ->withHeaders($this->jsonHeaders())
+            ->postJson("http://{$tenant->slug}.company.com/api/storefront/auth/signup/login-verify", $payload);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('surface', 'storefront')
+            ->assertJsonPath('tenant.slug', $tenant->slug)
+            ->assertJsonPath('domain.hostname', "{$tenant->slug}.company.com");
+
+        $token = (string) $response->json('token');
+        $this->assertNotSame('', $token);
+
+        $user = User::query()->where('email', $payload['email'])->firstOrFail();
+        $this->assertSame('storefront_auth_token', $user->tokens()->latest('id')->first()?->name);
+        $this->assertSame(['surface:storefront'], $user->tokens()->latest('id')->first()?->abilities);
+
+        $this
+            ->withHeaders($this->jsonHeaders($token))
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/overview/total-orders")
+            ->assertOk()
+            ->assertJsonPath('data.total_orders', 0);
+
+        $this->assertDatabaseHas((new Customer())->getTable(), [
+            'tenant_id' => $tenant->id,
+            'legacy_user_id' => $user->id,
+            'email' => $payload['email'],
+        ]);
+    }
+
     public function test_storefront_payment_gateways_follow_merchant_enabled_methods(): void
     {
         $tenant = $this->createTenant('payment-method-store');

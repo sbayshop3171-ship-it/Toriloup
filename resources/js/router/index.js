@@ -6,6 +6,7 @@ import ENV from "../config/env";
 import roleEnum from "../enums/modules/roleEnum";
 import appService from "../services/appService";
 import { detectWorkspaceHost, resolveAuthenticatedHomeRoute, resolveGuestHomeRoute } from "../services/workspaceService";
+import { isSafeAuthRedirect } from "../services/authRedirectService";
 import store from "../store";
 import administratorRoutes from "./modules/administratorRoutes";
 import authRoutes from "./modules/authRoutes";
@@ -235,6 +236,11 @@ router.beforeEach((to, from, next) => {
 
     if (to.meta.auth === true) {
         if (!isLoggedIn) {
+            if (workspaceHost === "storefront" && to.meta?.isFrontend === true && isSafeAuthRedirect(to.fullPath)) {
+                next({ name: "auth.login", query: { redirect: to.fullPath } });
+                return;
+            }
+
             next(resolveGuestHomeRoute(hostname));
             return;
         }
@@ -300,6 +306,11 @@ router.beforeEach((to, from, next) => {
     }
 
     if (isLoggedIn && guestOnlyRouteNames.includes(to.name)) {
+        if (workspaceHost === "storefront" && authSurface === "storefront" && isSafeAuthRedirect(to.query?.redirect)) {
+            next(to.query.redirect);
+            return;
+        }
+
         next(resolveAuthenticatedHomeRoute(store.getters.authInfo, hostname));
         return;
     }
