@@ -22,7 +22,9 @@ class PaymentGatewayResource extends JsonResource
             'name'    => $this->name,
             'slug'    => $this->slug,
             'status'  => $this->status,
-            'options' => $this->gatewayOptions ? GatewayOptionsResource::collection($this->gatewayOptions) : []
+            'options' => $this->gatewayOptions ? GatewayOptionsResource::collection(
+                $this->gatewayOptions->reject(fn ($option) => $this->slug === 'paypal' && $option->option === 'paypal_app_id')
+            ) : []
         ];
     }
 

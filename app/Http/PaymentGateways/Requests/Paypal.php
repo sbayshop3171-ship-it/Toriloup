@@ -26,7 +26,6 @@ class Paypal extends FormRequest
     {
         if (request()->paypal_status == Activity::ENABLE) {
             return [
-                'paypal_app_id'        => ['required', 'string'],
                 'paypal_mode'          => ['required', 'string'],
                 'paypal_client_id'     => ['required', 'string'],
                 'paypal_client_secret' => ['required', 'string'],
@@ -34,7 +33,6 @@ class Paypal extends FormRequest
             ];
         } else {
             return [
-                'paypal_app_id'        => ['nullable', 'string'],
                 'paypal_mode'          => ['nullable', 'string'],
                 'paypal_client_id'     => ['nullable', 'string'],
                 'paypal_client_secret' => ['nullable', 'string'],

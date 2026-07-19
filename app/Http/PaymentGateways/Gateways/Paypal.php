@@ -33,12 +33,12 @@ class Paypal extends PaymentAbstract
                 'sandbox'        => [
                     'client_id'     => $this->paymentGatewayOption['paypal_client_id'],
                     'client_secret' => $this->paymentGatewayOption['paypal_client_secret'],
-                    'app_id'        => $this->paymentGatewayOption['paypal_app_id'],
+                    'app_id'        => '',
                 ],
                 'live'           => [
                     'client_id'     => $this->paymentGatewayOption['paypal_client_id'],
                     'client_secret' => $this->paymentGatewayOption['paypal_client_secret'],
-                    'app_id'        => $this->paymentGatewayOption['paypal_app_id'],
+                    'app_id'        => '',
                 ],
                 "payment_action" => "Sale",
                 "currency"       => $currencyCode,

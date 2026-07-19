@@ -18,10 +18,6 @@ class PaymentGatewayDataTableSeeder extends Seeder
             "status"  => Activity::ENABLE,
             "options" => [
                 [
-                    "option" => 'paypal_app_id',
-                    "value"  => 'sb-qzxs18789565@business.example.com',
-                ],
-                [
                     "option" => 'paypal_client_id',
                     "value"  => 'AbcV-BG5b30hjofcp2dj41GB1OYXE8_9-egRlV8z4R7vHiA-1mgL3Fvj3pkrOJyq0dC_vHNRAh_tp74p'
                 ],

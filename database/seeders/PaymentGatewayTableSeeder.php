@@ -39,11 +39,6 @@ class PaymentGatewayTableSeeder extends Seeder
             "status"  => Activity::DISABLE,
             "options" => [
                 [
-                    "option"     => 'paypal_app_id',
-                    "type"       => InputType::TEXT,
-                    "activities" => ''
-                ],
-                [
                     "option"     => 'paypal_client_id',
                     "type"       => InputType::TEXT,
                     "activities" => ''
