@@ -12,8 +12,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Throwable;
 
 
 class User extends Authenticatable implements HasMedia
@@ -75,10 +77,7 @@ class User extends Authenticatable implements HasMedia
 
     public function getImageAttribute(): string
     {
-        if (!empty($this->getFirstMediaUrl('profile'))) {
-            return asset($this->getFirstMediaUrl('profile'));
-        }
-        return asset('images/required/profile.png');
+        return $this->profileMediaUrl();
     }
 
     public function getFirstNameAttribute(): string
@@ -95,10 +94,48 @@ class User extends Authenticatable implements HasMedia
 
     public function getThumbAttribute(): string
     {
-        if (!empty($this->getFirstMediaUrl('profile'))) {
-            $profile = $this->getMedia('profile')->last();
-            return $profile->getUrl('thumb');
+        return $this->profileMediaUrl(['thumb']);
+    }
+
+    private function profileMediaUrl(array $conversionNames = []): string
+    {
+        $profile = $this->getMedia('profile')->last();
+
+        if (!$profile) {
+            return $this->defaultProfileImage();
         }
+
+        foreach ($conversionNames as $conversionName) {
+            if (
+                $profile->hasGeneratedConversion($conversionName)
+                && $this->mediaFileExists($profile, $conversionName)
+            ) {
+                return $profile->getUrl($conversionName);
+            }
+        }
+
+        if ($this->mediaFileExists($profile)) {
+            return $profile->getUrl();
+        }
+
+        return $this->defaultProfileImage();
+    }
+
+    private function mediaFileExists(Media $media, string $conversionName = ''): bool
+    {
+        try {
+            $disk = $conversionName === ''
+                ? $media->disk
+                : ($media->conversions_disk ?: $media->disk);
+
+            return Storage::disk($disk)->exists($media->getPathRelativeToRoot($conversionName));
+        } catch (Throwable) {
+            return true;
+        }
+    }
+
+    private function defaultProfileImage(): string
+    {
         return asset('images/required/profile.png');
     }
 

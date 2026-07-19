@@ -145,7 +145,7 @@
                     <div v-if="logged"
                         class="w-60 absolute top-15 ltr:-right-10 rtl:-left-10  z-10 rounded-2xl overflow-hidden shadow-card bg-white transition-all duration-300 origin-top scale-y-0 group-hover:scale-y-100">
                         <div class="flex items-center gap-3 p-4 border-b border-[#EFF0F6]">
-                            <img :src="profile.image" alt="avatar"
+                            <img :src="profileImage" alt="" @error="useDefaultProfileImage"
                                 class="w-11 h-11 rounded-full object-cover flex-shrink-0">
                             <dl class="w-full">
                                 <dt class="font-semibold capitalize whitespace-nowrap mb-0.5">
@@ -379,6 +379,7 @@ export default {
                 permission: false,
                 url: ""
             },
+            profileImageFailed: false,
         }
     },
     computed: {
@@ -387,6 +388,13 @@ export default {
         },
         profile: function () {
             return this.$store.getters.authInfo;
+        },
+        profileImage: function () {
+            if (this.profileImageFailed || !this.profile?.image) {
+                return "/images/required/profile.png";
+            }
+
+            return this.profile.image;
         },
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
@@ -579,11 +587,17 @@ export default {
         },
         resetSearch: function(){
             this.searchProduct = "";
+        },
+        useDefaultProfileImage: function () {
+            this.profileImageFailed = true;
         }
     },
     watch: {
         $route(to, from) {
             this.currentRoute = to.path;
+        },
+        "profile.image": function () {
+            this.profileImageFailed = false;
         },
     }
 }

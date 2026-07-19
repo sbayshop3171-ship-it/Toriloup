@@ -253,8 +253,16 @@ export const auth = {
         updateAuthInfo: function (context, payload) {
             return new Promise((resolve, reject) => {
                 if (context.state.authInfo.id === payload.id) {
-                    context.commit("authInfo", payload);
-                    resolve(payload);
+                    const mergedPayload = {
+                        ...context.state.authInfo,
+                        ...payload,
+                        surface: payload.surface || context.state.authInfo?.surface || null,
+                        tenants: payload.tenants || context.state.authInfo?.tenants || [],
+                        current_tenant: payload.current_tenant || context.state.authInfo?.current_tenant || null,
+                        impersonation: payload.impersonation || context.state.authInfo?.impersonation || null,
+                    };
+                    context.commit("authInfo", mergedPayload);
+                    resolve(mergedPayload);
                 } else {
                     reject("user data not match");
                 }

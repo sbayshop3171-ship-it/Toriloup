@@ -18,6 +18,7 @@ use App\Events\SendOrderGotSms;
 use App\Events\SendOrderMail;
 use App\Events\SendOrderPush;
 use App\Events\SendOrderSms;
+use App\Http\Resources\UserResource;
 use App\Models\Barcode;
 use App\Models\Country;
 use App\Models\Currency;
@@ -44,6 +45,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -218,6 +220,38 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertJsonPath('data.country_name', 'Bangladesh')
             ->assertJsonPath('data.calling_code', '+880')
             ->assertJsonPath('data.flag_emoji', '🇧🇩');
+    }
+
+    public function test_profile_resource_falls_back_when_profile_media_file_is_missing(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Missing Avatar Customer',
+            'email' => 'missing-avatar@test.com',
+            'username' => 'missing-avatar',
+            'status' => Status::ACTIVE,
+        ]);
+
+        Media::query()->create([
+            'model_type' => User::class,
+            'model_id' => $user->id,
+            'uuid' => (string) Str::uuid(),
+            'collection_name' => 'profile',
+            'name' => 'missing-profile',
+            'file_name' => 'missing-profile.jpg',
+            'mime_type' => 'image/jpeg',
+            'disk' => 'public',
+            'conversions_disk' => 'public',
+            'size' => 100,
+            'manipulations' => [],
+            'custom_properties' => [],
+            'generated_conversions' => ['thumb' => true],
+            'responsive_images' => [],
+            'order_column' => 1,
+        ]);
+
+        $payload = (new UserResource($user->fresh()))->resolve(request());
+
+        $this->assertSame(asset('images/required/profile.png'), $payload['image']);
     }
 
     public function test_storefront_customer_endpoints_require_a_storefront_surface_token(): void

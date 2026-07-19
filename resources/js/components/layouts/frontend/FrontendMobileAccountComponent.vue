@@ -17,7 +17,8 @@
 
             <div class="py-6 lg:rounded-2xl lg:shadow-card bg-white">
                 <div class="flex flex-col items-center justify-center mb-5">
-                    <img :src="profile?.image" alt="avatar" class="w-20 h-20 mb-3 rounded-full border border-primary">
+                    <img :src="profileImage" alt="" @error="useDefaultProfileImage"
+                        class="w-20 h-20 mb-3 rounded-full border border-primary object-cover">
                     <h3 class="capitalize text-lg font-semibold text-center mb-0.5">{{ textShortener(profile.name, 20)
                         }}
                     </h3>
@@ -100,6 +101,7 @@ export default {
     data() {
         return {
             currentRoute: "",
+            profileImageFailed: false,
         }
     },
     computed: {
@@ -108,6 +110,13 @@ export default {
         },
         profile: function () {
             return this.$store.getters.authInfo;
+        },
+        profileImage: function () {
+            if (this.profileImageFailed || !this.profile?.image) {
+                return "/images/required/profile.png";
+            }
+
+            return this.profile.image;
         },
     },
     methods: {
@@ -126,11 +135,17 @@ export default {
             this.$store.dispatch("logout").then(res => {
                 this.$router.push({ name: "frontend.home" });
             }).catch();
+        },
+        useDefaultProfileImage: function () {
+            this.profileImageFailed = true;
         }
     },
     watch: {
         $route(to, from) {
             this.currentRoute = to.path;
+        },
+        "profile.image": function () {
+            this.profileImageFailed = false;
         },
     }
 }

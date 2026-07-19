@@ -73,6 +73,7 @@
 import alertService from "../../../../services/alertService";
 import appService from "../../../../services/appService";
 import LoadingComponent from "../../components/LoadingComponent";
+import addressLocationDefaultService from "../../../../services/addressLocationDefaultService";
 export default {
     name: "AccountInfoComponent",
     components: { LoadingComponent },
@@ -96,38 +97,27 @@ export default {
         try {
             this.loading.isActive = true;
             const profile = this.$store.getters.authInfo;
-            this.$store.dispatch('frontendCountryCode/lists');
             this.form = {
                 name: profile.name,
                 email: profile.email,
                 phone: profile.phone,
-                country_code: profile.country_code,
+                country_code: profile.country_code || "",
             };
 
-            if (profile.country_code !== null) {
-                this.$store.dispatch('frontendCountryCode/callingCode', profile.country_code).then(res => {
-                    this.flag = res.data.data.flag_emoji;
-                    this.loading.isActive = false;
-                }).catch((err) => {
-                    this.loading.isActive = false;
-                });
-            }
+            Promise.allSettled([
+                this.$store.dispatch('frontendCountryCode/lists'),
+                this.$store.dispatch('frontendSetting/lists'),
+            ]).then(async (results) => {
+                if (this.form.country_code) {
+                    await this.applySavedCountryCode(this.form.country_code);
+                } else {
+                    const companyCountryCode = results[1]?.value?.data?.data?.company_country_code || null;
+                    this.applyCompanyCountryCodeDefault(companyCountryCode);
+                    await this.applyIpCountryCodeDefault();
+                }
 
-            this.$store.dispatch('frontendSetting/lists').then(companyRes => {
-                this.$store.dispatch('frontendCountryCode/show', companyRes.data.data.company_country_code).then(res => {
-
-                    if (profile.country_code === null) {
-                        this.flag = res.data.data.flag_emoji;
-                        this.form.country_code = res.data.data.calling_code;
-                    }
-
-                }).catch((err) => {
-                    this.loading.isActive = false;
-                });
-            }).catch((err) => {
                 this.loading.isActive = false;
             });
-            this.loading.isActive = false;
 
         } catch (err) {
             this.loading.isActive = false;
@@ -147,6 +137,33 @@ export default {
             this.flag = e.flag_emoji;
             this.form.country_code = e.calling_code;
 
+        },
+        applySavedCountryCode: async function (callingCode) {
+            await this.$store.dispatch('frontendCountryCode/callingCode', callingCode).then(res => {
+                this.flag = res.data.data.flag_emoji;
+            }).catch(() => {});
+        },
+        applyCompanyCountryCodeDefault: function (companyCountryCode) {
+            if (!companyCountryCode || this.form.country_code) {
+                return;
+            }
+
+            const countryCode = addressLocationDefaultService.findCountryCode(this.countryCodes, companyCountryCode);
+            if (!countryCode) {
+                return;
+            }
+
+            this.flag = countryCode.flag_emoji;
+            this.form.country_code = countryCode.calling_code;
+        },
+        applyIpCountryCodeDefault: async function () {
+            const defaults = await addressLocationDefaultService.resolve([], this.countryCodes);
+            if (!defaults?.callingCode) {
+                return;
+            }
+
+            this.flag = defaults.flagEmoji || this.flag;
+            this.form.country_code = defaults.callingCode;
         },
         changeImage: function (e) {
             this.image = e.target.files[0];
