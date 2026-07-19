@@ -20,7 +20,7 @@ class SliderController extends Controller
     public function index(PaginateRequest $request
     ) : \Illuminate\Http\Response | \Illuminate\Http\Resources\Json\AnonymousResourceCollection | \Illuminate\Contracts\Foundation\Application | \Illuminate\Contracts\Routing\ResponseFactory {
         try {
-            return SliderResource::collection($this->sliderService->list($request));
+            return SliderResource::collection($this->sliderService->storefrontList($request));
         } catch (Exception $exception) {
             return response(['status' => false, 'message' => $exception->getMessage()], 422);
         }

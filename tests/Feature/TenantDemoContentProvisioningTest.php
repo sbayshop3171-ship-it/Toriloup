@@ -106,10 +106,6 @@ class TenantDemoContentProvisioningTest extends TestCase
             ->where('tenant_id', $alpha->id)
             ->where('sku', $source['product']->sku)
             ->firstOrFail();
-        $alphaSlider = Slider::withoutGlobalScopes()
-            ->where('tenant_id', $alpha->id)
-            ->where('title', $source['slider']->title)
-            ->firstOrFail();
         $alphaCategory = ProductCategory::withoutGlobalScopes()
             ->where('tenant_id', $alpha->id)
             ->where('slug', $source['category']->slug)
@@ -122,9 +118,7 @@ class TenantDemoContentProvisioningTest extends TestCase
         $this->assertNotSame($source['product']->id, $alphaProduct->id);
         $this->assertSame($alphaCategory->id, $alphaProduct->product_category_id);
         $this->assertSame($alpha->id, $alphaProduct->tenant_id);
-        $this->assertSame($alpha->id, $alphaSlider->tenant_id);
         $this->assertCount(1, $alphaProduct->getMedia('product'));
-        $this->assertCount(1, $alphaSlider->getMedia('slider'));
 
         $this->assertDatabaseHas('product_tags', [
             'product_id' => $alphaProduct->id,
@@ -150,6 +144,15 @@ class TenantDemoContentProvisioningTest extends TestCase
             'source_id' => $source['product']->id,
             'target_type' => Product::class,
             'target_id' => $alphaProduct->id,
+        ]);
+        $this->assertDatabaseMissing('sliders', [
+            'tenant_id' => $alpha->id,
+            'title' => $source['slider']->title,
+        ]);
+        $this->assertDatabaseMissing('tenant_demo_content_seeds', [
+            'tenant_id' => $alpha->id,
+            'source_type' => Slider::class,
+            'source_id' => $source['slider']->id,
         ]);
 
         $this->assertDatabaseMissing('products', [

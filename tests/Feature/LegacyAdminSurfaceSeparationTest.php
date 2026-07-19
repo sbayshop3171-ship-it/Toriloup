@@ -80,6 +80,44 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_platform_owner_slider_list_excludes_merchant_tenant_copies(): void
+    {
+        $owner = $this->createLegacyAdminUser(LegacyRole::ADMIN, 'admin', 'owner-slider@test.com');
+        Role::query()->find(LegacyRole::ADMIN)?->givePermissionTo(Permission::query()->firstOrCreate([
+            'name' => 'settings',
+            'guard_name' => 'sanctum',
+        ]));
+
+        $tenant = $this->createTenant('owner-slider-tenant');
+        $globalSlider = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'title' => 'Global Hero',
+            'link' => 'https://owner.example.test',
+            'description' => 'Owner default banner',
+            'status' => 5,
+        ]);
+        $tenantSlider = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Tenant Hero',
+            'link' => 'https://tenant.example.test',
+            'description' => 'Merchant banner copy',
+            'status' => 5,
+        ]);
+
+        Sanctum::actingAs($owner, ['surface:platform']);
+
+        $response = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://owner.company.com/api/admin/setting/slider')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id');
+
+        $this->assertTrue($ids->contains($globalSlider->id));
+        $this->assertFalse($ids->contains($tenantSlider->id));
+    }
+
     public function test_merchant_can_use_allowlisted_legacy_admin_product_api_with_tenant_scope(): void
     {
         $context = $this->createMerchantContext('legacy-product-store');

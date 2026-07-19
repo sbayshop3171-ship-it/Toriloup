@@ -117,6 +117,40 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_storefront_sliders_use_global_defaults_until_merchant_adds_own_slider(): void
+    {
+        $tenant = $this->createTenant('fallback-slider-store');
+        $globalSlider = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'title' => 'Global Hero',
+            'link' => 'https://owner.example.test/default',
+            'description' => 'Shared owner banner',
+            'status' => Status::ACTIVE,
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/slider?paginate=0&status=".Status::ACTIVE)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $globalSlider->id);
+
+        $tenantSlider = Slider::withoutGlobalScopes()->create([
+            'tenant_id' => $tenant->id,
+            'title' => 'Merchant Hero',
+            'link' => 'https://merchant.example.test/banner',
+            'description' => 'Merchant-owned banner',
+            'status' => Status::ACTIVE,
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/slider?paginate=0&status=".Status::ACTIVE)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tenantSlider->id);
+    }
+
     public function test_storefront_customer_endpoints_require_a_storefront_surface_token(): void
     {
         $tenant = $this->createTenant('surface-store');

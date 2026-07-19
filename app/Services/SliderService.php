@@ -5,10 +5,12 @@ namespace App\Services;
 
 use Exception;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Builder;
 use App\Http\Requests\PaginateRequest;
 use App\Http\Requests\SliderRequest;
 use App\Libraries\QueryExceptionLibrary;
 use App\Models\Slider;
+use App\Services\Tenancy\TenantContext;
 
 class SliderService
 {
@@ -28,30 +30,26 @@ class SliderService
     public function list(PaginateRequest $request)
     {
         try {
-            $requests    = $request->all();
-            $method      = $request->get('paginate', 0) == 1 ? 'paginate' : 'get';
-            $methodValue = $request->get('paginate', 0) == 1 ? $request->get('per_page', 10) : '*';
-            $orderColumn = $request->get('order_column') ?? 'id';
-            $orderType   = $request->get('order_type') ?? 'desc';
+            return $this->runListQuery($this->scopedQuery($request), $request);
+        } catch (Exception $exception) {
+            Log::info($exception->getMessage());
+            throw new Exception(QueryExceptionLibrary::message($exception), 422);
+        }
+    }
 
-            return Slider::with('media')->where(function ($query) use ($requests) {
-                foreach ($requests as $key => $request) {
-                    if (in_array($key, $this->sliderFilter)) {
-                        $query->where($key, 'like', '%' . $request . '%');
-                    }
+    /**
+     * @throws Exception
+     */
+    public function storefrontList(PaginateRequest $request)
+    {
+        try {
+            $tenantId = app(TenantContext::class)->currentId($request);
 
-                    if (in_array($key, $this->exceptFilter)) {
-                        $explodes = explode('|', $request);
-                        if (is_array($explodes)) {
-                            foreach ($explodes as $explode) {
-                                $query->where('id', '!=', $explode);
-                            }
-                        }
-                    }
-                }
-            })->orderBy($orderColumn, $orderType)->$method(
-                $methodValue
-            );
+            if ($tenantId !== null && !Slider::query()->exists()) {
+                return $this->runListQuery($this->globalTemplateQuery(), $request);
+            }
+
+            return $this->runListQuery($this->scopedQuery($request), $request);
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -117,5 +115,53 @@ class SliderService
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
         }
+    }
+
+    private function scopedQuery(PaginateRequest $request): Builder
+    {
+        $query = Slider::with('media');
+
+        if (app(TenantContext::class)->currentId($request) === null) {
+            $query->whereNull($query->getModel()->qualifyColumn('tenant_id'));
+        }
+
+        return $query;
+    }
+
+    private function globalTemplateQuery(): Builder
+    {
+        $slider = new Slider();
+
+        return Slider::withoutGlobalScope('tenant')
+            ->with('media')
+            ->whereNull($slider->qualifyColumn('tenant_id'));
+    }
+
+    private function runListQuery(Builder $query, PaginateRequest $request)
+    {
+        $requests    = $request->all();
+        $method      = $request->get('paginate', 0) == 1 ? 'paginate' : 'get';
+        $methodValue = $request->get('paginate', 0) == 1 ? $request->get('per_page', 10) : '*';
+        $orderColumn = $request->get('order_column') ?? 'id';
+        $orderType   = $request->get('order_type') ?? 'desc';
+
+        return $query->where(function ($query) use ($requests) {
+            foreach ($requests as $key => $request) {
+                if (in_array($key, $this->sliderFilter)) {
+                    $query->where($key, 'like', '%' . $request . '%');
+                }
+
+                if (in_array($key, $this->exceptFilter)) {
+                    $explodes = explode('|', $request);
+                    if (is_array($explodes)) {
+                        foreach ($explodes as $explode) {
+                            $query->where('id', '!=', $explode);
+                        }
+                    }
+                }
+            }
+        })->orderBy($orderColumn, $orderType)->$method(
+            $methodValue
+        );
     }
 }
