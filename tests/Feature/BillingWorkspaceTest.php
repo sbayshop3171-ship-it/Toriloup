@@ -463,6 +463,165 @@ class BillingWorkspaceTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_disabled_public_plan_catalog_grants_full_access_and_hides_plan_cards(): void
+    {
+        /** @var SubscriptionManagerService $service */
+        $service = app(SubscriptionManagerService::class);
+        $service->ensureDefaultPlans();
+
+        PlatformPlan::query()->update([
+            'status' => 'draft',
+            'is_public' => false,
+        ]);
+
+        $context = $this->createMerchantContext('relaxed-billing-store');
+        $merchantToken = $this->merchantToken($context['user']);
+
+        $this->assertFalse($service->billingCatalogEnforced());
+        $this->assertTrue($service->hasFeatureAccess($context['tenant'], 'returns'));
+
+        $summaryResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/billing/summary');
+
+        $summaryResponse
+            ->assertOk()
+            ->assertJsonPath('catalog.has_active_public_plans', false)
+            ->assertJsonPath('catalog.enforced', false)
+            ->assertJsonPath('features.mode', 'catalog_disabled')
+            ->assertJsonPath('features.features.returns.status', true)
+            ->assertJsonPath('usage.products.unlimited', true);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $context['tenant']->slug)
+            ->getJson('http://merchant.company.com/api/merchant/billing/plans')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_grandfathered_tenant_keeps_full_access_until_plan_change(): void
+    {
+        /** @var SubscriptionManagerService $service */
+        $service = app(SubscriptionManagerService::class);
+        $service->ensureDefaultPlans();
+
+        $context = $this->createMerchantContext('grandfathered-billing-store');
+        $context['tenant']->forceFill([
+            'billing_exempt_until_plan_change' => true,
+            'billing_grandfathered_at' => now(),
+        ])->save();
+
+        $starterPlan = PlatformPlan::query()->where('code', 'starter')->firstOrFail();
+        TenantSubscription::query()->create([
+            'tenant_id' => $context['tenant']->id,
+            'plan_id' => $starterPlan->id,
+            'plan_code_snapshot' => $starterPlan->code,
+            'plan_name_snapshot' => $starterPlan->name,
+            'status' => 'past_due',
+            'billing_interval' => 'monthly',
+            'currency_code' => $starterPlan->currency_code,
+            'price_amount' => 0,
+            'starts_at' => now()->subMonths(2),
+            'current_period_starts_at' => now()->subMonth(),
+            'current_period_ends_at' => now()->subDay(),
+            'grace_ends_at' => now()->subDay(),
+        ]);
+
+        $this->assertTrue($service->billingCatalogEnforced());
+        $this->assertTrue($service->hasFeatureAccess($context['tenant']->fresh(), 'returns'));
+        $this->assertSame('grandfathered', $service->featureSummary($context['tenant']->fresh())['mode']);
+        $this->assertSame('past_due', $service->currentSubscription($context['tenant']->fresh())?->status);
+        $this->assertTrue($context['tenant']->fresh()->billing_exempt_until_plan_change);
+
+        $service->assignPlanToTenant(
+            $context['tenant']->fresh(),
+            'starter',
+            'monthly',
+            $context['user'],
+            ['source' => 'test_plan_change']
+        );
+
+        $tenant = $context['tenant']->fresh();
+
+        $this->assertFalse($tenant->billing_exempt_until_plan_change);
+        $this->assertNull($tenant->billing_grandfathered_at);
+        $this->assertFalse($service->hasFeatureAccess($tenant, 'returns'));
+    }
+
+    public function test_registration_without_public_free_plan_requires_plan_without_grandfathering(): void
+    {
+        /** @var SubscriptionManagerService $service */
+        $service = app(SubscriptionManagerService::class);
+        $service->ensureDefaultPlans();
+
+        PlatformPlan::query()
+            ->where('monthly_price', '<=', 0)
+            ->update(['status' => 'draft']);
+
+        PlatformPlan::query()
+            ->where('code', 'basic')
+            ->update([
+                'status' => 'active',
+                'is_public' => true,
+            ]);
+
+        $response = $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                'owner_name' => 'Paid Only Merchant',
+                'store_name' => 'Paid Only Store',
+                'email' => 'paid-only-merchant@example.com',
+                'password' => 'password',
+            ]);
+
+        $tenantId = (int) $response->json('tenant.id');
+        $tenantSlug = (string) $response->json('tenant.slug');
+        $merchantToken = (string) $response->json('token');
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('tenant.plan_code', null);
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenantId,
+            'plan_code' => null,
+            'billing_exempt_until_plan_change' => false,
+        ]);
+
+        $this->assertDatabaseMissing('tenant_subscriptions', [
+            'tenant_id' => $tenantId,
+        ]);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $tenantSlug)
+            ->getJson('http://merchant.company.com/api/merchant/billing/summary')
+            ->assertOk()
+            ->assertJsonPath('catalog.has_active_public_plans', true)
+            ->assertJsonPath('catalog.enforced', true)
+            ->assertJsonPath('catalog.billing_exempt', false)
+            ->assertJsonPath('features.mode', 'no_active_subscription')
+            ->assertJsonPath('features.features.returns.status', false);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $tenantSlug)
+            ->getJson('http://merchant.company.com/api/merchant/billing/plans')
+            ->assertOk()
+            ->assertJsonFragment(['code' => 'basic']);
+    }
+
     /**
      * @return array{user: User, tenant: Tenant}
      */

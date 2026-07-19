@@ -9,6 +9,18 @@
             </div>
         </div>
 
+        <div class="col-12">
+            <div class="mb-4 rounded-lg border bg-white px-4 py-3 text-sm"
+                 :class="catalogEnforced ? 'border-[#BBF7D0] text-[#166534]' : 'border-[#E5E7EB] text-paragraph'">
+                <p class="font-semibold text-secondary">{{ catalogEnforced ? "Plan enforcement is active" : "Plan enforcement is relaxed" }}</p>
+                <p class="mt-1">
+                    {{ catalogEnforced
+                        ? "Only active public plans are visible to merchants. Plan limits and unchecked feature unlocks are enforced for non-grandfathered stores."
+                        : "No active public plan is available, so merchants can use all plan-gated features without upgrade locks." }}
+                </p>
+            </div>
+        </div>
+
         <div class="col-12 xl:col-4">
             <div class="db-card">
                 <div class="db-card-header border-none">
@@ -40,6 +52,10 @@
                                 <p class="text-xs uppercase tracking-wide text-paragraph">{{ plan.code }}</p>
                             </div>
                             <div class="flex flex-col items-end gap-2">
+                                <span class="inline-flex rounded-lg px-2 py-1 text-xs font-semibold"
+                                      :class="plan.status === 'active' ? 'bg-[#ECFDF3] text-[#047857]' : 'bg-[#FFF7ED] text-[#C2410C]'">
+                                    {{ formatLabel(plan.status) }}
+                                </span>
                                 <span class="inline-flex rounded-lg px-2 py-1 text-xs font-semibold"
                                       :class="plan.is_public ? 'bg-[#ECFDF3] text-[#047857]' : 'bg-[#F3F4F6] text-[#6B7280]'">
                                     {{ plan.is_public ? "Public" : "Hidden" }}
@@ -285,6 +301,7 @@ export default {
             loading: { isActive: false },
             plans: [],
             subscriptions: [],
+            catalogEnforced: false,
             selectedPlanCode: null,
             planForm: this.emptyPlanForm(),
             savingPlan: false,
@@ -311,6 +328,7 @@ export default {
             ]).then(([plans, subscriptions]) => {
                 this.plans = Array.isArray(plans?.data?.data) ? plans.data.data : [];
                 this.subscriptions = Array.isArray(subscriptions?.data?.data) ? subscriptions.data.data : [];
+                this.catalogEnforced = plans?.data?.meta?.catalog_enforced === true;
                 this.retainSelectedPlan();
             }).catch((error) => {
                 this.showFlash("warning", error.response?.data?.message || "Billing plans could not be loaded.");

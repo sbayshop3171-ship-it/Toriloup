@@ -62,6 +62,10 @@ class TenantProvisioningService
             $merchantRole = $this->ensureManagerRole();
             $tenantRole = $this->platformRoleRegistryService->merchantOwnerRole();
             $storeSlug = $this->resolveStoreSlug($payload);
+            $billingEnforced = $this->subscriptionManagerService->billingCatalogEnforced();
+            $registrationPlanCode = $billingEnforced
+                ? $this->subscriptionManagerService->defaultFreePlanCode($payload['plan_code'] ?? 'starter')
+                : null;
 
             $user = User::query()->create([
                 'name' => $payload['owner_name'],
@@ -83,7 +87,9 @@ class TenantProvisioningService
                 'slug' => $storeSlug,
                 'store_code' => $this->buildStoreCode($storeSlug),
                 'status' => 'draft',
-                'plan_code' => $payload['plan_code'] ?? 'starter',
+                'plan_code' => $registrationPlanCode,
+                'billing_exempt_until_plan_change' => !$billingEnforced,
+                'billing_grandfathered_at' => $billingEnforced ? null : now(),
                 'onboarding_status' => 'pending',
                 'primary_locale' => $payload['primary_locale'] ?? 'en',
                 'primary_currency_code' => $payload['primary_currency_code'] ?? 'USD',
@@ -127,13 +133,16 @@ class TenantProvisioningService
 
             $this->seedCommerceDefaults($tenant, $user);
             $this->seedStorefrontDefaults($tenant);
-            $this->subscriptionManagerService->assignPlanToTenant(
-                $tenant,
-                $tenant->plan_code ?? 'starter',
-                'monthly',
-                $user,
-                ['source' => 'merchant_register']
-            );
+
+            if ($registrationPlanCode !== null) {
+                $this->subscriptionManagerService->assignPlanToTenant(
+                    $tenant,
+                    $registrationPlanCode,
+                    'monthly',
+                    $user,
+                    ['source' => 'merchant_register']
+                );
+            }
 
             $checks = $this->evaluateAutoLiveChecks($tenant);
 

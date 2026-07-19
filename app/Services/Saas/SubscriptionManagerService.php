@@ -418,6 +418,55 @@ class SubscriptionManagerService
         return $plan;
     }
 
+    public function billingCatalogEnforced(): bool
+    {
+        $this->ensureDefaultPlans();
+
+        return PlatformPlan::query()
+            ->where('status', 'active')
+            ->where('is_public', true)
+            ->exists();
+    }
+
+    public function billingEnforcedForTenant(Tenant $tenant): bool
+    {
+        return $this->billingCatalogEnforced() && !$this->tenantBillingExempt($tenant);
+    }
+
+    public function tenantBillingExempt(Tenant $tenant): bool
+    {
+        return (bool) $tenant->billing_exempt_until_plan_change;
+    }
+
+    public function defaultFreePlanCode(?string $requestedPlanCode = null): ?string
+    {
+        $this->ensureDefaultPlans();
+
+        if (filled($requestedPlanCode)) {
+            $requestedPlan = PlatformPlan::query()
+                ->with('prices')
+                ->where('code', $requestedPlanCode)
+                ->where('status', 'active')
+                ->where('is_public', true)
+                ->first();
+
+            if ($requestedPlan !== null && $this->planPriceAmount($requestedPlan, 'monthly') <= 0) {
+                return $requestedPlan->code;
+            }
+        }
+
+        return PlatformPlan::query()
+            ->with('prices')
+            ->where('status', 'active')
+            ->where('is_public', true)
+            ->orderBy('display_order')
+            ->orderBy('monthly_price')
+            ->orderBy('name')
+            ->get()
+            ->first(fn (PlatformPlan $plan) => $this->planPriceAmount($plan, 'monthly') <= 0)
+            ?->code;
+    }
+
     public function currentSubscription(Tenant $tenant, bool $provisionIfMissing = true): ?TenantSubscription
     {
         $this->ensureDefaultPlans();
@@ -429,7 +478,13 @@ class SubscriptionManagerService
             ->orderByDesc('id')
             ->first();
 
-        if ($subscription !== null && $subscription->status === 'past_due' && $subscription->grace_ends_at !== null && now()->greaterThan($subscription->grace_ends_at)) {
+        if (
+            $subscription !== null
+            && $this->billingEnforcedForTenant($tenant)
+            && $subscription->status === 'past_due'
+            && $subscription->grace_ends_at !== null
+            && now()->greaterThan($subscription->grace_ends_at)
+        ) {
             $this->applyGraceFallback($subscription);
 
             $subscription = TenantSubscription::query()
@@ -441,7 +496,27 @@ class SubscriptionManagerService
         }
 
         if ($subscription === null && $provisionIfMissing) {
-            return $this->assignPlanToTenant($tenant, $tenant->plan_code ?: self::FALLBACK_PLAN_CODE);
+            if (!$this->billingEnforcedForTenant($tenant)) {
+                return null;
+            }
+
+            $defaultPlanCode = $this->defaultFreePlanCode($tenant->plan_code ?: self::FALLBACK_PLAN_CODE);
+
+            if ($defaultPlanCode === null) {
+                return null;
+            }
+
+            $assignedSubscription = $this->assignPlanToTenant(
+                $tenant,
+                $defaultPlanCode,
+                'monthly',
+                null,
+                ['source' => 'auto_provision']
+            );
+
+            return in_array($assignedSubscription->status, ['trialing', 'active', 'past_due'], true)
+                ? $assignedSubscription
+                : null;
         }
 
         return $subscription;
@@ -704,24 +779,19 @@ class SubscriptionManagerService
      */
     public function usageSummary(Tenant $tenant): array
     {
+        if (!$this->billingEnforcedForTenant($tenant)) {
+            return $this->unrestrictedUsageSummary($tenant);
+        }
+
         $subscription = $this->currentSubscription($tenant);
         $effectivePlan = $this->effectivePlanForTenant($tenant, $subscription);
-        $limits = $effectivePlan?->limits->keyBy('limit_key') ?? collect();
+        $usageValues = $this->tenantUsageValues($tenant);
 
-        $usageValues = [
-            'products' => Product::withoutGlobalScopes()
-                ->where('tenant_id', $tenant->id)
-                ->whereNull('deleted_at')
-                ->count(),
-            'custom_domains' => TenantDomain::query()
-                ->where('tenant_id', $tenant->id)
-                ->where('domain_type', 'custom')
-                ->count(),
-            'staff_members' => TenantMember::query()
-                ->where('tenant_id', $tenant->id)
-                ->where('status', 'active')
-                ->count(),
-        ];
+        if ($effectivePlan === null) {
+            return $this->lockedUsageSummary($usageValues);
+        }
+
+        $limits = $effectivePlan->limits->keyBy('limit_key');
 
         $summary = [];
 
@@ -762,11 +832,18 @@ class SubscriptionManagerService
      */
     public function featureSummary(Tenant $tenant): array
     {
+        if (!$this->billingEnforcedForTenant($tenant)) {
+            return $this->unrestrictedFeatureSummary(
+                $tenant,
+                $this->tenantBillingExempt($tenant) ? 'grandfathered' : 'catalog_disabled'
+            );
+        }
+
         $subscription = $this->currentSubscription($tenant);
         $effectivePlan = $this->effectivePlanForTenant($tenant, $subscription);
 
         if ($effectivePlan === null) {
-            return [];
+            return $this->lockedFeatureSummary($tenant, 'no_active_subscription');
         }
 
         $this->syncTenantFeatureFlags($tenant, $effectivePlan);
@@ -801,6 +878,9 @@ class SubscriptionManagerService
 
         return [
             'plan_code' => $effectivePlan->code,
+            'enforced' => true,
+            'billing_exempt' => false,
+            'mode' => 'plan_enforced',
             'soft_locked' => $subscription?->status === 'past_due',
             'features' => $featureMap,
             'locked_features' => array_values(array_unique($locked)),
@@ -809,6 +889,10 @@ class SubscriptionManagerService
 
     public function hasFeatureAccess(Tenant $tenant, string $featureCode): bool
     {
+        if (!$this->billingEnforcedForTenant($tenant)) {
+            return true;
+        }
+
         $features = $this->featureSummary($tenant)['features'] ?? [];
 
         return (bool) ($features[$featureCode]['status'] ?? false);
@@ -832,15 +916,14 @@ class SubscriptionManagerService
     {
         $this->ensureDefaultPlans();
 
-        $currentPlanCode = $this->currentSubscription($tenant, false)?->plan?->code ?? $tenant->plan_code ?? self::FALLBACK_PLAN_CODE;
+        if (!$this->billingCatalogEnforced()) {
+            return [];
+        }
 
         return PlatformPlan::query()
             ->with(['limits', 'prices', 'features'])
             ->where('status', 'active')
-            ->where(function ($query) use ($currentPlanCode): void {
-                $query->where('is_public', true)
-                    ->orWhere('code', $currentPlanCode);
-            })
+            ->where('is_public', true)
             ->orderBy('display_order')
             ->orderBy('monthly_price')
             ->orderBy('name')
@@ -859,6 +942,186 @@ class SubscriptionManagerService
             ->where('is_public', true)
             ->where('monthly_price', '>', 0)
             ->exists();
+    }
+
+    public function hasActivePublicPlans(): bool
+    {
+        return $this->billingCatalogEnforced();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function tenantUsageValues(Tenant $tenant): array
+    {
+        return [
+            'products' => Product::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->whereNull('deleted_at')
+                ->count(),
+            'custom_domains' => TenantDomain::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('domain_type', 'custom')
+                ->count(),
+            'staff_members' => TenantMember::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('status', 'active')
+                ->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, array<string, int|null|bool>>
+     */
+    private function unrestrictedUsageSummary(Tenant $tenant): array
+    {
+        return collect($this->tenantUsageValues($tenant))
+            ->map(fn (int $used) => [
+                'used' => $used,
+                'limit' => null,
+                'unlimited' => true,
+                'remaining' => null,
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  array<string, int>  $usageValues
+     * @return array<string, array<string, int|null|bool>>
+     */
+    private function lockedUsageSummary(array $usageValues): array
+    {
+        return collect($usageValues)
+            ->map(fn (int $used) => [
+                'used' => $used,
+                'limit' => 0,
+                'unlimited' => false,
+                'remaining' => 0,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function unrestrictedFeatureSummary(Tenant $tenant, string $mode): array
+    {
+        $featureMap = [];
+
+        foreach ($this->featureCatalogRows() as $feature) {
+            $featureMap[$feature['code']] = [
+                'code' => $feature['code'],
+                'label' => $feature['label'],
+                'group' => $feature['group'],
+                'type' => $feature['type'],
+                'status' => true,
+                'display_value' => $feature['type'] === 'boolean' ? 'Unlocked' : $feature['display_value'],
+            ];
+        }
+
+        return [
+            'plan_code' => $tenant->plan_code,
+            'enforced' => false,
+            'billing_exempt' => $this->tenantBillingExempt($tenant),
+            'mode' => $mode,
+            'soft_locked' => false,
+            'features' => $featureMap,
+            'locked_features' => [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lockedFeatureSummary(Tenant $tenant, string $mode): array
+    {
+        $featureMap = [];
+        $locked = [];
+
+        foreach ($this->featureCatalogRows() as $feature) {
+            $status = $feature['type'] === 'boolean' ? false : true;
+
+            $featureMap[$feature['code']] = [
+                'code' => $feature['code'],
+                'label' => $feature['label'],
+                'group' => $feature['group'],
+                'type' => $feature['type'],
+                'status' => $status,
+                'display_value' => $feature['type'] === 'boolean' ? 'Locked' : $feature['display_value'],
+            ];
+
+            if ($feature['type'] === 'boolean') {
+                $locked[] = $feature['code'];
+            }
+        }
+
+        return [
+            'plan_code' => $tenant->plan_code,
+            'enforced' => true,
+            'billing_exempt' => false,
+            'mode' => $mode,
+            'soft_locked' => true,
+            'features' => $featureMap,
+            'locked_features' => array_values(array_unique($locked)),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function featureCatalogRows(): array
+    {
+        $features = [];
+
+        PlatformPlanFeature::query()
+            ->orderBy('compare_group')
+            ->orderBy('sort_order')
+            ->orderBy('feature_code')
+            ->get()
+            ->each(function (PlatformPlanFeature $feature) use (&$features): void {
+                if (isset($features[$feature->feature_code])) {
+                    return;
+                }
+
+                $features[$feature->feature_code] = $this->serializeFeatureRow($feature);
+            });
+
+        if ($features !== []) {
+            return array_values($features);
+        }
+
+        foreach ($this->defaultPlans() as $plan) {
+            foreach ($plan['features'] as $feature) {
+                $code = (string) Arr::get($feature, 'code');
+
+                if ($code === '' || isset($features[$code])) {
+                    continue;
+                }
+
+                $type = (string) Arr::get($feature, 'type', 'boolean');
+                $value = $this->normalizeFeatureValue($type, Arr::get($feature, 'value'));
+
+                $features[$code] = [
+                    'code' => $code,
+                    'label' => (string) Arr::get($feature, 'label', Str::headline(str_replace('_', ' ', $code))),
+                    'group' => (string) Arr::get($feature, 'group', 'Operations'),
+                    'type' => $type,
+                    'value' => $value,
+                    'display_value' => $this->displayFeatureValue($type, $value),
+                    'enabled' => $type === 'boolean' ? $this->booleanFeatureValue($value) : filled($value),
+                    'sort_order' => (int) Arr::get($feature, 'sort_order', 0),
+                ];
+            }
+        }
+
+        return collect($features)
+            ->sortBy([
+                ['group', 'asc'],
+                ['sort_order', 'asc'],
+                ['code', 'asc'],
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -1150,6 +1413,8 @@ class SubscriptionManagerService
 
             $tenant->forceFill([
                 'plan_code' => $plan->code,
+                'billing_exempt_until_plan_change' => false,
+                'billing_grandfathered_at' => null,
             ])->save();
 
             $this->createInvoice($subscription, $plan);
@@ -1230,6 +1495,8 @@ class SubscriptionManagerService
 
             $tenant->forceFill([
                 'plan_code' => $plan->code,
+                'billing_exempt_until_plan_change' => false,
+                'billing_grandfathered_at' => null,
             ])->save();
 
             $this->syncTenantFeatureFlags($tenant, $plan);
@@ -1322,6 +1589,10 @@ class SubscriptionManagerService
             if ($subscription->plan !== null) {
                 return $subscription->plan;
             }
+        }
+
+        if ($this->billingEnforcedForTenant($tenant)) {
+            return null;
         }
 
         $planCode = $tenant->plan_code ?: self::FALLBACK_PLAN_CODE;

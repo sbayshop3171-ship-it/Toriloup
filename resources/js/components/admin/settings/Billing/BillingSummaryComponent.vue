@@ -31,6 +31,15 @@
             </div>
         </div>
 
+        <div v-if="billingNotice" class="db-card">
+            <div class="db-card-body">
+                <div class="rounded-lg border px-4 py-3 text-sm" :class="billingNotice.className">
+                    <p class="font-semibold">{{ billingNotice.title }}</p>
+                    <p class="mt-1">{{ billingNotice.body }}</p>
+                </div>
+            </div>
+        </div>
+
         <div class="db-card">
             <div class="db-card-header flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -54,10 +63,11 @@
                     <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF4F1] text-primary">
                         <i class="fa-solid fa-tags"></i>
                     </div>
-                    <h4 class="mt-3 text-base font-semibold text-gray-900">No public plans available yet</h4>
+                    <h4 class="mt-3 text-base font-semibold text-gray-900">{{ summary?.catalog?.has_active_public_plans ? "No public plans available yet" : "All plan features are available" }}</h4>
                     <p class="mt-1 text-sm text-gray-500">
-                        The platform owner can publish Free, Basic, Premium, or Advanced plans from Owner Plans & Billing.
-                        Your current plan stays active until an upgrade is available.
+                        {{ summary?.catalog?.has_active_public_plans
+                            ? "The platform owner can publish Free, Basic, Premium, or Advanced plans from Owner Plans & Billing. Your current plan stays active until an upgrade is available."
+                            : "The platform owner has not published an active public plan, so your store can use plan-gated features without upgrade locks." }}
                     </p>
                 </div>
 
@@ -154,16 +164,16 @@
                     <div class="grid gap-4 md:grid-cols-2">
                         <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Current plan</p>
-                            <h4 class="mt-1 text-lg font-semibold text-gray-900">{{ summary.subscription?.plan?.name || summary.tenant?.plan_code || "-" }}</h4>
-                            <p class="mt-1 text-sm capitalize text-gray-500">Status: {{ summary.subscription?.status || summary.tenant?.status }}</p>
+                            <h4 class="mt-1 text-lg font-semibold text-gray-900">{{ currentPlanLabel }}</h4>
+                            <p class="mt-1 text-sm capitalize text-gray-500">Status: {{ currentPlanStatus }}</p>
                             <p v-if="summary.subscription?.grace_ends_at" class="mt-1 text-sm text-[#C2410C]">
                                 Grace ends at {{ formatDate(summary.subscription.grace_ends_at) }}
                             </p>
                         </div>
                         <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Current period</p>
-                            <h4 class="mt-1 text-lg font-semibold capitalize text-gray-900">{{ summary.subscription?.billing_interval || "-" }}</h4>
-                            <p class="mt-1 text-sm text-gray-500">{{ formatDate(summary.subscription?.current_period_starts_at) }} to {{ formatDate(summary.subscription?.current_period_ends_at) }}</p>
+                            <h4 class="mt-1 text-lg font-semibold capitalize text-gray-900">{{ summary.subscription?.billing_interval || (summary?.features?.enforced === false ? "No subscription required" : "-") }}</h4>
+                            <p class="mt-1 text-sm text-gray-500">{{ summary.subscription ? `${formatDate(summary.subscription?.current_period_starts_at)} to ${formatDate(summary.subscription?.current_period_ends_at)}` : "Available while platform billing is relaxed." }}</p>
                         </div>
                     </div>
 
@@ -254,6 +264,53 @@ export default {
         },
         currentPlanCode() {
             return this.summary?.subscription?.plan?.code || this.summary?.tenant?.plan_code || null;
+        },
+        currentPlanLabel() {
+            if (this.summary?.subscription?.plan?.name) {
+                return this.summary.subscription.plan.name;
+            }
+
+            if (this.summary?.tenant?.plan_code) {
+                return this.summary.tenant.plan_code;
+            }
+
+            return this.summary?.features?.enforced === false ? "Full access" : "-";
+        },
+        currentPlanStatus() {
+            if (this.summary?.subscription?.status) {
+                return this.summary.subscription.status;
+            }
+
+            return this.summary?.features?.enforced === false ? "available" : (this.summary?.tenant?.status || "-");
+        },
+        billingNotice() {
+            const mode = this.summary?.catalog?.mode || this.summary?.features?.mode;
+
+            if (mode === "grandfathered") {
+                return {
+                    title: "Full access retained",
+                    body: "This store was created before plan enforcement, so existing access remains available until a new plan is selected.",
+                    className: "border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]",
+                };
+            }
+
+            if (mode === "catalog_disabled") {
+                return {
+                    title: "Plan enforcement is relaxed",
+                    body: "No active public plan is published right now, so plan-gated features are available without upgrade locks.",
+                    className: "border-gray-200 bg-[#FAFBFC] text-gray-600",
+                };
+            }
+
+            if (mode === "no_active_subscription") {
+                return {
+                    title: "Choose a plan to unlock store features",
+                    body: "Plan enforcement is active, but this store does not have an active subscription yet.",
+                    className: "border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]",
+                };
+            }
+
+            return null;
         },
         compareGroups() {
             const groups = {};

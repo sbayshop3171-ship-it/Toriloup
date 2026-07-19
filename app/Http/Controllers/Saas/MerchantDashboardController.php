@@ -62,7 +62,7 @@ class MerchantDashboardController extends Controller
         return response()->json([
             'status' => true,
             'data' => [
-                'tenant' => $tenant->only(['id', 'uuid', 'name', 'slug', 'status', 'plan_code', 'onboarding_status']),
+                'tenant' => $tenant->only(['id', 'uuid', 'name', 'slug', 'status', 'plan_code', 'billing_exempt_until_plan_change', 'billing_grandfathered_at', 'onboarding_status']),
                 'branding' => [
                     'company_name' => $settings['company_name'] ?? $tenant->name,
                     'company_logo' => $settings['company_logo'] ?? null,

@@ -27,13 +27,17 @@ class MerchantBillingController extends Controller
 
         return response()->json([
             'status' => true,
-            'tenant' => $tenant?->only(['id', 'name', 'slug', 'status', 'plan_code']),
+            'tenant' => $tenant?->only(['id', 'name', 'slug', 'status', 'plan_code', 'billing_exempt_until_plan_change', 'billing_grandfathered_at']),
             'subscription' => $subscription ? $this->subscriptionManagerService->serializeSubscription($subscription) : null,
             'usage' => $tenant ? $this->subscriptionManagerService->usageSummary($tenant) : [],
             'features' => $features,
             'pending_upgrade' => $pendingSession ? $this->subscriptionManagerService->serializeCheckoutSession($pendingSession) : null,
             'catalog' => [
                 'has_public_paid_plans' => $this->subscriptionManagerService->hasPublicPaidPlans(),
+                'has_active_public_plans' => $this->subscriptionManagerService->hasActivePublicPlans(),
+                'enforced' => $tenant ? $this->subscriptionManagerService->billingEnforcedForTenant($tenant) : false,
+                'billing_exempt' => $tenant ? $this->subscriptionManagerService->tenantBillingExempt($tenant) : false,
+                'mode' => $features['mode'] ?? null,
             ],
         ]);
     }

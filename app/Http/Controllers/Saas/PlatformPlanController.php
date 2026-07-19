@@ -37,6 +37,9 @@ class PlatformPlanController extends Controller
         return response()->json([
             'status' => true,
             'data' => $plans->map(fn (PlatformPlan $plan) => $this->subscriptionManagerService->serializePlan($plan))->values(),
+            'meta' => [
+                'catalog_enforced' => $this->subscriptionManagerService->hasActivePublicPlans(),
+            ],
         ]);
     }
 
