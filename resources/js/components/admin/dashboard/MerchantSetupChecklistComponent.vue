@@ -48,7 +48,7 @@
                 </div>
             </div>
             <div class="col-12 xl:col-4">
-                <div class="db-card h-full">
+                <div class="db-card">
                     <div class="db-card-header border-none">
                         <div>
                             <h3 class="db-card-title">Storefront Status</h3>
@@ -100,23 +100,42 @@
                             </p>
                         </div>
 
-                        <div>
-                            <h4 class="font-semibold text-heading mb-3">Recent Orders</h4>
-                            <div v-if="recentOrders.length === 0"
-                                class="min-h-32 rounded-xl border border-dashed border-[#D9DBE9] flex flex-col items-center justify-center text-center p-5">
-                                <i class="lab lab-line-bag text-3xl text-primary mb-2"></i>
-                                <p class="font-semibold text-heading">No orders placed yet</p>
-                                <p class="text-xs text-paragraph mt-1">Orders will appear here after customers buy.</p>
+                        <div class="pt-1">
+                            <div class="flex items-center justify-between gap-3 mb-2">
+                                <h4 class="text-sm font-semibold text-heading">Recent Orders</h4>
+                                <router-link v-if="recentOrders.length > 0" :to="{ name: 'admin.order.list' }"
+                                    class="text-xs font-semibold text-primary hover:underline">
+                                    View All
+                                </router-link>
                             </div>
-                            <div v-else class="space-y-3">
-                                <div v-for="order in recentOrders" :key="order.id"
-                                    class="flex items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] p-3">
-                                    <div>
-                                        <p class="font-semibold text-heading">{{ order.order_serial_no || ('#' + order.id) }}</p>
+                            <div v-if="recentOrders.length === 0"
+                                class="rounded-xl border border-dashed border-[#D9DBE9] flex items-center gap-3 p-3">
+                                <span
+                                    class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <i class="lab lab-line-bag text-xl"></i>
+                                </span>
+                                <div>
+                                    <p class="font-semibold text-heading">No orders placed yet</p>
+                                    <p class="text-xs text-paragraph mt-0.5">Orders will appear here after customers buy.
+                                    </p>
+                                </div>
+                            </div>
+                            <div v-else class="space-y-2">
+                                <router-link v-for="order in compactRecentOrders" :key="order.id"
+                                    :to="{ name: 'admin.order.show', params: { id: order.id } }"
+                                    class="flex items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] bg-white px-3 py-2.5 hover:border-primary/40 hover:shadow-sm transition">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-heading truncate">
+                                            {{ order.order_serial_no || ('#' + order.id) }}
+                                        </p>
                                         <p class="text-xs text-paragraph">{{ order.order_datetime }}</p>
                                     </div>
-                                    <p class="font-semibold text-primary">{{ order.total }}</p>
-                                </div>
+                                    <p class="font-semibold text-primary text-sm shrink-0">{{ order.total }}</p>
+                                </router-link>
+                                <router-link v-if="extraRecentOrderCount > 0" :to="{ name: 'admin.order.list' }"
+                                    class="flex items-center justify-center h-9 rounded-xl border border-dashed border-primary/30 bg-primary/5 text-xs font-semibold text-primary hover:bg-primary hover:text-white transition">
+                                    +{{ extraRecentOrderCount }} more orders
+                                </router-link>
                             </div>
                         </div>
                     </div>
@@ -168,6 +187,12 @@ export default {
         },
         recentOrders: function () {
             return this.metrics.recent_orders || [];
+        },
+        compactRecentOrders: function () {
+            return this.recentOrders.slice(0, 3);
+        },
+        extraRecentOrderCount: function () {
+            return Math.max(this.recentOrders.length - this.compactRecentOrders.length, 0);
         },
         storefrontHost: function () {
             return this.cleanHost(this.metrics.storefront_hostname)
