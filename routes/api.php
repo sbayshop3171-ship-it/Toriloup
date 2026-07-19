@@ -85,6 +85,7 @@ use App\Http\Controllers\Frontend\CountryCodeController as FrontendCountryCodeCo
 use App\Http\Controllers\Frontend\CountryStateCityController as FrontendCountryStateCityController;
 use App\Http\Controllers\Frontend\CouponController as FrontendCouponController;
 use App\Http\Controllers\Frontend\LanguageController as FrontendLanguageController;
+use App\Http\Controllers\Frontend\LocationController as FrontendLocationController;
 use App\Http\Controllers\Frontend\OrderAreaController as FrontendOrderAreaController;
 use App\Http\Controllers\Frontend\OrderController as FrontendOrderController;
 use App\Http\Controllers\Frontend\OutletController as FrontendOutletController;
@@ -768,6 +769,10 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
     Route::prefix('language')->name('language.')->group(function () {
         Route::get('/', [FrontendLanguageController::class, 'index']);
         Route::get('/show/{language}', [FrontendLanguageController::class, 'show']);
+    });
+
+    Route::prefix('location')->name('location.')->group(function () {
+        Route::get('/detect', [FrontendLocationController::class, 'detect']);
     });
 
     Route::prefix('slider')->name('slider.')->group(function () {

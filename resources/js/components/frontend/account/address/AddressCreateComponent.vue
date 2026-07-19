@@ -195,6 +195,7 @@ import targetService from "../../../../services/targetService";
 import alertService from "../../../../services/alertService";
 import LoadingComponent from "../../components/LoadingComponent";
 import locationAutocompleteService from "../../../../services/locationAutocompleteService";
+import addressLocationDefaultService from "../../../../services/addressLocationDefaultService";
 import ENV from "../../../../config/env";
 
 export default {
@@ -219,29 +220,22 @@ export default {
             autocompleteTimer: null,
             isAutoDetectingLocation: false,
             autoDetectedLocationApplied: false,
+            defaultCountryName: null,
+            defaultCountryCallingCode: null,
+            defaultCountryFlag: "",
         }
     },
     mounted() {
         this.loading.isActive = true;
-        setTimeout(() => {
-            this.callCountry();
-        }, 300);
-        this.$store.dispatch('frontendCountryCode/lists');
-        this.$store.dispatch('frontendSetting/lists').then(companyRes => {
-            this.$store.dispatch('frontendCountryCode/show', companyRes.data.data.company_country_code).then(res => {
 
-                this.props.form.country_code = res.data.data.calling_code;
-                this.calling_code = res.data.data.calling_code;
-                this.props.flag = res.data.data.flag_emoji;
-                this.flag = res.data.data.flag_emoji;
-
-                this.loading.isActive = false;
-
-            }).catch((err) => {
-                this.loading.isActive = false;
-
-            });
-        }).catch((err) => {
+        Promise.allSettled([
+            this.$store.dispatch('frontendCountryStateCity/countries'),
+            this.$store.dispatch('frontendCountryCode/lists'),
+            this.$store.dispatch('frontendSetting/lists'),
+        ]).then(async (results) => {
+            const companyCountryCode = results[2]?.value?.data?.data?.company_country_code || null;
+            await this.applyCompanyCountryCodeDefault(companyCountryCode);
+            await this.applyIpLocationDefault();
             this.loading.isActive = false;
         });
     },
@@ -269,12 +263,71 @@ export default {
         phoneNumber(e) {
             return appService.phoneNumber(e);
         },
+        applyCompanyCountryCodeDefault: async function (companyCountryCode) {
+            if (!companyCountryCode) {
+                return;
+            }
+
+            const countryCode = addressLocationDefaultService.findCountryCode(this.countryCodes, companyCountryCode);
+            if (countryCode) {
+                this.applyPhoneCode(countryCode.calling_code, countryCode.flag_emoji, false);
+                return;
+            }
+
+            await this.$store.dispatch('frontendCountryCode/show', companyCountryCode).then(res => {
+                this.applyPhoneCode(res.data.data.calling_code, res.data.data.flag_emoji, false);
+            }).catch(() => {});
+        },
+        applyIpLocationDefault: async function () {
+            const defaults = await addressLocationDefaultService.resolve(this.countries, this.countryCodes);
+            if (!defaults) {
+                return;
+            }
+
+            this.applyPhoneCode(defaults.callingCode, defaults.flagEmoji, true);
+
+            if (defaults.country?.name && !this.props.form.country) {
+                this.props.form.country = defaults.country.name;
+                await this.callStates(defaults.country.name);
+            }
+
+            this.rememberDefaultLocation(defaults.country?.name || null, defaults.callingCode, defaults.flagEmoji);
+        },
+        applyPhoneCode: function (callingCode, flagEmoji = "", force = true) {
+            if (!callingCode || (!force && this.props.form.country_code)) {
+                return;
+            }
+
+            this.props.form.country_code = callingCode;
+            this.calling_code = callingCode;
+
+            if (flagEmoji) {
+                this.props.flag = flagEmoji;
+                this.flag = flagEmoji;
+            }
+
+            this.rememberDefaultLocation(this.defaultCountryName, callingCode, flagEmoji || this.defaultCountryFlag);
+        },
+        rememberDefaultLocation: function (countryName = null, callingCode = null, flagEmoji = "") {
+            if (countryName) {
+                this.defaultCountryName = countryName;
+            }
+
+            if (callingCode) {
+                this.defaultCountryCallingCode = callingCode;
+            }
+
+            if (flagEmoji) {
+                this.defaultCountryFlag = flagEmoji;
+            }
+        },
         showTarget: function () {
             targetService.showTarget(this.targetID, this.addClass);
         },
         changeCountry: function (e) {
             this.props.flag = e.flag_emoji;
             this.$props.props.form.country_code = e.calling_code;
+            this.rememberDefaultLocation(this.props.form.country, e.calling_code, e.flag_emoji);
         },
 
         callCountry: function () {
@@ -282,8 +335,20 @@ export default {
         },
 
         handleCountryChange: async function (countryName) {
+            this.applyPhoneCodeForCountry(countryName);
             await this.callStates(countryName);
             await this.autofillLocationByCountry(countryName);
+        },
+        applyPhoneCodeForCountry: function (countryName) {
+            const country = this.countries.find((countryOption) => countryOption.name === countryName);
+            if (!country?.code) {
+                return;
+            }
+
+            const countryCode = addressLocationDefaultService.findCountryCode(this.countryCodes, country.code);
+            if (countryCode) {
+                this.applyPhoneCode(countryCode.calling_code, countryCode.flag_emoji, true);
+            }
         },
 
         callStates: async function (countryName, preferredState = null, preferredCity = null) {
@@ -455,6 +520,7 @@ export default {
             }
 
             this.props.form.country = country.name;
+            this.applyPhoneCodeForCountry(country.name);
             await this.callStates(country.name, suggestion.state, suggestion.city);
         },
         reset: function () {
@@ -464,9 +530,9 @@ export default {
             this.$props.props.form = {
                 full_name: "",
                 email: "",
-                country_code: this.calling_code,
+                country_code: this.defaultCountryCallingCode || this.calling_code,
                 phone: "",
-                country: null,
+                country: this.defaultCountryName,
                 state: null,
                 city: null,
                 zip_code: "",
@@ -474,12 +540,15 @@ export default {
                 latitude: null,
                 longitude: null,
             };
-            this.$props.props.flag = this.flag;
+            this.$props.props.flag = this.defaultCountryFlag || this.flag;
             this.$props.props.states = [];
             this.$props.props.cities = [];
             this.addressSuggestions = [];
             this.showAddressSuggestions = false;
             this.autoDetectedLocationApplied = false;
+            if (this.defaultCountryName) {
+                this.callStates(this.defaultCountryName).then().catch();
+            }
         },
         save: function () {
             try {
@@ -492,9 +561,9 @@ export default {
                     this.props.form = {
                         full_name: "",
                         email: "",
-                        country_code: this.calling_code,
+                        country_code: this.defaultCountryCallingCode || this.calling_code,
                         phone: "",
-                        country: null,
+                        country: this.defaultCountryName,
                         state: null,
                         city: null,
                         zip_code: "",
@@ -502,13 +571,16 @@ export default {
                         latitude: null,
                         longitude: null,
                     };
-                    this.$props.props.flag = this.flag;
+                    this.$props.props.flag = this.defaultCountryFlag || this.flag;
                     this.$props.props.states = [];
                     this.$props.props.cities = [];
                     this.addressSuggestions = [];
                     this.showAddressSuggestions = false;
                     this.autoDetectedLocationApplied = false;
                     this.errors = {};
+                    if (this.defaultCountryName) {
+                        this.callStates(this.defaultCountryName).then().catch();
+                    }
                 }).catch((err) => {
                     this.loading.isActive = false;
                     this.errors = err.response.data.errors;

@@ -93,6 +93,11 @@ function mapFeature(feature) {
 }
 
 const locationAutocompleteService = {
+    async detectCountryByIp() {
+        const response = await axios.get("frontend/location/detect");
+        return response.data?.data || null;
+    },
+
     async searchAddressSuggestions(query, accessToken, countryCode = null) {
         if (!accessToken || !query || query.trim().length < 3) {
             return [];

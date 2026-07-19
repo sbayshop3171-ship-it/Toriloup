@@ -42,6 +42,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -187,6 +188,36 @@ class StorefrontCustomerFlowTest extends TestCase
             ->getJson('http://unknown.company.com/api/frontend/slider?paginate=0&status='.Status::ACTIVE)
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    public function test_storefront_location_detects_country_from_client_ip(): void
+    {
+        $tenant = $this->createTenant('location-store');
+
+        Country::query()->create([
+            'name' => 'Bangladesh',
+            'code' => 'BD',
+            'currency_code' => 'BDT',
+            'currency_symbol' => 'Tk',
+            'status' => Status::ACTIVE,
+        ]);
+
+        Http::fake([
+            'ipapi.co/*' => Http::response([
+                'country_code' => 'BD',
+                'country_name' => 'Bangladesh',
+            ]),
+        ]);
+
+        $this
+            ->withHeaders($this->jsonHeaders())
+            ->withServerVariables(['REMOTE_ADDR' => '8.8.8.8'])
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/location/detect")
+            ->assertOk()
+            ->assertJsonPath('data.country_code', 'BD')
+            ->assertJsonPath('data.country_name', 'Bangladesh')
+            ->assertJsonPath('data.calling_code', '+880')
+            ->assertJsonPath('data.flag_emoji', '🇧🇩');
     }
 
     public function test_storefront_customer_endpoints_require_a_storefront_surface_token(): void
