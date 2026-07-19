@@ -54,7 +54,7 @@
                             <div class="flex flex-col items-end gap-2">
                                 <span class="inline-flex rounded-lg px-2 py-1 text-xs font-semibold"
                                       :class="plan.status === 'active' ? 'bg-[#ECFDF3] text-[#047857]' : 'bg-[#FFF7ED] text-[#C2410C]'">
-                                    {{ formatLabel(plan.status) }}
+                                    {{ planStatusLabel(plan.status) }}
                                 </span>
                                 <span class="inline-flex rounded-lg px-2 py-1 text-xs font-semibold"
                                       :class="plan.is_public ? 'bg-[#ECFDF3] text-[#047857]' : 'bg-[#F3F4F6] text-[#6B7280]'">
@@ -105,7 +105,7 @@
                         <div class="form-col-12 sm:form-col-4">
                             <label class="db-field-title">Status</label>
                             <select v-model="planForm.status" class="db-field-control">
-                                <option value="draft">Draft</option>
+                                <option value="draft">Disabled</option>
                                 <option value="active">Active</option>
                                 <option value="archived">Archived</option>
                             </select>
@@ -544,6 +544,9 @@ export default {
         },
         formatLabel(value) {
             return String(value || "-").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+        },
+        planStatusLabel(value) {
+            return value === "draft" ? "Disabled" : this.formatLabel(value);
         },
         shortDate(value) {
             return value ? new Date(value).toLocaleDateString() : "Not set";

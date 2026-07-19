@@ -131,7 +131,7 @@
                             <label class="grid gap-2 text-sm">
                                 <span class="font-medium text-[#374151]">Status</span>
                                 <select v-model="planForm.status" class="h-11 rounded-xl border border-[#D1D5DB] px-4 outline-none transition focus:border-primary">
-                                    <option value="draft">Draft</option>
+                                    <option value="draft">Disabled</option>
                                     <option value="active">Active</option>
                                     <option value="archived">Archived</option>
                                 </select>
