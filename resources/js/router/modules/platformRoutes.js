@@ -3,6 +3,7 @@ const OwnerCustomerDirectoryComponent = () => import("../../components/admin/pla
 const OwnerMerchantManagementComponent = () => import("../../components/admin/platform/OwnerMerchantManagementComponent.vue");
 const PlatformDashboardComponent = () => import("../../components/platform/PlatformDashboardComponent.vue");
 const PlatformOperationsComponent = () => import("../../components/platform/PlatformOperationsComponent.vue");
+const PlatformOrdersComponent = () => import("../../components/platform/PlatformOrdersComponent.vue");
 const PlatformTenantsComponent = () => import("../../components/platform/PlatformTenantsComponent.vue");
 
 const operationRoutes = [
@@ -96,6 +97,16 @@ export default [
         path: "/owner/tenants",
         component: PlatformTenantsComponent,
         name: "platform.tenants",
+        meta: {
+            isFrontend: false,
+            auth: true,
+            workspace: "platform",
+        },
+    },
+    {
+        path: "/owner/orders",
+        component: PlatformOrdersComponent,
+        name: "platform.orders",
         meta: {
             isFrontend: false,
             auth: true,

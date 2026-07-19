@@ -44,12 +44,12 @@ Route::prefix('install')->name('installer.')->middleware(['web'])->group(functio
 });
 
 Route::get('/', [RootController::class, 'index'])->middleware(['installed'])->name('home');
-Route::prefix('payment')->name('payment.')->middleware(['installed'])->group(function () {
-    Route::get('/{paymentGateway:slug}/pay/{order}', [PaymentController::class, 'index'])->name('index');
+Route::prefix('payment')->name('payment.')->middleware(['installed', 'identifySurface', 'resolveTenantFromHost', 'ensureTenantActive', 'setTenantContext'])->group(function () {
+    Route::get('/{paymentGateway}/pay/{order}', [PaymentController::class, 'index'])->name('index');
     Route::post('/{order}/pay', [PaymentController::class, 'payment'])->name('store');
-    Route::match(['get', 'post'], '/{paymentGateway:slug}/{order}/success', [PaymentController::class, 'success'])->name('success');
-    Route::match(['get', 'post'], '/{paymentGateway:slug}/{order}/fail', [PaymentController::class, 'fail'])->name('fail');
-    Route::match(['get', 'post'], '/{paymentGateway:slug}/{order}/cancel', [PaymentController::class, 'cancel'])->name('cancel');
+    Route::match(['get', 'post'], '/{paymentGateway}/{order}/success', [PaymentController::class, 'success'])->name('success');
+    Route::match(['get', 'post'], '/{paymentGateway}/{order}/fail', [PaymentController::class, 'fail'])->name('fail');
+    Route::match(['get', 'post'], '/{paymentGateway}/{order}/cancel', [PaymentController::class, 'cancel'])->name('cancel');
     Route::get('/successful/{order}', [PaymentController::class, 'successful'])->name('successful');
 });
 

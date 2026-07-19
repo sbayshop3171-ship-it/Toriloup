@@ -8,7 +8,8 @@
                 </h4>
 
                 <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 p-4">
-                    <div v-if="Object.keys(cashOnDelivery).length > 0 && setting.site_cash_on_delivery === ActivityEnum.ENABLE"
+                    <div v-if="Object.keys(cashOnDelivery).length > 0"
+                        :key="cashOnDelivery.id"
                         @click.prevent="selectPaymentMethod(cashOnDelivery)"
                         :class="Object.keys(paymentMethod).length > 0 && cashOnDelivery.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
@@ -16,15 +17,18 @@
                         <span class="text-xs font-medium">{{ cashOnDelivery.name }}</span>
                     </div>
 
-                    <div v-if="Object.keys(credit).length > 0 && profile.balance >= total" @click.prevent="selectPaymentMethod(credit)"
+                    <div v-if="Object.keys(credit).length > 0 && profile.balance >= total"
+                        :key="credit.id"
+                        @click.prevent="selectPaymentMethod(credit)"
                         :class="Object.keys(paymentMethod).length > 0 && credit.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img class="h-6" :src="credit.image" alt="payment" />
                         <span class="text-xs font-medium">{{ credit.name }} ({{ profile.balance }})</span>
                     </div>
 
-                    <div v-if="setting.site_online_payment_gateway === ActivityEnum.ENABLE"
-                        v-for="paymentGateway in paymentGateways" @click.prevent="selectPaymentMethod(paymentGateway)"
+                    <div v-for="paymentGateway in paymentGateways"
+                        :key="paymentGateway.id"
+                        @click.prevent="selectPaymentMethod(paymentGateway)"
                         :class="Object.keys(paymentMethod).length > 0 && paymentGateway.id === paymentMethod.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-white bg-white'"
                         class="flex flex-col items-center justify-center gap-2.5 py-4 rounded-lg shadow-xs cursor-pointer border">
                         <img class="h-6" :src="paymentGateway.image" alt="payment"  />
@@ -72,7 +76,6 @@ import _ from "lodash";
 import alertService from "../../../../services/alertService";
 import sourceEnum from "../../../../enums/modules/sourceEnum";
 import ENV from "../../../../config/env";
-import ActivityEnum from "../../../../enums/modules/activityEnum";
 
 export default {
     name: "PaymentComponent",
@@ -87,14 +90,10 @@ export default {
             cashOnDelivery: {},
             statusEnum: statusEnum,
             sourceEnum: sourceEnum,
-            ActivityEnum: ActivityEnum,
             form: {}
         }
     },
     computed: {
-        setting: function () {
-            return this.$store.getters['frontendSetting/lists'];
-        },
         profile: function () {
             return this.$store.getters.authInfo;
         },
@@ -144,14 +143,11 @@ export default {
                         this.credit = gateway;
                     } else if (gateway.slug === "cashondelivery") {
                         this.cashOnDelivery = gateway;
-                        if(this.setting.site_cash_on_delivery === this.ActivityEnum.ENABLE){
-                            this.selectPaymentMethod(this.cashOnDelivery);
-                        }
-
                     } else {
                         this.paymentGateways.push(gateway);
                     }
                 });
+                this.syncSelectedPaymentMethod();
             }
             this.loading.isActive = false;
         }).catch((err) => {
@@ -162,8 +158,52 @@ export default {
         selectPaymentMethod: function (paymentMethod) {
             this.$store.dispatch("frontendCart/paymentMethod", paymentMethod);
         },
+        availablePaymentMethods: function () {
+            const methods = [];
+
+            if (Object.keys(this.cashOnDelivery).length > 0) {
+                methods.push(this.cashOnDelivery);
+            }
+
+            if (Object.keys(this.credit).length > 0 && this.profile.balance >= this.total) {
+                methods.push(this.credit);
+            }
+
+            return methods.concat(this.paymentGateways);
+        },
+        syncSelectedPaymentMethod: function () {
+            const methods = this.availablePaymentMethods();
+            const selected = Object.keys(this.paymentMethod).length > 0
+                ? methods.find((method) => method.id === this.paymentMethod.id)
+                : null;
+
+            if (selected) {
+                this.selectPaymentMethod(selected);
+                return;
+            }
+
+            this.selectPaymentMethod(methods.length > 0 ? methods[0] : {});
+        },
+        resetConfirmButton: function (button) {
+            if (button) {
+                button.disabled = false;
+            }
+
+            this.loading.isActive = false;
+        },
         confirmOrder: function (e) {
-            e.target.disabled = true;
+            const button = e?.currentTarget || e?.target;
+            if (button) {
+                button.disabled = true;
+            }
+
+            if (Object.keys(this.paymentMethod).length === 0 || !this.paymentMethod.id) {
+                alertService.error(this.$t('message.payment_method_required'));
+                this.resetConfirmButton(button);
+                return;
+            }
+
+            this.loading.isActive = true;
             this.form = {
                 subtotal: this.subtotal,
                 discount: this.discount,
@@ -187,9 +227,10 @@ export default {
                     window.location.href = ENV.API_URL + "/payment/" + paymentSlug + "/pay/" + orderResponse.data.data.id;
                 } else {
                     alertService.error(this.$t('message.payment_method_required'));
+                    this.resetConfirmButton(button);
                 }
             }).catch((err) => {
-                this.loading.isActive = false;
+                this.resetConfirmButton(button);
                 if (typeof err.response.data.errors === 'object') {
                     _.forEach(err.response.data.errors, (error) => {
                         alertService.error(error[0]);

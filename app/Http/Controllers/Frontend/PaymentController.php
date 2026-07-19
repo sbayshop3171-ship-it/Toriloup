@@ -21,6 +21,7 @@ use App\Models\TenantPaymentMethod;
 use App\Models\ThemeSetting;
 use App\Services\PaymentManagerService;
 use App\Services\Saas\TenantPaymentMethodCatalogService;
+use App\Services\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Dipokhalder\Settings\Facades\Settings;
@@ -32,13 +33,21 @@ class PaymentController extends Controller
     public function __construct(
         PaymentManagerService $paymentManagerService,
         private readonly TenantPaymentMethodCatalogService $tenantPaymentMethodCatalogService,
+        private readonly TenantContext $tenantContext,
     ) {
         $this->paymentManagerService = $paymentManagerService;
     }
 
-    public function index(PaymentGateway $paymentGateway, Order $order): \Illuminate\Contracts\View\Factory|\Illuminate\Foundation\Application|\Illuminate\Contracts\View\View|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
+    public function index(string $paymentGateway, int|string $order): \Illuminate\Contracts\View\Factory|\Illuminate\Foundation\Application|\Illuminate\Contracts\View\View|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
-        if (!$this->orderCanUseGateway($order, $paymentGateway->slug)) {
+        $paymentGateway = $this->resolvePaymentGateway($paymentGateway);
+        $order = $this->resolveOrder($order);
+
+        if (!$paymentGateway instanceof PaymentGateway || !$order instanceof Order) {
+            return redirect('/checkout/payment')->with('error', trans('all.message.something_wrong'));
+        }
+
+        if (!$this->orderCanStartGateway($order, $paymentGateway->slug)) {
             return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
         }
 
@@ -75,9 +84,15 @@ class PaymentController extends Controller
         return redirect()->route('home')->with('error', trans('all.message.payment_canceled'));
     }
 
-    public function payment(Order $order, PaymentRequest $request)
+    public function payment(int|string $order, PaymentRequest $request)
     {
-        if (!$this->orderCanUseGateway($order, $request->paymentMethod)) {
+        $order = $this->resolveOrder($order);
+
+        if (!$order instanceof Order) {
+            return redirect('/checkout/payment')->with('error', trans('all.message.something_wrong'));
+        }
+
+        if (!$this->orderCanStartGateway($order, $request->paymentMethod)) {
             return redirect()->route('payment.index', [
                 'paymentGateway' => $order->paymentMethod?->slug ?? $request->paymentMethod,
                 'order' => $order,
@@ -97,23 +112,50 @@ class PaymentController extends Controller
         }
     }
 
-    public function success(PaymentGateway $paymentGateway, Order $order, Request $request)
+    public function success(string $paymentGateway, int|string $order, Request $request)
     {
+        $paymentGateway = $this->resolvePaymentGateway($paymentGateway);
+        $order = $this->resolveOrder($order);
+
+        if (!$paymentGateway instanceof PaymentGateway || !$order instanceof Order || !$this->orderUsesGateway($order, $paymentGateway->slug)) {
+            return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
+        }
+
         return $this->paymentManagerService->gateway($paymentGateway->slug)->success($order, $request);
     }
 
-    public function fail(PaymentGateway $paymentGateway, Order $order, Request $request)
+    public function fail(string $paymentGateway, int|string $order, Request $request)
     {
+        $paymentGateway = $this->resolvePaymentGateway($paymentGateway);
+        $order = $this->resolveOrder($order);
+
+        if (!$paymentGateway instanceof PaymentGateway || !$order instanceof Order || !$this->orderUsesGateway($order, $paymentGateway->slug)) {
+            return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
+        }
+
         return $this->paymentManagerService->gateway($paymentGateway->slug)->fail($order, $request);
     }
 
-    public function cancel(PaymentGateway $paymentGateway, Order $order, Request $request)
+    public function cancel(string $paymentGateway, int|string $order, Request $request)
     {
+        $paymentGateway = $this->resolvePaymentGateway($paymentGateway);
+        $order = $this->resolveOrder($order);
+
+        if (!$paymentGateway instanceof PaymentGateway || !$order instanceof Order || !$this->orderUsesGateway($order, $paymentGateway->slug)) {
+            return redirect('/checkout/payment')->with('error', trans('all.message.payment_gateway_disable'));
+        }
+
         return $this->paymentManagerService->gateway($paymentGateway->slug)->cancel($order, $request);
     }
 
-    public function successful(Order $order): \Illuminate\Foundation\Application|\Illuminate\Routing\Redirector|\Illuminate\Http\RedirectResponse|\Illuminate\Contracts\Foundation\Application
+    public function successful(int|string $order): \Illuminate\Foundation\Application|\Illuminate\Routing\Redirector|\Illuminate\Http\RedirectResponse|\Illuminate\Contracts\Foundation\Application
     {
+        $order = $this->resolveOrder($order);
+
+        if (!$order instanceof Order) {
+            return redirect('/checkout/payment')->with('error', trans('all.message.something_wrong'));
+        }
+
         try {
             SendOrderMail::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
             SendOrderSms::dispatch(['order_id' => $order->id, 'status' => OrderStatus::PENDING]);
@@ -128,12 +170,44 @@ class PaymentController extends Controller
         return redirect('/account/order-success/' . $order->id);
     }
 
-    private function orderCanUseGateway(Order $order, string $gatewaySlug): bool
+    private function resolvePaymentGateway(string $paymentGateway): ?PaymentGateway
+    {
+        return PaymentGateway::query()
+            ->where('slug', strtolower(trim($paymentGateway)))
+            ->first();
+    }
+
+    private function resolveOrder(int|string $order): ?Order
+    {
+        $orderId = (int) $order;
+
+        if ($orderId <= 0) {
+            return null;
+        }
+
+        $tenant = $this->tenantContext->current(request());
+        $query = Order::withoutGlobalScope('tenant')
+            ->with(['paymentMethod', 'tenant'])
+            ->whereKey($orderId);
+
+        if ($tenant !== null) {
+            $query->where('tenant_id', $tenant->id);
+        }
+
+        return $query->first();
+    }
+
+    private function orderCanStartGateway(Order $order, string $gatewaySlug): bool
+    {
+        return $this->orderUsesGateway($order, $gatewaySlug)
+            && $this->orderAllowsGateway($order, $gatewaySlug);
+    }
+
+    private function orderUsesGateway(Order $order, string $gatewaySlug): bool
     {
         $order->loadMissing('paymentMethod');
 
-        return $order->paymentMethod?->slug === $gatewaySlug
-            && $this->orderAllowsGateway($order, $gatewaySlug);
+        return $order->paymentMethod?->slug === $gatewaySlug;
     }
 
     private function orderAllowsGateway(Order $order, string $gatewaySlug): bool

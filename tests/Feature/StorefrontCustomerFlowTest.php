@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\Activity;
 use App\Enums\Ask;
+use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Enums\PaymentStatus;
 use App\Enums\Role as LegacyRole;
@@ -11,6 +12,7 @@ use App\Enums\Source;
 use App\Enums\Status;
 use App\Models\Barcode;
 use App\Models\Country;
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\PaymentGateway;
@@ -272,6 +274,89 @@ class StorefrontCustomerFlowTest extends TestCase
         $this->assertSame('Pay Later', $gateways->firstWhere('slug', 'cashondelivery')['name']);
         $this->assertSame('Paypal Express', $gateways->firstWhere('slug', 'paypal')['name']);
         $this->assertNull($gateways->firstWhere('slug', 'stripe'));
+    }
+
+    public function test_storefront_payment_page_resolves_order_for_current_storefront_tenant(): void
+    {
+        $tenant = $this->createTenant('payment-page-store');
+        $otherTenant = $this->createTenant('other-payment-page-store');
+        $customer = $this->createCustomerUser('payment-page-customer@test.com');
+        $currency = Currency::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Dollars',
+            'symbol' => '$',
+            'code' => 'USD',
+            'is_cryptocurrency' => 0,
+            'exchange_rate' => 1,
+        ]);
+        $cashOnDelivery = PaymentGateway::query()->create([
+            'name' => 'Cash on Delivery',
+            'slug' => 'cashondelivery',
+            'status' => Activity::ENABLE,
+        ]);
+
+        Settings::group('company')->set([
+            'company_name' => 'Payment Page Store',
+        ]);
+        Settings::group('site')->set([
+            'site_default_currency' => $currency->id,
+            'site_cash_on_delivery' => Activity::ENABLE,
+            'site_online_payment_gateway' => Activity::ENABLE,
+        ]);
+        DB::table('settings')->insert([
+            [
+                'group' => 'theme',
+                'key' => 'theme_logo',
+                'payload' => json_encode(null),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'group' => 'theme',
+                'key' => 'theme_favicon_logo',
+                'payload' => json_encode(null),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        TenantPaymentMethod::query()->create([
+            'tenant_id' => $tenant->id,
+            'provider_code' => 'cash_on_delivery',
+            'display_name' => 'Pay Later',
+            'status' => true,
+            'checkout_label' => 'Pay when delivered',
+            'fee_type' => 'none',
+            'fee_value' => 0,
+            'sort_order' => 1,
+            'config_json' => ['managed_by' => 'owner'],
+        ]);
+
+        $order = Order::withoutGlobalScope('tenant')->create([
+            'tenant_id' => $tenant->id,
+            'order_serial_no' => 'PAY-PAGE-1',
+            'user_id' => $customer->id,
+            'subtotal' => 150,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 150,
+            'order_type' => OrderType::DELIVERY,
+            'order_datetime' => now(),
+            'payment_method' => $cashOnDelivery->id,
+            'payment_status' => PaymentStatus::UNPAID,
+            'status' => OrderStatus::PENDING,
+            'source' => Source::WEB,
+            'active' => Ask::NO,
+        ]);
+
+        $this
+            ->get("http://{$tenant->slug}.company.com/payment/cashondelivery/pay/{$order->id}")
+            ->assertOk();
+
+        $this
+            ->get("http://{$otherTenant->slug}.company.com/payment/cashondelivery/pay/{$order->id}")
+            ->assertRedirect('/checkout/payment');
     }
 
     public function test_storefront_customer_can_create_address_place_order_and_complete_cod_checkout(): void

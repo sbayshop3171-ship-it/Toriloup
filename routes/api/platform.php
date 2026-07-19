@@ -6,6 +6,7 @@ use App\Http\Controllers\Saas\PlatformCustomerController;
 use App\Http\Controllers\Saas\PlatformDashboardController;
 use App\Http\Controllers\Saas\PlatformDomainController;
 use App\Http\Controllers\Saas\PlatformPlanController;
+use App\Http\Controllers\Saas\PlatformOrderController;
 use App\Http\Controllers\Saas\PlatformProviderController;
 use App\Http\Controllers\Saas\PlatformSubscriptionController;
 use App\Http\Controllers\Saas\PlatformTenantController;
@@ -51,6 +52,11 @@ Route::prefix('platform')
             Route::prefix('customers')->name('customers.')->group(function () {
                 Route::get('/', [PlatformCustomerController::class, 'index'])->name('index');
                 Route::get('/{customerId}', [PlatformCustomerController::class, 'show'])->name('show');
+            });
+
+            Route::prefix('orders')->name('orders.')->group(function () {
+                Route::get('/', [PlatformOrderController::class, 'index'])->name('index');
+                Route::get('/{orderId}', [PlatformOrderController::class, 'show'])->whereNumber('orderId')->name('show');
             });
 
             Route::prefix('domains')->name('domains.')->group(function () {

@@ -63,6 +63,7 @@ export default {
                 { name: "platform.dashboard", label: "Main Admin" },
                 { name: "platform.controlTower", label: "Control Tower" },
                 { name: "platform.tenants", label: "Tenants" },
+                { name: "platform.orders", label: "Orders" },
                 { name: "platform.domains", label: "Domains" },
                 { name: "platform.billing", label: "Plans & Billing" },
                 { name: "platform.providers", label: "Providers" },

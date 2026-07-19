@@ -11,6 +11,7 @@ use App\Enums\Activity;
 use App\Models\PaymentGateway;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
+use App\Services\Saas\TenantPaymentMethodCatalogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Dipokhalder\Settings\Facades\Settings;
@@ -29,8 +30,7 @@ class Cashondelivery extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $site = Settings::group('site')->all();
-            if ($site['site_cash_on_delivery'] == Activity::ENABLE) {
+            if ($this->canUseCashOnDelivery($order)) {
                 $capturePaymentNotification = DB::table('capture_payment_notifications')->where([
                     ['order_id', $order->id]
                 ]);
@@ -66,6 +66,22 @@ class Cashondelivery extends PaymentAbstract
             return true;
         }
         return false;
+    }
+
+    private function canUseCashOnDelivery($order): bool
+    {
+        if (filled($order?->tenant_id) && $order?->tenant) {
+            return in_array(
+                'cashondelivery',
+                app(TenantPaymentMethodCatalogService::class)->activeGatewaySlugsForTenant($order->tenant),
+                true
+            );
+        }
+
+        $site = Settings::group('site')->all();
+
+        return ($site['site_cash_on_delivery'] ?? Activity::DISABLE) == Activity::ENABLE
+            && $this->status();
     }
 
     public function success($order, $request): \Illuminate\Http\RedirectResponse

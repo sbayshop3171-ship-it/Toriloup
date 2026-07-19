@@ -9,6 +9,7 @@ use App\Enums\Status;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Enums\Role as LegacyRole;
+use App\Models\PaymentGateway;
 use App\Models\PlatformRole;
 use App\Models\Product;
 use App\Models\Tenant;
@@ -313,6 +314,86 @@ class PlatformWorkspaceTest extends TestCase
             ->assertJsonPath('summary.customers_total', 4)
             ->assertJsonPath('summary.revenue_total', 200)
             ->assertJsonPath('summary.revenue_total_display', AppLibrary::currencyAmountFormat(200));
+    }
+
+    public function test_platform_owner_can_monitor_orders_without_operational_actions(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $tenantA = $this->createTenant('order-monitor-alpha');
+        $tenantB = $this->createTenant('order-monitor-beta');
+        $gateway = PaymentGateway::query()->create([
+            'name' => 'Cash on Delivery',
+            'slug' => 'cashondelivery',
+            'status' => Status::ACTIVE,
+        ]);
+
+        $alphaOrder = Order::withoutGlobalScope('tenant')->create([
+            'tenant_id' => $tenantA->id,
+            'order_serial_no' => 'MONITOR-ALPHA-1',
+            'user_id' => $owner->id,
+            'subtotal' => 100,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 100,
+            'order_datetime' => now(),
+            'payment_method' => $gateway->id,
+            'payment_status' => PaymentStatus::UNPAID,
+            'status' => OrderStatus::PENDING,
+            'active' => 1,
+        ]);
+
+        Order::withoutGlobalScope('tenant')->create([
+            'tenant_id' => $tenantB->id,
+            'order_serial_no' => 'MONITOR-BETA-1',
+            'user_id' => $owner->id,
+            'subtotal' => 200,
+            'tax' => 0,
+            'discount' => 0,
+            'shipping_charge' => 0,
+            'total' => 200,
+            'order_datetime' => now()->subMinute(),
+            'payment_method' => $gateway->id,
+            'payment_status' => PaymentStatus::PAID,
+            'status' => OrderStatus::DELIVERED,
+            'active' => 1,
+        ]);
+
+        $response = $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://owner.company.com/api/platform/orders?per_page=10');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('summary.total_orders', 2)
+            ->assertJsonPath('summary.pending_orders', 1)
+            ->assertJsonPath('summary.paid_orders', 1)
+            ->assertJsonFragment(['slug' => 'order-monitor-alpha'])
+            ->assertJsonFragment(['slug' => 'order-monitor-beta']);
+
+        $this->assertEquals(300.0, $response->json('summary.gross_sales'));
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->getJson('http://owner.company.com/api/platform/orders?q=order-monitor-alpha')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $alphaOrder->id)
+            ->assertJsonPath('data.0.tenant.slug', 'order-monitor-alpha');
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/orders/{$alphaOrder->id}/status", [
+                'status' => OrderStatus::CONFIRMED,
+            ])
+            ->assertStatus(405);
     }
 
     public function test_owner_can_view_merchant_directory_details_and_delete_merchant(): void
