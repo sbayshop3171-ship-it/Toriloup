@@ -3,19 +3,30 @@
 namespace App\Http\Controllers\Saas;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\Status;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Saas\PlatformTenantUpdateRequest;
+use App\Models\Customer;
+use App\Models\MerchantWallet;
+use App\Models\MerchantWithdrawal;
+use App\Models\Order;
+use App\Models\PlatformAuditLog;
+use App\Models\Product;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantFeatureFlag;
 use App\Models\TenantMember;
 use App\Models\TenantPaymentMethod;
+use App\Models\User;
 use App\Services\Saas\PlatformAuditLogService;
 use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PlatformTenantController extends Controller
 {
@@ -74,31 +85,62 @@ class PlatformTenantController extends Controller
 
     public function destroy(Request $request, int $tenantId): JsonResponse
     {
-        $tenant = $this->findTenant($tenantId);
-        $snapshot = $this->serializeTenant($tenant, true);
-        $domainHosts = $tenant->domains->pluck('hostname')->filter()->values()->all();
+        $cleanup = DB::transaction(function () use ($request, $tenantId): array {
+            $tenant = $this->findTenant($tenantId);
+            $snapshot = $this->serializeTenant($tenant, true);
+            $originalSlug = $tenant->slug;
+            $domainHosts = $tenant->domains->pluck('hostname')->filter()->values()->all();
+            $memberUserIds = $tenant->members->pluck('user_id')->filter()->unique()->values();
 
-        TenantDomain::query()->where('tenant_id', $tenant->id)->delete();
-        $tenant->delete();
+            TenantMember::query()->where('tenant_id', $tenant->id)->delete();
+            TenantDomain::query()->where('tenant_id', $tenant->id)->delete();
 
-        $this->forgetTenantRoutingCache($tenant->slug, $domainHosts);
+            $tenant->forceFill([
+                'name' => 'Deleted Merchant #'.$tenant->id,
+                'legal_name' => null,
+                'slug' => $this->releasedTenantSlug($tenant),
+                'store_code' => $this->releasedStoreCode($tenant),
+                'status' => 'archived',
+                'contact_email' => null,
+                'contact_phone' => null,
+                'suspended_at' => null,
+            ])->save();
 
-        $this->platformAuditLogService->log(
-            'platform.tenant.deleted',
-            'tenant',
-            $tenantId,
-            $snapshot,
-            ['deleted_at' => now()->toDateTimeString()],
-            $request,
-            $request->user(),
-            $tenant
-        );
+            $tenant->delete();
+
+            $releasedUsers = $this->releaseMerchantUsers($memberUserIds->all());
+
+            $this->platformAuditLogService->log(
+                'platform.tenant.deleted',
+                'tenant',
+                $tenantId,
+                $snapshot,
+                [
+                    'deleted_at' => now()->toDateTimeString(),
+                    'reason' => $request->input('reason'),
+                    'identity_released' => true,
+                    'released_user_ids' => $releasedUsers,
+                ],
+                $request,
+                $request->user(),
+                $tenant
+            );
+
+            return [
+                'slug' => $originalSlug,
+                'domain_hosts' => $domainHosts,
+                'released_user_ids' => $releasedUsers,
+            ];
+        });
+
+        $this->forgetTenantRoutingCache($cleanup['slug'], $cleanup['domain_hosts']);
 
         return response()->json([
             'status' => true,
             'data' => [
                 'id' => $tenantId,
                 'deleted' => true,
+                'identity_released' => true,
             ],
         ]);
     }
@@ -182,6 +224,13 @@ class PlatformTenantController extends Controller
 
     public function suspend(Request $request, int $tenantId): JsonResponse
     {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+            'block_login' => ['nullable', 'boolean'],
+            'hide_products' => ['nullable', 'boolean'],
+            'pause_payouts' => ['nullable', 'boolean'],
+            'notify_merchant' => ['nullable', 'boolean'],
+        ]);
         $tenant = $this->findTenant($tenantId);
         $oldValues = $tenant->only(['status', 'suspended_at']);
 
@@ -195,7 +244,13 @@ class PlatformTenantController extends Controller
             'tenant',
             $tenant->id,
             $oldValues,
-            $tenant->only(array_keys($oldValues)),
+            array_merge($tenant->only(array_keys($oldValues)), [
+                'reason' => $data['reason'] ?? null,
+                'block_login' => $data['block_login'] ?? true,
+                'hide_products' => $data['hide_products'] ?? false,
+                'pause_payouts' => $data['pause_payouts'] ?? false,
+                'notify_merchant' => $data['notify_merchant'] ?? false,
+            ]),
             $request,
             $request->user(),
             $tenant
@@ -209,6 +264,10 @@ class PlatformTenantController extends Controller
 
     public function reactivate(Request $request, int $tenantId): JsonResponse
     {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+            'notify_merchant' => ['nullable', 'boolean'],
+        ]);
         $tenant = $this->findTenant($tenantId);
         $oldValues = $tenant->only(['status', 'suspended_at', 'approved_by_user_id', 'approved_at']);
 
@@ -224,7 +283,10 @@ class PlatformTenantController extends Controller
             'tenant',
             $tenant->id,
             $oldValues,
-            $tenant->only(array_keys($oldValues)),
+            array_merge($tenant->only(array_keys($oldValues)), [
+                'reason' => $data['reason'] ?? null,
+                'notify_merchant' => $data['notify_merchant'] ?? false,
+            ]),
             $request,
             $request->user(),
             $tenant
@@ -233,6 +295,72 @@ class PlatformTenantController extends Controller
         return response()->json([
             'status' => true,
             'data' => $this->serializeTenant($tenant->fresh(), true),
+        ]);
+    }
+
+    public function impersonate(Request $request, int $tenantId): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $tenant = $this->findTenant($tenantId);
+
+        if ($tenant->status !== 'active') {
+            return response()->json([
+                'message' => 'Only active merchant accounts can be opened from the platform.',
+            ], 423);
+        }
+
+        $member = $tenant->members
+            ->filter(fn (TenantMember $member): bool => $member->status === 'active' && $member->user !== null)
+            ->sortBy(fn (TenantMember $member): int => $member->role?->code === 'merchant_owner' ? 0 : 1)
+            ->first();
+
+        if (!$member instanceof TenantMember) {
+            return response()->json([
+                'message' => 'No active merchant member is available for this tenant.',
+            ], 422);
+        }
+
+        $handoffToken = Str::random(64);
+        $expiresAt = now()->addMinutes(2);
+        $merchantHost = trim((string) config('saas.merchant_host'), '.');
+
+        Cache::put('merchant-impersonation:'.$handoffToken, [
+            'tenant_id' => $tenant->id,
+            'tenant_slug' => $tenant->slug,
+            'user_id' => $member->user_id,
+            'actor_user_id' => $request->user()?->id,
+            'actor_name' => $request->user()?->name,
+            'actor_email' => $request->user()?->email,
+            'reason' => $data['reason'] ?? null,
+            'created_at' => now()->toDateTimeString(),
+            'expires_at' => $expiresAt->toDateTimeString(),
+        ], $expiresAt);
+
+        $this->platformAuditLogService->log(
+            'platform.tenant.impersonation.created',
+            'tenant',
+            $tenant->id,
+            [],
+            [
+                'merchant_user_id' => $member->user_id,
+                'reason' => $data['reason'] ?? null,
+                'expires_at' => $expiresAt->toDateTimeString(),
+            ],
+            $request,
+            $request->user(),
+            $tenant
+        );
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'tenant_id' => $tenant->id,
+                'expires_at' => $expiresAt,
+                'merchant_login_url' => sprintf('https://%s/admin/impersonation/%s', $merchantHost, $handoffToken),
+            ],
         ]);
     }
 
@@ -351,8 +479,284 @@ class PlatformTenantController extends Controller
         $currentSubscription = $this->subscriptionManagerService->currentSubscription($tenant);
         $payload['subscription'] = $currentSubscription ? $this->subscriptionManagerService->serializeSubscription($currentSubscription) : null;
         $payload['usage_summary'] = $this->subscriptionManagerService->usageSummary($tenant);
+        $payload['control_center'] = $this->merchantControlCenterPayload($tenant, $payload['auto_live_checks']);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, bool>  $autoLiveChecks
+     * @return array<string, mixed>
+     */
+    private function merchantControlCenterPayload(Tenant $tenant, array $autoLiveChecks): array
+    {
+        $wallet = MerchantWallet::query()->where('tenant_id', $tenant->id)->first();
+        $failedChecks = collect($autoLiveChecks)->filter(fn (bool $status): bool => !$status)->keys()->values();
+        $lastSuspension = PlatformAuditLog::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('action_code', 'platform.tenant.suspended')
+            ->latest('id')
+            ->first();
+
+        return [
+            'overview_cards' => [
+                [
+                    'key' => 'total_sales',
+                    'label' => 'Total Sales',
+                    'value' => (float) ($tenant->completed_sales_total ?? 0),
+                    'type' => 'money',
+                    'tone' => 'green',
+                ],
+                [
+                    'key' => 'orders',
+                    'label' => 'Orders',
+                    'value' => (int) ($tenant->orders_count ?? 0),
+                    'type' => 'number',
+                    'tone' => 'blue',
+                ],
+                [
+                    'key' => 'products',
+                    'label' => 'Products',
+                    'value' => (int) ($tenant->products_count ?? 0),
+                    'type' => 'number',
+                    'tone' => 'purple',
+                ],
+                [
+                    'key' => 'balance',
+                    'label' => 'Balance',
+                    'value' => (float) ($wallet?->available_balance ?? 0),
+                    'type' => 'money',
+                    'tone' => 'green',
+                ],
+                [
+                    'key' => 'pending_payout',
+                    'label' => 'Pending Payout',
+                    'value' => (float) ($wallet?->pending_withdrawal_balance ?? 0),
+                    'type' => 'money',
+                    'tone' => 'orange',
+                ],
+                [
+                    'key' => 'refunds_disputes',
+                    'label' => 'Refunds/Disputes',
+                    'value' => (float) ($wallet?->total_refunded ?? 0),
+                    'type' => 'money',
+                    'tone' => 'red',
+                ],
+            ],
+            'profile' => [
+                'business_name' => $tenant->name,
+                'legal_name' => $tenant->legal_name,
+                'email' => $tenant->contact_email,
+                'phone' => $tenant->contact_phone,
+                'country_code' => $tenant->country_code,
+                'locale' => $tenant->primary_locale,
+                'currency' => $tenant->primary_currency_code,
+                'timezone' => $tenant->timezone,
+                'joined_at' => $tenant->created_at,
+                'approved_at' => $tenant->approved_at,
+                'launched_at' => $tenant->launched_at,
+            ],
+            'products' => $this->latestProducts($tenant),
+            'orders' => $this->latestOrders($tenant),
+            'customers' => $this->latestCustomers($tenant),
+            'finance' => [
+                'wallet' => [
+                    'currency_code' => $wallet?->currency_code ?? $tenant->primary_currency_code,
+                    'available_balance' => (float) ($wallet?->available_balance ?? 0),
+                    'holding_balance' => (float) ($wallet?->holding_balance ?? 0),
+                    'pending_withdrawal_balance' => (float) ($wallet?->pending_withdrawal_balance ?? 0),
+                    'total_earned' => (float) ($wallet?->total_earned ?? 0),
+                    'total_withdrawn' => (float) ($wallet?->total_withdrawn ?? 0),
+                    'total_fees' => (float) ($wallet?->total_fees ?? 0),
+                    'total_refunded' => (float) ($wallet?->total_refunded ?? 0),
+                    'last_settled_at' => $wallet?->last_settled_at,
+                ],
+                'withdrawals' => [
+                    'pending_count' => MerchantWithdrawal::query()->where('tenant_id', $tenant->id)->where('status', 'pending')->count(),
+                    'approved_count' => MerchantWithdrawal::query()->where('tenant_id', $tenant->id)->where('status', 'approved')->count(),
+                    'rejected_count' => MerchantWithdrawal::query()->where('tenant_id', $tenant->id)->where('status', 'rejected')->count(),
+                ],
+                'orders' => [
+                    'paid_count' => Order::query()->where('tenant_id', $tenant->id)->where('payment_status', PaymentStatus::PAID)->count(),
+                    'unpaid_count' => Order::query()->where('tenant_id', $tenant->id)->where('payment_status', PaymentStatus::UNPAID)->count(),
+                ],
+            ],
+            'activity' => $this->latestActivity($tenant),
+            'risk' => [
+                'status' => $failedChecks->isEmpty() && $tenant->status === 'active' ? 'healthy' : 'review',
+                'failed_checks' => $failedChecks,
+                'last_suspension_reason' => $lastSuspension?->new_values_json['reason'] ?? null,
+                'signals' => [
+                    'verified_contact' => filled($tenant->contact_email) || filled($tenant->contact_phone),
+                    'verified_domain' => $tenant->domains->contains(fn ($domain): bool => $domain->verification_status === 'verified'),
+                    'active_payment_method' => TenantPaymentMethod::query()->where('tenant_id', $tenant->id)->where('status', true)->exists(),
+                    'has_products' => (int) ($tenant->products_count ?? 0) > 0,
+                    'has_orders' => (int) ($tenant->orders_count ?? 0) > 0,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function latestProducts(Tenant $tenant): array
+    {
+        return Product::query()
+            ->where('tenant_id', $tenant->id)
+            ->latest('id')
+            ->limit(8)
+            ->get(['id', 'name', 'sku', 'selling_price', 'status', 'created_at', 'updated_at'])
+            ->map(fn (Product $product) => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'price' => (float) $product->selling_price,
+                'status' => (int) $product->status,
+                'status_label' => (int) $product->status === Status::ACTIVE ? 'Active' : 'Inactive',
+                'created_at' => $product->created_at,
+                'updated_at' => $product->updated_at,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function latestOrders(Tenant $tenant): array
+    {
+        return Order::query()
+            ->with('user:id,name,email,phone')
+            ->where('tenant_id', $tenant->id)
+            ->latest('id')
+            ->limit(8)
+            ->get(['id', 'order_serial_no', 'user_id', 'total', 'payment_status', 'status', 'order_datetime', 'created_at'])
+            ->map(fn (Order $order) => [
+                'id' => $order->id,
+                'order_serial_no' => $order->order_serial_no,
+                'total' => (float) $order->total,
+                'status' => (int) $order->status,
+                'status_label' => $this->orderStatusLabel((int) $order->status),
+                'payment_status' => (int) $order->payment_status,
+                'payment_status_label' => (int) $order->payment_status === PaymentStatus::PAID ? 'Paid' : 'Unpaid',
+                'order_datetime' => $order->order_datetime,
+                'created_at' => $order->created_at,
+                'customer' => $order->user?->only(['id', 'name', 'email', 'phone']),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function latestCustomers(Tenant $tenant): array
+    {
+        return Customer::query()
+            ->where('tenant_id', $tenant->id)
+            ->latest('id')
+            ->limit(8)
+            ->get(['id', 'name', 'email', 'phone', 'country_code', 'status', 'last_login_at', 'created_at'])
+            ->map(fn (Customer $customer) => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'email' => $customer->email,
+                'phone' => $customer->phone,
+                'country_code' => $customer->country_code,
+                'status' => (int) $customer->status,
+                'last_login_at' => $customer->last_login_at,
+                'created_at' => $customer->created_at,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function latestActivity(Tenant $tenant): array
+    {
+        return PlatformAuditLog::query()
+            ->with('actor:id,name,email')
+            ->where('tenant_id', $tenant->id)
+            ->latest('id')
+            ->limit(12)
+            ->get()
+            ->map(fn (PlatformAuditLog $log) => [
+                'id' => $log->id,
+                'action_code' => $log->action_code,
+                'entity_type' => $log->entity_type,
+                'entity_id' => $log->entity_id,
+                'ip_address' => $log->ip_address,
+                'created_at' => $log->created_at,
+                'actor' => $log->actor?->only(['id', 'name', 'email']),
+                'reason' => $log->new_values_json['reason'] ?? null,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function orderStatusLabel(int $status): string
+    {
+        return match ($status) {
+            OrderStatus::PENDING => 'Pending',
+            OrderStatus::CONFIRMED => 'Confirmed',
+            OrderStatus::ON_THE_WAY => 'On the way',
+            OrderStatus::DELIVERED => 'Delivered',
+            OrderStatus::CANCELED => 'Canceled',
+            OrderStatus::REJECTED => 'Rejected',
+            default => 'Unknown',
+        };
+    }
+
+    private function releasedTenantSlug(Tenant $tenant): string
+    {
+        return Str::limit($tenant->slug.'-deleted-'.$tenant->id.'-'.Str::lower(Str::random(8)), 120, '');
+    }
+
+    private function releasedStoreCode(Tenant $tenant): string
+    {
+        return Str::limit($tenant->store_code.'-DEL-'.$tenant->id.'-'.Str::upper(Str::random(4)), 40, '');
+    }
+
+    /**
+     * @param  array<int, int>  $userIds
+     * @return array<int, int>
+     */
+    private function releaseMerchantUsers(array $userIds): array
+    {
+        $releasedUserIds = [];
+
+        foreach ($userIds as $userId) {
+            $user = User::query()->find($userId);
+
+            if (!$user instanceof User) {
+                continue;
+            }
+
+            if (TenantMember::query()->where('user_id', $user->id)->exists()) {
+                continue;
+            }
+
+            $hash = Str::lower(Str::random(10));
+
+            $user->tokens()->delete();
+            $user->forceFill([
+                'name' => 'Deleted Merchant User #'.$user->id,
+                'email' => 'deleted-merchant-'.$user->id.'-'.$hash.'@example.invalid',
+                'phone' => null,
+                'country_code' => null,
+                'username' => 'deleted-merchant-'.$user->id.'-'.$hash,
+                'status' => Status::INACTIVE,
+                'remember_token' => null,
+            ])->save();
+            $user->delete();
+
+            $releasedUserIds[] = $user->id;
+        }
+
+        return $releasedUserIds;
     }
 
     private function fallbackStorefrontHostname(Tenant $tenant): string

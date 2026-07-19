@@ -61,6 +61,7 @@ export default {
         navigation: function () {
             return [
                 { name: "platform.dashboard", label: "Main Admin" },
+                { name: "platform.merchants", label: "Merchants" },
                 { name: "platform.controlTower", label: "Control Tower" },
                 { name: "platform.tenants", label: "Tenants" },
                 { name: "platform.orders", label: "Orders" },

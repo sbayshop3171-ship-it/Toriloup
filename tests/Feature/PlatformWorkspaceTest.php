@@ -516,6 +516,96 @@ class PlatformWorkspaceTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_owner_can_open_one_time_merchant_impersonation_handoff(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $merchantContext = $this->createMerchantContext('impersonation-store');
+        $tenant = $merchantContext['tenant'];
+
+        $handoffResponse = $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/tenants/{$tenant->id}/impersonate", [
+                'reason' => 'Support checkout issue',
+            ]);
+
+        $handoffResponse
+            ->assertOk()
+            ->assertJsonPath('data.tenant_id', $tenant->id);
+
+        $loginUrl = (string) $handoffResponse->json('data.merchant_login_url');
+        $this->assertStringContainsString('https://merchant.company.com/admin/impersonation/', $loginUrl);
+        $handoffToken = basename(parse_url($loginUrl, PHP_URL_PATH));
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/impersonate', [
+                'token' => $handoffToken,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('surface', 'merchant')
+            ->assertJsonPath('current_tenant.tenant.id', $tenant->id)
+            ->assertJsonPath('impersonation.active', true)
+            ->assertJsonPath('impersonation.reason', 'Support checkout issue');
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/impersonate', [
+                'token' => $handoffToken,
+            ])
+            ->assertGone();
+
+        $this->assertDatabaseHas('platform_audit_logs', [
+            'tenant_id' => $tenant->id,
+            'action_code' => 'platform.tenant.impersonation.created',
+        ]);
+        $this->assertDatabaseHas('platform_audit_logs', [
+            'tenant_id' => $tenant->id,
+            'action_code' => 'platform.tenant.impersonation.started',
+        ]);
+    }
+
+    public function test_deleting_merchant_releases_email_and_store_slug_for_new_registration(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $merchantContext = $this->createMerchantContext('identity-release-store');
+        $tenant = $merchantContext['tenant'];
+        $email = $merchantContext['user']->email;
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->deleteJson("http://owner.company.com/api/platform/tenants/{$tenant->id}", [
+                'reason' => 'Merchant requested account removal',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.identity_released', true);
+
+        $this->assertSoftDeleted('tenants', ['id' => $tenant->id]);
+        $this->assertDatabaseMissing('tenant_members', ['tenant_id' => $tenant->id]);
+        $this->assertDatabaseMissing('users', ['email' => $email]);
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/register', [
+                'owner_name' => 'Identity Release Merchant',
+                'store_name' => 'Identity Release Store',
+                'email' => $email,
+                'phone' => '+8801710000000',
+                'country_code' => '+880',
+                'password' => 'password',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('surface', 'merchant');
+    }
+
     public function test_owner_can_view_master_customer_directory_across_merchants(): void
     {
         $owner = $this->createPlatformOwner();

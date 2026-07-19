@@ -20,6 +20,25 @@
             <BackendNavbarComponent />
             <BackendMenuComponent />
             <div class="relative min-h-full">
+                <div
+                    v-if="activeImpersonation"
+                    class="mx-4 mb-4 flex flex-col gap-3 rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] px-4 py-3 text-[#4C1D95] shadow-sm md:flex-row md:items-center md:justify-between">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold">
+                            Viewing as Merchant: {{ activeImpersonation.tenant_name || authInfo.current_tenant?.tenant?.name || "Merchant" }}
+                        </p>
+                        <p class="mt-1 text-xs text-[#6D28D9]">
+                            Admin: {{ activeImpersonation.actor_name || "Platform Admin" }}
+                            <span v-if="activeImpersonation.reason"> • {{ activeImpersonation.reason }}</span>
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex h-9 items-center justify-center rounded-lg bg-[#6D28D9] px-4 text-xs font-semibold text-white"
+                        @click="exitImpersonation">
+                        Exit Merchant View
+                    </button>
+                </div>
                 <router-view></router-view>
                 <div
                     v-if="lockedSubscriptionFeature"
@@ -117,6 +136,14 @@ export default {
         logged: function () {
             return this.$store.getters.authStatus;
         },
+        authInfo: function () {
+            return this.$store.getters.authInfo || {};
+        },
+        activeImpersonation: function () {
+            const impersonation = this.authInfo?.impersonation;
+
+            return impersonation?.active ? impersonation : null;
+        },
         showBackendShell: function () {
             return this.logged || this.$route?.meta?.auth === true;
         },
@@ -175,6 +202,11 @@ export default {
             this.$router.push({
                 name: "admin.settings.billing",
                 query: { upgrade: this.lockedSubscriptionFeature.code },
+            });
+        },
+        exitImpersonation: function () {
+            this.$store.dispatch("logout").finally(() => {
+                this.$router.push(resolveGuestHomeRoute());
             });
         },
         isAuthRoute: function (route = this.$route) {

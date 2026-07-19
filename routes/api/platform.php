@@ -44,6 +44,7 @@ Route::prefix('platform')
                 Route::post('/{tenantId}/approve', [PlatformTenantController::class, 'approve'])->whereNumber('tenantId')->name('approve');
                 Route::post('/{tenantId}/suspend', [PlatformTenantController::class, 'suspend'])->whereNumber('tenantId')->name('suspend');
                 Route::post('/{tenantId}/reactivate', [PlatformTenantController::class, 'reactivate'])->whereNumber('tenantId')->name('reactivate');
+                Route::post('/{tenantId}/impersonate', [PlatformTenantController::class, 'impersonate'])->whereNumber('tenantId')->name('impersonate');
                 Route::delete('/{tenantId}', [PlatformTenantController::class, 'destroy'])->whereNumber('tenantId')->name('destroy');
                 Route::post('/{tenantId}/domains', [PlatformDomainController::class, 'storeForTenant'])->whereNumber('tenantId')->name('domains.store');
                 Route::post('/{tenantId}/subscription', [PlatformSubscriptionController::class, 'assignToTenant'])->whereNumber('tenantId')->name('subscription.assign');

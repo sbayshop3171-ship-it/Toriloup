@@ -18,6 +18,7 @@ Route::prefix('merchant/auth')
 
         Route::post('/register', [AdminSurfaceAuthController::class, 'merchantRegister'])->name('register');
         Route::post('/login', [AdminSurfaceAuthController::class, 'merchantLogin'])->name('login');
+        Route::post('/impersonate', [AdminSurfaceAuthController::class, 'merchantImpersonate'])->name('impersonate');
         Route::prefix('forgot-password')->name('forgot-password.')->group(function () {
             Route::post('/', [AdminSurfacePasswordController::class, 'forgotPassword'])->defaults('surface', 'merchant')->name('request');
             Route::post('/otp-phone', [AdminSurfacePasswordController::class, 'otpPhone'])->defaults('surface', 'merchant')->name('otp-phone');

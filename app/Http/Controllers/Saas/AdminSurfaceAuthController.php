@@ -6,11 +6,15 @@ use App\Enums\Role;
 use App\Enums\Status;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Saas\MerchantRegisterRequest;
+use App\Models\Tenant;
+use App\Models\TenantMember;
 use App\Models\User;
 use App\Services\Saas\AdminSurfacePayloadService;
+use App\Services\Saas\PlatformAuditLogService;
 use App\Services\Saas\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -19,6 +23,7 @@ class AdminSurfaceAuthController extends Controller
     public function __construct(
         private readonly TenantProvisioningService $tenantProvisioningService,
         private readonly AdminSurfacePayloadService $adminSurfacePayloadService,
+        private readonly PlatformAuditLogService $platformAuditLogService,
     ) {
     }
 
@@ -64,6 +69,90 @@ class AdminSurfaceAuthController extends Controller
             'tenant' => $this->adminSurfacePayloadService->serializeTenant($result['tenant']),
             'domain' => $result['domain']->only(['hostname', 'domain_type', 'is_primary', 'is_fallback', 'verification_status']),
             'auto_live_checks' => $result['checks'],
+        ]), 201);
+    }
+
+    public function merchantImpersonate(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'token' => ['required', 'string', 'max:120'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $handoff = Cache::pull('merchant-impersonation:'.$request->string('token'));
+
+        if (!is_array($handoff)) {
+            return response()->json([
+                'message' => 'Impersonation link is invalid or expired.',
+            ], 410);
+        }
+
+        $tenant = Tenant::query()
+            ->with(['domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback')])
+            ->find($handoff['tenant_id'] ?? null);
+        $user = User::query()->with('roles')->find($handoff['user_id'] ?? null);
+
+        if (!$tenant instanceof Tenant || !$user instanceof User) {
+            return response()->json([
+                'message' => 'Merchant account could not be found.',
+            ], 404);
+        }
+
+        if ($tenant->status !== 'active') {
+            return response()->json([
+                'message' => 'Tenant is not active.',
+            ], 423);
+        }
+
+        $member = TenantMember::query()
+            ->with(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback'), 'role'])
+            ->where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$member instanceof TenantMember) {
+            return response()->json([
+                'message' => 'Merchant account is not attached to this active store.',
+            ], 403);
+        }
+
+        $actor = isset($handoff['actor_user_id'])
+            ? User::query()->find($handoff['actor_user_id'])
+            : null;
+
+        $this->platformAuditLogService->log(
+            'platform.tenant.impersonation.started',
+            'tenant',
+            $tenant->id,
+            [],
+            [
+                'merchant_user_id' => $user->id,
+                'reason' => $handoff['reason'] ?? null,
+                'handoff_created_at' => $handoff['created_at'] ?? null,
+            ],
+            $request,
+            $actor,
+            $tenant
+        );
+
+        return response()->json($this->adminSurfacePayloadService->payloadFor($user, 'merchant', [
+            'current_tenant' => $this->adminSurfacePayloadService->serializeTenantMembership($member),
+            'impersonation' => [
+                'active' => true,
+                'tenant_id' => $tenant->id,
+                'tenant_name' => $tenant->name,
+                'actor_user_id' => $handoff['actor_user_id'] ?? null,
+                'actor_name' => $handoff['actor_name'] ?? 'Platform Admin',
+                'actor_email' => $handoff['actor_email'] ?? null,
+                'reason' => $handoff['reason'] ?? null,
+                'started_at' => now()->toDateTimeString(),
+            ],
         ]), 201);
     }
 

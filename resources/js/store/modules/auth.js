@@ -315,6 +315,7 @@ export const auth = {
                 surface: payload.surface || payload.user?.surface || null,
                 tenants: payload.tenants || [],
                 current_tenant: payload.current_tenant || payload.tenant || null,
+                impersonation: payload.impersonation || null,
             };
             state.authMenu = payload.menu;
             state.authPermission = payload.permission;
@@ -337,6 +338,7 @@ export const auth = {
                 surface: payload.surface || state.authInfo?.surface || null,
                 tenants: payload.tenants || state.authInfo?.tenants || [],
                 current_tenant: payload.current_tenant || state.authInfo?.current_tenant || null,
+                impersonation: payload.impersonation || state.authInfo?.impersonation || null,
             };
 
             if (payload.menu) {

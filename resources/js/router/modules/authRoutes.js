@@ -1,6 +1,7 @@
 const LoginComponent = () => import("../../components/frontend/auth/LoginComponent");
 const SignupComponent = () => import("../../components/frontend/auth/SignupComponent.vue");
 const MerchantRegisterComponent = () => import("../../components/frontend/auth/MerchantRegisterComponent.vue");
+const MerchantImpersonationComponent = () => import("../../components/frontend/auth/MerchantImpersonationComponent.vue");
 const ForgotPasswordComponent = () => import("../../components/frontend/auth/ForgotPasswordComponent");
 const ForgotPasswordVerifyComponent = () => import("../../components/frontend/auth/ForgotPasswordVerifyComponent");
 const ResetPasswordComponent = () => import("../../components/frontend/auth/ResetPasswordComponent");
@@ -25,6 +26,16 @@ export default [
             isFrontend: false,
             auth: false,
             authContext: 'merchant'
+        }
+    },
+    {
+        path: '/admin/impersonation/:token',
+        component: MerchantImpersonationComponent,
+        name: 'merchant.impersonation',
+        meta: {
+            isFrontend: false,
+            auth: false,
+            workspace: 'merchant'
         }
     },
     {
