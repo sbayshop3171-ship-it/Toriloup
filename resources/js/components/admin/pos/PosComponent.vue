@@ -1,7 +1,7 @@
 <template>
   <LoadingComponent :props="loading" />
   <PoscustomerComponent v-on:onCustomverCreate="onCustomverCreate" />
-  <div class="md:w-[calc(100%-340px)] lg:w-[calc(100%-320px)] xl:w-[calc(100%-377px)]">
+  <div class="pb-16 md:pb-0 md:w-[calc(100%-340px)] lg:w-[calc(100%-320px)] xl:w-[calc(100%-377px)]">
     <form class="w-full mb-4" @submit.prevent="search">
       <div class="form-row">
         <div class="form-col-12 sm:form-col-6"

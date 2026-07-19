@@ -1,5 +1,5 @@
 <template>
-    <div class="backdrop" @click="notificationDropdownStatus = false"></div>
+    <div class="backdrop" @click="handleBackdropClick"></div>
     <header class="db-header">
         <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden flex-shrink-0" :to="workspaceHomeRoute">
             <img v-if="logoSrc" class="w-full h-full object-contain" :src="logoSrc" alt="logo">
@@ -8,7 +8,7 @@
                 <i class="fa-regular fa-image"></i>
             </span>
         </router-link>
-        <div class="flex items-center justify-end w-full gap-4">
+        <div class="flex min-w-0 items-center justify-end w-full gap-2 sm:gap-3 md:gap-4">
             <div
                 class="sub-header flex items-center gap-4 transition xh:justify-between xh:fixed xh:left-0 xh:w-full xh:p-4 xh:border-y xh:border-[#EFF0F6] xh:bg-white">
                 <div class="flex items-center justify-between md:justify-center gap-4">
@@ -54,7 +54,7 @@
 
                 <div
                     v-if="notificationDropdownStatus"
-                    class="absolute top-12 right-0 z-[70] w-[340px] rounded-xl shadow-paper border border-[#EFF0F6] bg-white">
+                    class="absolute top-12 right-0 z-[70] w-[calc(100vw_-_24px)] max-w-[340px] rounded-xl shadow-paper border border-[#EFF0F6] bg-white">
                     <div class="flex items-center justify-between px-4 py-3 border-b border-[#EFF0F6]">
                         <h3 class="text-sm font-semibold capitalize">{{ $t('label.notification') }}</h3>
                         <button
@@ -90,7 +90,7 @@
             <div class="dropdown-group">
                 <button class="dropdown-btn dropdown-custom-btn flex items-center gap-2">
                     <img class="flex-shrink-0 w-9 h-9 object-cover rounded-lg" :src="authInfo.image" alt="avatar">
-                    <h3 class="whitespace-nowrap text-sm capitalize text-left leading-[17px]">{{ $t('label.hello') }} <b
+                    <h3 class="hidden sm:block whitespace-nowrap text-sm capitalize text-left leading-[17px]">{{ $t('label.hello') }} <b
                             class="block font-semibold">{{ textShortener(authInfo.name, 15) }}</b></h3>
                     <i class="lab lab-arrow-down text-xs ml-1.5 lab-font-size-14"></i>
                 </button>
@@ -265,6 +265,7 @@ export default {
     },
     mounted() {
         appService.responsiveLoad();
+        window.addEventListener('resize', this.handleResize);
         this.posPermissionCheck();
         this.orderPermissionCheck();
         this.loadMerchantBranding();
@@ -345,6 +346,7 @@ export default {
     },
     beforeUnmount() {
         document.removeEventListener('click', this.handleDocumentClick);
+        window.removeEventListener('resize', this.handleResize);
         window.removeEventListener('storage', this.handleNotificationStorageEvent);
         window.removeEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
     },
@@ -367,6 +369,13 @@ export default {
             if (notificationWrapper && !notificationWrapper.contains(event.target)) {
                 this.notificationDropdownStatus = false;
             }
+        },
+        handleResize: function () {
+            appService.normalizeSidebarForViewport();
+        },
+        handleBackdropClick: function () {
+            this.notificationDropdownStatus = false;
+            appService.closeSidebar();
         },
         toggleNotificationDropdown: function () {
             this.notificationDropdownStatus = !this.notificationDropdownStatus;

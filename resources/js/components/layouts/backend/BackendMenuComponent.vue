@@ -265,6 +265,10 @@ export default {
                 activeMenu.classList.remove('active');
             }
             e?.currentTarget?.classList?.add('active');
+
+            if (e?.target?.closest?.(".db-sidebar-nav-menu") && appService.isMobileSidebarBreakpoint()) {
+                window.setTimeout(() => this.closeSidebar(), 120);
+            }
         },
         defaultSidebarActive: function () {
             if (document?.querySelector(".db-sidebar-nav-menu")?.classList?.contains("active")) {
@@ -382,11 +386,17 @@ export default {
                 return;
             }
             this.markOrderNotificationsAsRead();
+        },
+        closeSidebarIfMobile: function () {
+            if (appService.isMobileSidebarBreakpoint()) {
+                appService.closeSidebar();
+            }
         }
     },
     watch: {
         $route(to) {
             this.markOnlineOrderNotificationsAsReadByRoute(to.path);
+            this.closeSidebarIfMobile();
         }
     }
 }

@@ -183,7 +183,7 @@
                     </div>
                 </div>
                 <div class="db-card-body overflow-x-auto">
-                    <table class="min-w-full overflow-hidden rounded-2xl text-left text-sm">
+                    <table class="min-w-[640px] w-full overflow-hidden rounded-2xl text-left text-sm">
                         <thead class="bg-[#FFF4F1]">
                             <tr class="border-b border-[#FFD6CC] text-gray-600">
                                 <th class="px-4 py-3 font-semibold">Date</th>
@@ -226,7 +226,7 @@
                     </div>
                 </div>
                 <div class="db-card-body overflow-x-auto">
-                    <table class="min-w-full overflow-hidden rounded-2xl text-left text-sm">
+                    <table class="min-w-[600px] w-full overflow-hidden rounded-2xl text-left text-sm">
                         <thead class="bg-[#FFF4F1]">
                             <tr class="border-b border-[#FFD6CC] text-gray-600">
                                 <th class="px-4 py-3 font-semibold">Request</th>

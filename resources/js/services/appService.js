@@ -221,13 +221,15 @@ export default {
     },
 
     responsiveLoad: function () {
-        let mainHeader = document?.querySelector(".db-header");
-        let subHeader = document?.querySelector(".sub-header");
-        let mainHeight = mainHeader?.scrollHeight;
+        const mainHeader = document?.querySelector(".db-header");
+        const subHeader = document?.querySelector(".sub-header");
+        const mainHeight = mainHeader?.scrollHeight || 0;
 
         if (subHeader) {
             subHeader.style.top = `${mainHeight}px`;
         }
+
+        document?.documentElement?.style?.setProperty("--db-header-height", `${mainHeight}px`);
     },
 
     permissionChecker: function (permissionName) {
@@ -453,13 +455,64 @@ export default {
             });
         }
     },
-    toggleSidebar: function () {
-        document.querySelector(".db-main").classList.toggle("expand");
-        document.querySelector(".db-sidebar").classList.toggle("active");
+    isMobileSidebarBreakpoint: function () {
+        return typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
     },
+
+    toggleSidebar: function () {
+        const main = document?.querySelector(".db-main");
+        const sidebar = document?.querySelector(".db-sidebar");
+
+        if (!sidebar) {
+            return;
+        }
+
+        const willOpen = !sidebar.classList.contains("active");
+
+        main?.classList?.toggle("expand", willOpen);
+        sidebar.classList.toggle("active", willOpen);
+
+        if (this.isMobileSidebarBreakpoint()) {
+            document?.querySelector(".backdrop")?.classList?.toggle("active", willOpen);
+            document?.body?.classList?.toggle("overflow-hidden", willOpen);
+            document.body.style.overflowY = willOpen ? "hidden" : "auto";
+        } else {
+            document?.querySelector(".backdrop")?.classList?.remove("active");
+            document?.body?.classList?.remove("overflow-hidden");
+            document.body.style.overflowY = "auto";
+        }
+    },
+
     closeSidebar: function () {
-        document.querySelector(".db-main").classList.remove("expand");
-        document.querySelector(".db-sidebar").classList.remove("active");
+        const main = document?.querySelector(".db-main");
+        const sidebar = document?.querySelector(".db-sidebar");
+        const wasActive = sidebar?.classList?.contains("active");
+
+        main?.classList?.remove("expand");
+        sidebar?.classList?.remove("active");
+
+        if (wasActive) {
+            document?.querySelector(".backdrop")?.classList?.remove("active");
+            document?.body?.classList?.remove("overflow-hidden");
+            document.body.style.overflowY = "auto";
+        }
+    },
+
+    normalizeSidebarForViewport: function () {
+        this.responsiveLoad();
+
+        if (!this.isMobileSidebarBreakpoint()) {
+            const backdrop = document?.querySelector(".backdrop");
+
+            if (backdrop?.classList?.contains("active")) {
+                this.closeSidebar();
+                return;
+            }
+
+            backdrop?.classList?.remove("active");
+            document?.body?.classList?.remove("overflow-hidden");
+            document.body.style.overflowY = "auto";
+        }
     },
 
     openCanvas: function (targetID) {

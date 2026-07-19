@@ -1,11 +1,11 @@
 <template>
-    <button @click="openSettingMenu($event)" type="button" class="settings-btn w-full md:hidden flex items-center justify-center gap-2 p-2 rounded bg-primary text-white">
+    <button @click="openSettingMenu($event)" type="button" class="settings-btn w-full md:hidden flex items-center justify-between gap-2 px-4 py-3 rounded-lg bg-primary text-white">
         <span class="capitalize">{{ $t('menu.settings_menu') }}</span>
         <i class="icon fa-solid fa-chevron-down text-sm"></i>
     </button>
     <div class="h-0 overflow-hidden md:h-auto md:overflow-auto transition-all duration-300 font-medium">
         <nav class="db-card p-3">
-            <router-link v-for="item in menuItems" :key="item.name" :to="settingRoute(item)" class="db-tab-btn" :class="{ 'opacity-75': isFeatureLocked(item) }">
+            <router-link v-for="item in menuItems" :key="item.name" :to="settingRoute(item)" class="db-tab-btn" :class="{ 'opacity-75': isFeatureLocked(item) }" @click="closeMobileSettingMenu">
                 <i :class="item.icon" class="text-sm"></i>
                 {{ item.labelKey ? $t(item.labelKey) : item.label }}
                 <span
@@ -102,6 +102,24 @@ export default {
         },
         settingRoute: function (item) {
             return { name: item.name };
+        },
+        closeMobileSettingMenu: function () {
+            if (!appService.isMobileSidebarBreakpoint()) {
+                return;
+            }
+
+            document.querySelectorAll(".settings-btn").forEach((btn) => {
+                const options = btn.nextElementSibling;
+
+                if (options) {
+                    options.style.height = "0px";
+                    options.style.margin = "0px";
+                }
+
+                btn.querySelector(".icon")?.classList?.remove("fa-chevron-up");
+                btn.querySelector(".icon")?.classList?.add("fa-chevron-down");
+                btn.setAttribute("aria-expanded", "false");
+            });
         },
         isFeatureLocked: function (item) {
             if (!isMerchantHost() || !item?.feature) {
