@@ -31,13 +31,14 @@ export const frontendAddress = {
         lists: function (context, payload) {
             return new Promise((resolve, reject) => {
                 let url = `frontend/address`;
-                if (payload) {
-                    url = url + appService.requestHandler(payload.search);
+                const search = payload?.search || {};
+                if (Object.keys(search).length > 0) {
+                    url = url + appService.requestHandler(search);
                 }
                 axios.get(url).then((res) => {
                     if (typeof payload === "undefined" || payload === null || payload.vuex !== false) {
                         context.commit("lists", res.data.data);
-                        if(typeof payload.search.paginate !== 'undefined' && payload.search.paginate === 1) {
+                        if(typeof search.paginate !== 'undefined' && Number(search.paginate) === 1) {
                             context.commit("pagination", res.data.data);
                             context.commit("page", res.data.data);
                         }

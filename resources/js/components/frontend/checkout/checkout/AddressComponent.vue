@@ -4,7 +4,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-gray-100">
             <h4 class="font-bold capitalize">{{ title }}</h4>
             <div class="flex flex-wrap items-center gap-4">
-                <button v-if="Object.keys(selectedAddress).length > 0" type="button"
+                <button v-if="hasSelectedAddress" type="button"
                     @click.prevent="edit(selectedAddress)"
                     class="px-3 h-8 leading-8 rounded-full flex items-center gap-2 bg-[#E6FFF0] text-success">
                     <i class="lab-fill-edit"></i>
@@ -17,9 +17,9 @@
                 </button>
             </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4">
-            <div :class="Object.keys(selectedAddress).length > 0 && address.id === selectedAddress.id ? 'border-primary/50 bg-[#FFF4F1]' : 'border-[#F7F7F7] bg-[#F7F7F7]'"
-                @click.prevent="activeAddress(address)" v-for="address in addresses" :key="address"
+        <div v-if="addresses.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4">
+            <div :class="isSelectedAddress(address) ? 'border-primary/50 bg-[#FFF4F1]' : 'border-[#F7F7F7] bg-[#F7F7F7]'"
+                @click.prevent="activeAddress(address)" v-for="address in addresses" :key="address.id"
                 class="py-3 px-4 rounded-lg cursor-pointer border transition-all duration-300">
                 <span class="text-base font-medium capitalize mb-1">{{ address.full_name }}</span>
                 <span v-if="address.phone" class="block text-sm leading-6">{{
@@ -33,6 +33,17 @@
                         v-if="address.zip_code">,</span></span>
                 <span v-if="address.zip_code" class="block text-sm leading-6">{{ address.zip_code }}</span>
             </div>
+        </div>
+        <div v-else class="p-4">
+            <button type="button" @click.prevent="showTarget(slug + '-address-modal', 'modal-active')"
+                class="w-full text-left py-4 px-5 rounded-lg border border-dashed border-[#D9DBE9] bg-[#F7F7FC] transition-all duration-300 hover:border-primary/40 hover:bg-[#FFF4F1]">
+                <span class="block text-sm font-semibold text-secondary">
+                    {{ addressListError ? $t('message.addresses_could_not_be_loaded') : $t('message.no_saved_address') }}
+                </span>
+                <span class="block mt-1 text-sm leading-6 text-[#6E7191]">
+                    {{ addressListError || $t('message.add_address_to_continue_checkout') }}
+                </span>
+            </button>
         </div>
     </div>
 
@@ -296,6 +307,7 @@ export default {
             autocompleteTimer: null,
             isAutoDetectingLocation: false,
             autoDetectedLocationApplied: false,
+            addressListError: "",
         }
     },
     components: {
@@ -303,7 +315,11 @@ export default {
     },
     computed: {
         addresses: function () {
-            return this.$store.getters["frontendAddress/lists"];
+            const lists = this.$store.getters["frontendAddress/lists"];
+            return Array.isArray(lists) ? lists : [];
+        },
+        hasSelectedAddress: function () {
+            return this.hasAddress(this.selectedAddress);
         },
         countryCodes: function () {
             return this.$store.getters['frontendCountryCode/lists'];
@@ -321,22 +337,32 @@ export default {
             return this.selectedCountry?.currency_symbol ?? null;
         }
     },
+    watch: {
+        addresses: {
+            immediate: true,
+            handler: function (addresses) {
+                this.selectDefaultAddress(addresses);
+            }
+        },
+        show: function (value) {
+            if (value) {
+                this.selectDefaultAddress();
+            }
+        },
+        selectedAddress: {
+            deep: true,
+            handler: function (address) {
+                if (this.hasAddress(address)) {
+                    this.activeAddressId = address.id;
+                }
+            }
+        }
+    },
     mounted() {
-        this.loading.isActive = true;
         setTimeout(() => {
             this.callCountry();
         }, 300);
-        this.$store.dispatch("frontendAddress/lists", {
-            search: {
-                paginate: 0,
-                order_column: "id",
-                order_type: "asc",
-            }
-        }).then((res) => {
-            this.loading.isActive = false;
-        }).catch((err) => {
-            this.loading.isActive = false;
-        });
+        this.listAddresses();
 
         this.loading.isActive = true;
         this.$store.dispatch('frontendCountryCode/lists');
@@ -356,6 +382,36 @@ export default {
     methods: {
         phoneNumber(e) {
             return appService.phoneNumber(e);
+        },
+        listAddresses: function () {
+            this.loading.isActive = true;
+            this.addressListError = "";
+            this.$store.dispatch("frontendAddress/lists", {
+                search: {
+                    paginate: 0,
+                    order_column: "id",
+                    order_type: "asc",
+                }
+            }).then(() => {
+                this.loading.isActive = false;
+                this.selectDefaultAddress();
+            }).catch((err) => {
+                this.loading.isActive = false;
+                this.addressListError = err?.response?.data?.message || this.$t("error.something_wrong");
+            });
+        },
+        hasAddress: function (address) {
+            return address && typeof address === "object" && Object.keys(address).length > 0;
+        },
+        isSelectedAddress: function (address) {
+            return this.hasSelectedAddress && address.id === this.selectedAddress.id;
+        },
+        selectDefaultAddress: function (addresses = this.addresses) {
+            if (!this.show || this.hasSelectedAddress || !Array.isArray(addresses) || addresses.length === 0) {
+                return;
+            }
+
+            this.activeAddress(addresses[0]);
         },
         activeAddress: function (address) {
             this.activeAddressId = address.id;
@@ -606,7 +662,7 @@ export default {
             }
         },
         edit: function (address) {
-            if (Object.keys(this.selectedAddress).length > 0) {
+            if (this.hasSelectedAddress) {
                 targetService.showTarget(this.slug + '-address-modal', 'modal-active');
                 this.loading.isActive = true;
                 this.$store.dispatch("frontendAddress/edit", address.id).then(async (res) => {

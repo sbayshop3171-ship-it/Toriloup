@@ -893,6 +893,9 @@
         "no_cities_available": "No active cities available for this state.",
         "loading_suggestions": "Loading address suggestions...",
         "detecting_current_location": "আপনার বর্তমান লোকেশন সনাক্ত করা হচ্ছে...",
-        "location_auto_filled_editable": "লোকেশন অটো-ফিল হয়েছে। চাইলে আপনি এটি এডিট করতে পারবেন।"
+        "location_auto_filled_editable": "লোকেশন অটো-ফিল হয়েছে। চাইলে আপনি এটি এডিট করতে পারবেন।",
+        "no_saved_address": "এখনও কোনো ঠিকানা সংরক্ষণ করা হয়নি।",
+        "add_address_to_continue_checkout": "চেকআউট চালিয়ে যেতে একটি ঠিকানা যোগ করুন।",
+        "addresses_could_not_be_loaded": "ঠিকানাগুলো লোড করা যায়নি।"
     }
 }

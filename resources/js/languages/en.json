@@ -897,6 +897,9 @@
         "no_cities_available": "No active cities available for this state.",
         "loading_suggestions": "Loading address suggestions...",
         "detecting_current_location": "Detecting your current location...",
-        "location_auto_filled_editable": "Location auto-filled. You can edit it anytime."
+        "location_auto_filled_editable": "Location auto-filled. You can edit it anytime.",
+        "no_saved_address": "No saved address yet.",
+        "add_address_to_continue_checkout": "Add an address to continue checkout.",
+        "addresses_could_not_be_loaded": "Addresses could not be loaded."
     }
 }
