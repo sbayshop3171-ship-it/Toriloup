@@ -7,6 +7,7 @@ use App\Models\CapturePaymentNotification;
 use App\Models\PaymentGateway;
 use App\Services\PaymentAbstract;
 use App\Services\PaymentService;
+use App\Support\PaymentGatewayCredentials;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,19 +26,19 @@ class Stripe extends PaymentAbstract
         $this->paymentGateway = PaymentGateway::with('gatewayOptions')->where(['slug' => 'stripe'])->first();
         if (!blank($this->paymentGateway)) {
             $this->paymentGatewayOption = $this->paymentGateway->gatewayOptions->pluck('value', 'option');
-            $this->gateway              = new StripeClient\StripeClient($this->paymentGatewayOption['stripe_secret']);
+            $this->gateway              = new StripeClient\StripeClient(
+                PaymentGatewayCredentials::stripeSecretKey($this->paymentGatewayOption)
+            );
         }
     }
 
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD', $order);
-            
-	    $amount = number_format((float) $order->total, 2, '.', '');
+            $charge = $this->gatewayPaymentAmount($order, 'USD');
             $response = $this->gateway->charges->create([
-                'amount'      => (int) ($amount * 100),
-                'currency'    => $currencyCode,
+                'amount'      => $this->gatewayMinorAmount($charge['amount'], $charge['currency'], $order),
+                'currency'    => $charge['currency'],
                 'source'      => $request->stripeToken,
                 'description' => 'Food order payment',
             ]);

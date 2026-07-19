@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Dipokhalder\EnvEditor\EnvEditor;
 use App\Http\Requests\PaginateRequest;
 use App\Libraries\QueryExceptionLibrary;
+use App\Support\PaymentGatewayCredentials;
 use Illuminate\Support\Facades\Artisan;
 
 
@@ -77,12 +78,16 @@ class PaymentGatewayService
     {
         try {
             if (!blank($validationRequests)) {
+                $validationRequests = PaymentGatewayCredentials::normalizeStripeOptions($validationRequests);
+
                 foreach ($validationRequests as $key => $value) {
                     $option = GatewayOption::where('option', $key)->first();
-                    if (!blank($option)) {
-                        $option->value = $value;
-                        $option->save();
+                    if (blank($option)) {
+                        continue;
                     }
+
+                    $option->value = $value;
+                    $option->save();
 
                     if (str_contains($key, 'status')) {
                         $this->gateway = PaymentGateway::find($option->model_id);

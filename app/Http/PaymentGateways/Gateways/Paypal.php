@@ -26,6 +26,9 @@ class Paypal extends PaymentAbstract
         $this->paymentGateway = PaymentGateway::with('gatewayOptions')->where(['slug' => 'paypal'])->first();
         if (!blank($this->paymentGateway)) {
             $currencyCode = $this->siteCurrencyCode('USD');
+            if (!in_array($currencyCode, $this->supportedCurrencies(), true)) {
+                $currencyCode = 'USD';
+            }
 
             $this->paymentGatewayOption = $this->paymentGateway->gatewayOptions->pluck('value', 'option');
             $config                     = [
@@ -54,7 +57,7 @@ class Paypal extends PaymentAbstract
     public function payment($order, $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            $currencyCode = $this->siteCurrencyCode('USD', $order);
+            $charge = $this->gatewayPaymentAmount($order, 'USD', $this->supportedCurrencies());
 
             $this->gateway->getAccessToken();
             $response = $this->gateway->createOrder([
@@ -66,8 +69,8 @@ class Paypal extends PaymentAbstract
                 "purchase_units"      => [
                     0 => [
                         "amount" => [
-                            "currency_code" => $currencyCode,
-                            "value"         => (float)$order->total
+                            "currency_code" => $charge['currency'],
+                            "value"         => $this->gatewayDecimalAmount($charge['amount'], $charge['currency'], $order)
                         ]
                     ]
                 ]
@@ -149,5 +152,14 @@ class Paypal extends PaymentAbstract
     public function cancel($order, $request): \Illuminate\Foundation\Application|\Illuminate\Routing\Redirector|\Illuminate\Http\RedirectResponse|\Illuminate\Contracts\Foundation\Application
     {
         return redirect('/checkout/payment');
+    }
+
+    private function supportedCurrencies(): array
+    {
+        return [
+            'AUD', 'BRL', 'CAD', 'CNY', 'CZK', 'DKK', 'EUR', 'HKD', 'HUF', 'ILS',
+            'JPY', 'MYR', 'MXN', 'TWD', 'NZD', 'NOK', 'PHP', 'PLN', 'GBP', 'RUB',
+            'SGD', 'SEK', 'CHF', 'THB', 'USD',
+        ];
     }
 }

@@ -1,5 +1,14 @@
+"use strict";
+
+function stripe_payment() {
+    let errorElement = document.getElementById('card-errors');
+
+    if (errorElement) {
+        errorElement.textContent = 'Stripe publishable key is missing.';
+    }
+}
+
 if (stripeKey) {
-    "use strict";
     let stripe = Stripe(stripeKey);
     let elements = stripe.elements();
     let style = {
@@ -13,7 +22,7 @@ if (stripeKey) {
     let card = elements.create('card', {style: style});
     card.mount('#card-element');
 
-    function stripe_payment() {
+    stripe_payment = function () {
         $('#payment_method').parent().removeClass('has-error');
         stripe.createToken(card).then(function (result) {
             if (result.error) {
@@ -23,7 +32,6 @@ if (stripeKey) {
                 stripeTokenHandler(result.token);
             }
         });
-
     }
 
     function stripeTokenHandler(token) {
@@ -36,5 +44,4 @@ if (stripeKey) {
         form.submit();
     }
 }
-
 
