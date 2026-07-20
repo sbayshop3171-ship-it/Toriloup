@@ -3,10 +3,55 @@
 
     <div id="site" class="db-card db-tab-div active">
         <div class="db-card-header">
-            <h3 class="db-card-title">{{ $t('menu.site') }}</h3>
+            <h3 class="db-card-title">{{ pageTitle }}</h3>
         </div>
         <div class="db-card-body">
-            <form @submit.prevent="save">
+            <form v-if="merchantCurrencyOnly" @submit.prevent="save">
+                <div class="form-row">
+                    <div class="form-col-12 sm:form-col-6">
+                        <label class="db-field-title required" for="site_auto_visitor_currency_enable">
+                            Auto Visitor Currency
+                        </label>
+                        <div class="db-field-radio-group">
+                            <div class="db-field-radio">
+                                <div class="custom-radio">
+                                    <input :value="enums.activityEnum.ENABLE"
+                                        v-model="form.site_auto_visitor_currency"
+                                        id="site_auto_visitor_currency_enable" type="radio"
+                                        class="custom-radio-field" />
+                                    <span class="custom-radio-span"></span>
+                                </div>
+                                <label for="site_auto_visitor_currency_enable" class="db-field-label">
+                                    {{ $t("label.enable") }}
+                                </label>
+                            </div>
+                            <div class="db-field-radio">
+                                <div class="custom-radio">
+                                    <input :value="enums.activityEnum.DISABLE"
+                                        v-model="form.site_auto_visitor_currency"
+                                        id="site_auto_visitor_currency_disable" type="radio"
+                                        class="custom-radio-field" />
+                                    <span class="custom-radio-span"></span>
+                                </div>
+                                <label for="site_auto_visitor_currency_disable" class="db-field-label">
+                                    {{ $t("label.disable") }}
+                                </label>
+                            </div>
+                        </div>
+                        <small class="db-field-alert" v-if="errors.site_auto_visitor_currency">
+                            {{ errors.site_auto_visitor_currency[0] }}
+                        </small>
+                    </div>
+
+                    <div class="form-col-12">
+                        <button type="submit" class="db-btn text-white bg-primary">
+                            <i class="lab lab-fill-save"></i>
+                            <span>{{ $t("button.save") }}</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            <form v-else @submit.prevent="save">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
                         <label for="site_date_format" class="db-field-title required">
@@ -443,6 +488,7 @@ import LoadingComponent from "../../components/LoadingComponent";
 import alertService from "../../../../services/alertService";
 import appService from "../../../../services/appService";
 import ENV from "../../../../config/env";
+import { isMerchantHost } from "../../../../services/workspaceService";
 
 export default {
     name: "SiteComponent",
@@ -498,6 +544,12 @@ export default {
         },
         smsGateways: function () {
             return this.$store.getters["smsGateway/lists"];
+        },
+        merchantCurrencyOnly: function () {
+            return isMerchantHost();
+        },
+        pageTitle: function () {
+            return this.merchantCurrencyOnly ? "Visitor Currency" : this.$t('menu.site');
         },
     },
     mounted() {
@@ -571,7 +623,7 @@ export default {
                 this.loading.isActive = true;
                 this.$store.dispatch("site/save", this.form).then((res) => {
                     this.loading.isActive = false;
-                    alertService.successFlip(res.config.method === "put" ?? 0, this.$t("menu.site"));
+                    alertService.successFlip(res.config.method === "put" ?? 0, this.pageTitle);
                     this.list();
                     this.$store.dispatch('frontendSetting/lists').then().catch();
                     this.errors = {};

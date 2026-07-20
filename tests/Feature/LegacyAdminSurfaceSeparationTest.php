@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Activity;
 use App\Enums\Role as LegacyRole;
 use App\Models\Benefit;
 use App\Models\Barcode;
@@ -429,6 +430,53 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             ->withHeaders($this->tenantHeaders($context['tenant']->slug))
             ->getJson('http://merchant.company.com/api/admin/setting/permission/'.LegacyRole::MANAGER)
             ->assertStatus(422);
+    }
+
+    public function test_merchant_site_settings_update_only_auto_visitor_currency(): void
+    {
+        $context = $this->createMerchantContext('legacy-site-currency-only-store', ['settings']);
+
+        Sanctum::actingAs($context['user'], ['surface:merchant']);
+
+        $initial = $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->getJson('http://merchant.company.com/api/admin/setting/site')
+            ->assertOk()
+            ->json('data');
+
+        $payload = array_merge($initial, [
+            'site_date_format' => 'd/m/Y',
+            'site_default_timezone' => 'Asia/Dhaka',
+            'site_default_currency' => 999999,
+            'site_currency_position' => 10,
+            'site_copyright' => 'Merchant Should Not Control Site',
+            'site_auto_visitor_currency' => Activity::DISABLE,
+        ]);
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->putJson('http://merchant.company.com/api/admin/setting/site', $payload)
+            ->assertOk()
+            ->assertJsonPath('data.site_auto_visitor_currency', Activity::DISABLE)
+            ->assertJsonPath('data.site_date_format', $initial['site_date_format'])
+            ->assertJsonPath('data.site_default_timezone', $initial['site_default_timezone'])
+            ->assertJsonPath('data.site_default_currency', $initial['site_default_currency'])
+            ->assertJsonPath('data.site_currency_position', $initial['site_currency_position'])
+            ->assertJsonPath('data.site_copyright', $initial['site_copyright']);
+
+        $this->assertDatabaseHas('tenant_settings', [
+            'tenant_id' => $context['tenant']->id,
+            'group_key' => 'site',
+            'setting_key' => 'site_auto_visitor_currency',
+            'setting_value' => (string) Activity::DISABLE,
+        ]);
+
+        $this->assertDatabaseMissing('tenant_settings', [
+            'tenant_id' => $context['tenant']->id,
+            'group_key' => 'site',
+            'setting_key' => 'site_default_timezone',
+            'setting_value' => 'Asia/Dhaka',
+        ]);
     }
 
     public function test_merchant_legacy_user_modules_are_tenant_scoped(): void
