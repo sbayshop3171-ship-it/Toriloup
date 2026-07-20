@@ -13,11 +13,60 @@
                             Store Base Currency
                         </label>
 
-                        <vue-select class="db-field-control f-b-custom-select" id="merchant_site_default_currency"
-                            v-bind:class="errors.site_default_currency ? 'is-invalid' : ''"
-                            v-model="form.site_default_currency" :options="currencies" label-by="name_symbol"
-                            value-by="id" :closeOnSelect="true" :searchable="true" :clearOnClose="true" placeholder="--"
-                            search-placeholder="Search currency code or name" />
+                        <div ref="merchantCurrencySelector" class="relative">
+                            <div
+                                :class="errors.site_default_currency ? 'is-invalid' : ''"
+                                class="db-field-control !px-0 flex items-center overflow-visible"
+                            >
+                                <input
+                                    ref="merchantCurrencySearch"
+                                    v-model="currencySearch"
+                                    id="merchant_site_default_currency"
+                                    type="text"
+                                    autocomplete="off"
+                                    class="w-full h-full px-3 bg-transparent outline-none"
+                                    placeholder="Search currency code or name"
+                                    @focus="openCurrencyDropdown"
+                                    @input="currencyDropdownOpen = true"
+                                    @keydown.esc.prevent="closeCurrencyDropdown"
+                                />
+                                <button
+                                    type="button"
+                                    class="h-full w-10 flex items-center justify-center text-xs text-paragraph"
+                                    @mousedown.prevent="toggleCurrencyDropdown"
+                                >
+                                    <i :class="currencyDropdownOpen ? 'fa-solid fa-caret-up' : 'fa-solid fa-caret-down'"></i>
+                                </button>
+                            </div>
+
+                            <ul
+                                v-if="currencyDropdownOpen"
+                                class="absolute left-0 right-0 top-11 z-[80] max-h-72 overflow-y-auto thin-scrolling rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl"
+                            >
+                                <li v-if="currencyLoading" class="px-3 py-2 text-sm text-paragraph">
+                                    Loading currencies...
+                                </li>
+                                <li v-else-if="filteredCurrencyOptions.length === 0" class="px-3 py-2 text-sm text-paragraph">
+                                    No currencies found
+                                </li>
+                                <li
+                                    v-else
+                                    v-for="currency in filteredCurrencyOptions"
+                                    :key="currency.id"
+                                    @mousedown.prevent="selectBaseCurrency(currency)"
+                                    class="flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition hover:bg-primary/5"
+                                    :class="Number(form.site_default_currency) === Number(currency.id) ? 'bg-primary/10 text-primary' : 'text-heading'"
+                                >
+                                    <span class="w-12 flex-shrink-0 text-sm font-semibold uppercase">{{ currency.code }}</span>
+                                    <span class="w-8 flex-shrink-0 text-sm font-semibold text-primary">{{ currency.symbol }}</span>
+                                    <span class="min-w-0 flex-auto truncate text-sm">{{ currency.name }}</span>
+                                    <i
+                                        v-if="Number(form.site_default_currency) === Number(currency.id)"
+                                        class="lab-fill-check-circle text-sm text-primary"
+                                    ></i>
+                                </li>
+                            </ul>
+                        </div>
                         <small class="db-field-alert" v-if="errors.site_default_currency">
                             {{ errors.site_default_currency[0] }}
                         </small>
@@ -544,7 +593,10 @@ export default {
                 askEnum: askEnum,
             },
             demo: ENV.DEMO,
-            errors: {}
+            errors: {},
+            currencySearch: "",
+            currencyDropdownOpen: false,
+            currencyLoading: false
         }
     },
     computed: {
@@ -566,9 +618,32 @@ export default {
         pageTitle: function () {
             return this.merchantCurrencyOnly ? "Currency Settings" : this.$t('menu.site');
         },
+        selectedBaseCurrency: function () {
+            return this.currencies.find(currency => Number(currency.id) === Number(this.form.site_default_currency)) || null;
+        },
+        filteredCurrencyOptions: function () {
+            const query = String(this.currencySearch || "").trim().toLowerCase();
+
+            if (!query || !this.currencyDropdownOpen) {
+                return this.currencies;
+            }
+
+            return this.currencies.filter(currency => {
+                return [
+                    currency.code,
+                    currency.name,
+                    currency.symbol,
+                    currency.name_symbol,
+                ].some(value => String(value || "").toLowerCase().includes(query));
+            });
+        },
     },
     mounted() {
+        document.addEventListener("click", this.handleCurrencyOutsideClick);
         this.load();
+    },
+    beforeUnmount() {
+        document.removeEventListener("click", this.handleCurrencyOutsideClick);
     },
     methods: {
         floatNumber(e) {
@@ -577,15 +652,18 @@ export default {
         load: async function () {
             try {
                 this.loading.isActive = true;
+
+                if (this.merchantCurrencyOnly) {
+                    await this.loadCurrencyOptions();
+                    this.list();
+                    return;
+                }
+
                 await this.$store.dispatch("smsGateway/lists", {
                     status: statusEnum.ACTIVE
                 });
                 await this.$store.dispatch('timezone/lists');
-                await this.$store.dispatch('currency/lists', {
-                    order_column: 'code',
-                    order_type: 'asc',
-                    status: statusEnum.ACTIVE
-                });
+                await this.loadCurrencyOptions();
                 await this.$store.dispatch('language/lists', {
                     order_column: 'id',
                     order_type: 'asc',
@@ -596,6 +674,21 @@ export default {
 
             } catch (err) {
                 this.loading.isActive = false;
+            }
+        },
+        loadCurrencyOptions: async function () {
+            this.currencyLoading = true;
+
+            try {
+                await this.$store.dispatch('currency/lists', {
+                    order_column: 'code',
+                    order_type: 'asc',
+                    status: statusEnum.ACTIVE
+                });
+            } catch (err) {
+                alertService.error(err?.response?.data?.message || "Currency list could not be loaded.");
+            } finally {
+                this.currencyLoading = false;
             }
         },
         list: function () {
@@ -629,6 +722,7 @@ export default {
                     site_non_purchase_product_maximum_quantity: res.data.data.site_non_purchase_product_maximum_quantity,
                     site_is_return_product_price_add_to_credit: res.data.data.site_is_return_product_price_add_to_credit,
                 }
+                this.syncCurrencySearch();
                 this.loading.isActive = false;
             }).catch((err) => {
                 this.loading.isActive = false;
@@ -651,6 +745,58 @@ export default {
             const currency = this.currencies.find(currency => String(currency.code || "").toUpperCase() === normalizedCode);
 
             return currency ? currency.id : id;
+        },
+        currencyLabel: function (currency) {
+            if (!currency) {
+                return "";
+            }
+
+            return currency.name_symbol || `${String(currency.code || "").toUpperCase()} - ${currency.name} (${currency.symbol})`;
+        },
+        syncCurrencySearch: function () {
+            this.currencySearch = this.currencyLabel(this.selectedBaseCurrency);
+        },
+        openCurrencyDropdown: function () {
+            this.currencyDropdownOpen = true;
+            this.currencySearch = "";
+
+            if (this.currencies.length === 0 && !this.currencyLoading) {
+                this.loadCurrencyOptions();
+            }
+        },
+        closeCurrencyDropdown: function () {
+            this.currencyDropdownOpen = false;
+            this.syncCurrencySearch();
+        },
+        toggleCurrencyDropdown: function () {
+            if (this.currencyDropdownOpen) {
+                this.closeCurrencyDropdown();
+                return;
+            }
+
+            this.openCurrencyDropdown();
+            this.$nextTick(() => this.$refs.merchantCurrencySearch?.focus());
+        },
+        handleCurrencyOutsideClick: function (event) {
+            const selector = this.$refs.merchantCurrencySelector;
+
+            if (!selector || selector.contains(event.target)) {
+                return;
+            }
+
+            if (this.currencyDropdownOpen) {
+                this.closeCurrencyDropdown();
+            }
+        },
+        selectBaseCurrency: function (currency) {
+            this.form.site_default_currency = currency.id;
+            this.form.site_default_currency_symbol = currency.symbol;
+            this.currencySearch = this.currencyLabel(currency);
+            this.currencyDropdownOpen = false;
+
+            if (this.errors.site_default_currency) {
+                delete this.errors.site_default_currency;
+            }
         },
         save: function () {
             try {
