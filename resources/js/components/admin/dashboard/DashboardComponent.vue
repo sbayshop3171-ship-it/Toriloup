@@ -14,8 +14,14 @@
     <OverviewComponent :merchant-setup="merchantSetup" :is-merchant-workspace="isMerchantWorkspace" />
     <!--========OVERVIEW END=============-->
 
-    <MerchantSetupChecklistComponent v-if="isMerchantWorkspace" :setup="merchantSetup" />
-    <MerchantWalletSnapshotComponent v-if="isMerchantWorkspace" />
+    <MerchantWalletSnapshotComponent v-if="isMerchantWorkspace">
+        <template #summaryTop>
+            <MerchantSetupChecklistComponent :setup="merchantSetup" mode="checklist" />
+        </template>
+        <template #activityTop>
+            <MerchantSetupChecklistComponent :setup="merchantSetup" mode="storefront" />
+        </template>
+    </MerchantWalletSnapshotComponent>
 
     <!--========ORDER STATISTIC START=============-->
     <OrderStatisticsComponent />

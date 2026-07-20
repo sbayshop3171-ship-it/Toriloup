@@ -1,7 +1,7 @@
 <template>
-    <div class="mb-9">
-        <div class="row">
-            <div class="col-12 xl:col-8">
+    <div :class="isFullMode ? 'mb-9' : ''">
+        <div :class="isFullMode ? 'row' : ''">
+            <div v-if="showChecklist" :class="isFullMode ? 'col-12 xl:col-8' : ''">
                 <div class="db-card">
                     <div class="db-card-header border-none">
                         <div>
@@ -47,7 +47,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-12 xl:col-4">
+            <div v-if="showStorefrontStatus" :class="isFullMode ? 'col-12 xl:col-4' : ''">
                 <div class="db-card">
                     <div class="db-card-header border-none">
                         <div>
@@ -155,8 +155,21 @@ export default {
             type: Object,
             default: null,
         },
+        mode: {
+            type: String,
+            default: "full",
+        },
     },
     computed: {
+        isFullMode: function () {
+            return this.mode === "full";
+        },
+        showChecklist: function () {
+            return ["full", "checklist"].includes(this.mode);
+        },
+        showStorefrontStatus: function () {
+            return ["full", "storefront"].includes(this.mode);
+        },
         steps: function () {
             const checklist = this.setup?.checklist;
 

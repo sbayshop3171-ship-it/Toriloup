@@ -1,7 +1,11 @@
 <template>
     <div class="row mb-8">
         <div class="col-12 xl:col-8">
-            <div class="db-card h-full">
+            <div v-if="$slots.summaryTop" class="mb-8">
+                <slot name="summaryTop" />
+            </div>
+
+            <div class="db-card">
                 <div class="db-card-header flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h3 class="db-card-title">Gateway Wallet</h3>
@@ -63,7 +67,11 @@
         </div>
 
         <div class="col-12 xl:col-4">
-            <div class="db-card h-full">
+            <div v-if="$slots.activityTop" class="mb-8">
+                <slot name="activityTop" />
+            </div>
+
+            <div class="db-card">
                 <div class="db-card-header">
                     <div>
                         <h3 class="db-card-title">Recent Wallet Activity</h3>
