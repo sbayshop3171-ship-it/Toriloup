@@ -66,29 +66,26 @@
             </router-link>
 
             <router-link
-                :to="adminPath('online-orders')"
+                :to="adminPath('pos')"
                 class="backend-mobile-nav-item"
-                :class="{ active: isActive(orderUrls) }">
-                <span class="relative">
-                    <i class="lab lab-line-online-orders"></i>
-                    <span v-if="badgeForUrls(orderUrls) > 0" class="backend-mobile-dot"></span>
-                </span>
-                <span>{{ $t('menu.orders') }}</span>
+                :class="{ active: isActive(['pos']), 'opacity-70': isFeatureLocked(posItem) }">
+                <i class="lab lab-line-pos"></i>
+                <span>{{ $t('menu.pos') }}</span>
             </router-link>
 
             <router-link
-                :to="adminPath('pos')"
+                :to="adminPath('online-orders')"
                 class="backend-mobile-nav-fab"
-                :class="{ active: isActive(['pos']), 'opacity-70': isFeatureLocked(posItem) }">
+                :class="{ active: isActive(orderUrls) }">
                 <span class="backend-mobile-fab-button">
-                    <i class="lab lab-line-pos"></i>
+                    <i class="lab lab-line-online-orders"></i>
                     <span
-                        v-if="badgeForUrls(sellUrls) > 0"
+                        v-if="badgeForUrls(orderUrls) > 0"
                         class="backend-mobile-fab-badge">
-                        {{ badgeText(badgeForUrls(sellUrls)) }}
+                        {{ badgeText(badgeForUrls(orderUrls)) }}
                     </span>
                 </span>
-                <span>{{ $t('menu.sell') }}</span>
+                <span>{{ $t('menu.order') }}</span>
             </router-link>
 
             <router-link
@@ -99,7 +96,7 @@
                     <i class="lab lab-line-items"></i>
                     <span v-if="badgeForUrls(productUrls) > 0" class="backend-mobile-dot"></span>
                 </span>
-                <span>{{ $t('menu.products') }}</span>
+                <span>{{ $t('menu.product_upload') }}</span>
             </router-link>
 
             <button
@@ -197,7 +194,6 @@ export default {
             notificationSyncEventName: backendNotificationService.syncEventName,
             orderUrls: orderUrls,
             productUrls: productUrls,
-            sellUrls: ["pos", "pos-orders"],
             posItem: { feature: "pos" },
         };
     },

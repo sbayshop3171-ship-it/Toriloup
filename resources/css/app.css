@@ -700,50 +700,6 @@
     .pos-group .active { @apply bg-primary-light border-primary }
 
     /* BACKEND MOBILE APP SHELL */
-    .backend-mobile-top-header {
-        @apply flex w-full items-center gap-3 rounded-2xl border border-white/80 bg-white/95 p-3 shadow-[0_12px_30px_rgba(15,23,42,0.10)];
-    }
-
-    .backend-mobile-store-avatar {
-        @apply flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#F8FAFC] text-primary shadow-sm;
-    }
-
-    .backend-mobile-store-avatar img {
-        @apply h-full w-full object-cover;
-    }
-
-    .backend-mobile-store-name {
-        @apply min-w-0 truncate text-base font-bold leading-5 text-heading;
-    }
-
-    .backend-mobile-store-dot {
-        @apply h-2 w-2 flex-shrink-0 rounded-full bg-primary;
-    }
-
-    .backend-mobile-store-revenue {
-        @apply mt-1 flex min-w-0 items-center gap-2 text-xs leading-4 text-paragraph;
-    }
-
-    .backend-mobile-store-revenue span {
-        @apply truncate;
-    }
-
-    .backend-mobile-store-revenue strong {
-        @apply flex-shrink-0 font-bold text-primary;
-    }
-
-    .backend-mobile-header-action {
-        @apply relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#FFF4F1] text-primary;
-    }
-
-    .backend-mobile-header-badge {
-        @apply absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-primary px-1 text-[10px] font-semibold leading-none text-white;
-    }
-
-    .backend-mobile-notification-panel {
-        @apply absolute right-0 top-12 z-[75] w-[calc(100vw_-_24px)] max-w-[340px] overflow-hidden rounded-xl border border-[#EFF0F6] bg-white shadow-paper;
-    }
-
     .backend-mobile-bottom-nav {
         @apply fixed z-50 grid items-stretch border border-gray-200 bg-white shadow-[0_-12px_30px_rgba(15,23,42,0.14)];
         grid-template-columns: 1fr 1fr 76px 1fr 1fr;
@@ -765,7 +721,8 @@
     }
 
     .backend-mobile-nav-item > span:last-child {
-        @apply max-w-full truncate;
+        @apply max-w-full text-center;
+        line-height: 13px;
     }
 
     .backend-mobile-nav-item.active {
@@ -791,7 +748,8 @@
     }
 
     .backend-mobile-nav-fab > span:last-child {
-        @apply max-w-full truncate;
+        @apply max-w-full text-center;
+        line-height: 13px;
     }
 
     .backend-mobile-fab-badge {
@@ -871,12 +829,7 @@
         }
 
         .merchant-mobile-shell {
-            padding-top: 6.85rem;
             padding-bottom: calc(7.75rem + env(safe-area-inset-bottom));
-        }
-
-        .merchant-mobile-shell .db-header.backend-mobile-header-shell {
-            @apply min-h-0 bg-transparent px-3 py-3;
         }
 
         .table-filter-div.active {

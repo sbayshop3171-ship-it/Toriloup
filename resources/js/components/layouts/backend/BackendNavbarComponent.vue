@@ -1,94 +1,14 @@
 <template>
     <div class="backdrop" @click="handleBackdropClick"></div>
-    <header class="db-header" :class="{ 'backend-mobile-header-shell': isMerchantWorkspace }">
-        <div v-if="isMerchantWorkspace" class="backend-mobile-top-header lg:hidden">
-            <router-link :to="workspaceHomeRoute" class="backend-mobile-store-avatar">
-                <img v-if="mobileStoreLogo" :src="mobileStoreLogo" alt="store">
-                <i v-else class="fa-regular fa-image"></i>
-            </router-link>
-            <div class="min-w-0 flex-1">
-                <div class="flex min-w-0 items-center gap-2">
-                    <h2 class="backend-mobile-store-name">{{ mobileStoreName }}</h2>
-                    <span v-if="unreadNotificationCount > 0" class="backend-mobile-store-dot"></span>
-                </div>
-                <p class="backend-mobile-store-revenue">
-                    <span>{{ $t('label.today_revenue') }}</span>
-                    <strong>{{ mobileTodayRevenue }}</strong>
-                </p>
-            </div>
-            <div class="relative" ref="mobileNotificationWrapper">
-                <button
-                    @click.stop="toggleNotificationDropdown"
-                    class="backend-mobile-header-action">
-                    <i class="fa-regular fa-bell"></i>
-                    <span
-                        v-if="unreadNotificationCount > 0"
-                        class="backend-mobile-header-badge">
-                        {{ unreadNotificationBadge }}
-                    </span>
-                </button>
-                <div
-                    v-if="notificationDropdownStatus"
-                    class="backend-mobile-notification-panel">
-                    <div class="flex items-center justify-between px-4 py-3 border-b border-[#EFF0F6]">
-                        <h3 class="text-sm font-semibold capitalize">{{ $t('label.notification') }}</h3>
-                        <button
-                            v-if="notificationItems.length > 0"
-                            @click="clearNotificationItems"
-                            class="text-xs font-medium text-primary hover:underline"
-                            type="button">
-                            {{ $t('button.clear') }}
-                        </button>
-                    </div>
-
-                    <div class="max-h-[320px] overflow-y-auto">
-                        <button
-                            v-for="item in notificationItems"
-                            :key="item.id"
-                            @click="openNotification(item)"
-                            type="button"
-                            class="w-full text-left px-4 py-3 border-b border-[#EFF0F6] last:border-b-0 hover:bg-primary/5 transition"
-                            :class="item.read ? 'opacity-75' : 'bg-primary/5'">
-                            <div class="flex gap-3">
-                                <span
-                                    class="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full"
-                                    :class="item.read ? 'bg-[#D9DBE9]' : 'bg-primary'">
-                                </span>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-start justify-between gap-2">
-                                        <p class="min-w-0 text-sm font-medium text-heading line-clamp-1">{{ item.title }}</p>
-                                        <span class="flex-shrink-0 rounded-full bg-[#FFF4F1] px-2 py-0.5 text-[10px] font-semibold leading-4 text-primary">
-                                            {{ notificationSectionLabel(item) }}
-                                        </span>
-                                    </div>
-                                    <p class="text-xs text-paragraph mt-1 line-clamp-2">{{ item.body }}</p>
-                                    <p class="text-[11px] text-[#6E7191] mt-1">{{ formatNotificationTime(item.createdAt) }}</p>
-                                </div>
-                            </div>
-                        </button>
-
-                        <p
-                            v-if="notificationItems.length === 0"
-                            class="text-sm text-center text-paragraph px-4 py-8">
-                            {{ $t('message.no_data_found') }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <button @click="toggleSidebar" class="backend-mobile-header-action">
-                <i class="fa-solid fa-align-left"></i>
-            </button>
-        </div>
-        <router-link
-            :class="[isMerchantWorkspace ? 'hidden lg:flex' : 'flex', 'items-center justify-center w-24 h-12 overflow-hidden flex-shrink-0']"
-            :to="workspaceHomeRoute">
+    <header class="db-header">
+        <router-link class="flex items-center justify-center w-24 h-12 overflow-hidden flex-shrink-0" :to="workspaceHomeRoute">
             <img v-if="logoSrc" class="w-full h-full object-contain" :src="logoSrc" alt="logo">
             <span v-else
                 class="w-full h-full rounded-xl border border-dashed border-[#D9DBE9] bg-white text-[#A0A3BD] flex items-center justify-center">
                 <i class="fa-regular fa-image"></i>
             </span>
         </router-link>
-        <div :class="[isMerchantWorkspace ? 'hidden lg:flex' : 'flex', 'min-w-0 items-center justify-end w-full gap-2 sm:gap-3 md:gap-4']">
+        <div class="flex min-w-0 items-center justify-end w-full gap-2 sm:gap-3 md:gap-4">
             <div
                 class="sub-header flex items-center gap-4 transition xh:justify-between xh:fixed xh:left-0 xh:w-full xh:p-4 xh:border-y xh:border-[#EFF0F6] xh:bg-white">
                 <div class="flex items-center justify-between md:justify-center gap-4">
@@ -338,18 +258,6 @@ export default {
         merchantBrandLogo: function () {
             return this.merchantSetup?.branding?.company_logo_url || "";
         },
-        mobileStoreLogo: function () {
-            return this.merchantBrandLogo || this.authInfo?.image || this.logoSrc;
-        },
-        mobileStoreName: function () {
-            return this.merchantSetup?.branding?.company_name
-                || this.authInfo?.current_tenant?.tenant?.name
-                || this.authInfo?.name
-                || "Store";
-        },
-        mobileTodayRevenue: function () {
-            return this.merchantSetup?.metrics?.today_revenue || this.authInfo?.currency_balance || "0";
-        },
         logoSrc: function () {
             if (this.isMerchantWorkspace) {
                 return this.merchantBrandLogo;
@@ -473,11 +381,7 @@ export default {
         },
         handleDocumentClick: function (event) {
             const notificationWrapper = this.$refs.notificationWrapper;
-            const mobileNotificationWrapper = this.$refs.mobileNotificationWrapper;
-            const clickedDesktopNotification = notificationWrapper && notificationWrapper.contains(event.target);
-            const clickedMobileNotification = mobileNotificationWrapper && mobileNotificationWrapper.contains(event.target);
-
-            if (!clickedDesktopNotification && !clickedMobileNotification) {
+            if (notificationWrapper && !notificationWrapper.contains(event.target)) {
                 this.notificationDropdownStatus = false;
             }
         },
