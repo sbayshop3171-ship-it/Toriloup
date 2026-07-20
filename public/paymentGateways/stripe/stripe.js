@@ -28,30 +28,12 @@ if (stripeKey && typeof Stripe !== 'undefined') {
             },
         };
 
-        let cardNumber = elements.create('cardNumber', {
-            style: style,
-            placeholder: '1234 1234 1234 1234',
-        });
-        let cardExpiry = elements.create('cardExpiry', {
-            style: style,
-            placeholder: 'MM / YY',
-        });
-        let cardCvc = elements.create('cardCvc', {
-            style: style,
-            placeholder: 'CVC',
-        });
-
-        cardNumber.mount('#card-number-element');
-        cardExpiry.mount('#card-expiry-element');
-        cardCvc.mount('#card-cvc-element');
+        let card = elements.create('card', {style: style});
+        card.mount('#card-element');
 
         window.stripe_payment = function () {
             $('#payment_method').parent().removeClass('has-error');
-            let cardholderName = document.getElementById('card-holder-name');
-
-            stripe.createToken(cardNumber, {
-                name: cardholderName ? cardholderName.value : '',
-            }).then(function (result) {
+            stripe.createToken(card).then(function (result) {
                 if (result.error) {
                     let errorElement = document.getElementById('card-errors');
                     errorElement.textContent = result.error.message;

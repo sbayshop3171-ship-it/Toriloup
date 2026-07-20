@@ -156,16 +156,36 @@ class StripeGatewayConfigurationTest extends TestCase
         $this->assertSame(10.0, $charge['amount']);
     }
 
-    public function test_stripe_card_form_renders_explicit_card_entry_fields(): void
+    public function test_stripe_card_form_uses_compact_single_card_element(): void
     {
         $html = view('paymentGateways.stripe.stripeInput')->render();
 
-        $this->assertStringContainsString('Payment method', $html);
-        $this->assertStringContainsString('Card information', $html);
-        $this->assertStringContainsString('card-number-element', $html);
-        $this->assertStringContainsString('card-expiry-element', $html);
-        $this->assertStringContainsString('card-cvc-element', $html);
-        $this->assertStringContainsString('card-holder-name', $html);
+        $this->assertStringContainsString('card-element', $html);
+        $this->assertStringNotContainsString('Payment method', $html);
+        $this->assertStringNotContainsString('card-number-element', $html);
+        $this->assertStringNotContainsString('card-holder-name', $html);
+    }
+
+    public function test_payment_view_does_not_fallback_to_global_logo_when_tenant_logo_is_blank(): void
+    {
+        $html = view('payment', [
+            'company' => ['company_name' => 'Brand Store'],
+            'logo' => (object) ['logo' => 'https://example.test/global-logo.png'],
+            'logoUrl' => null,
+            'faviconLogo' => (object) ['faviconLogo' => 'https://example.test/favicon.png'],
+            'faviconUrl' => 'https://example.test/favicon.png',
+            'paymentGateways' => collect(),
+            'order' => 123,
+            'creditAmount' => '$0.00',
+            'credit' => false,
+            'cashOnDelivery' => false,
+            'paymentAttempt' => null,
+            'paymentMethod' => (object) ['slug' => 'stripe'],
+            'errors' => new \Illuminate\Support\ViewErrorBag(),
+        ])->render();
+
+        $this->assertStringNotContainsString('global-logo.png', $html);
+        $this->assertStringNotContainsString('alt="logo"', $html);
     }
 
     public function test_storefront_branding_prefers_tenant_logo_and_stays_blank_without_one(): void
