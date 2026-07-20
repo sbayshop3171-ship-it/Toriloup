@@ -21,7 +21,7 @@ class CurrencyCatalogService
 
     public function seedGlobalCurrencies(bool $force = false): int
     {
-        if (!$force && self::$globalSeeded) {
+        if (!$force && self::$globalSeeded && Currency::withoutGlobalScopes()->whereNull('tenant_id')->exists()) {
             return 0;
         }
 
@@ -55,7 +55,10 @@ class CurrencyCatalogService
 
     public function ensureTenantCurrencies(Tenant $tenant): int
     {
-        if (isset(self::$tenantEnsured[$tenant->id])) {
+        if (
+            isset(self::$tenantEnsured[$tenant->id])
+            && Currency::withoutGlobalScopes()->where('tenant_id', $tenant->id)->exists()
+        ) {
             return 0;
         }
 

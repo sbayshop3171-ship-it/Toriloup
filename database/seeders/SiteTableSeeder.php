@@ -39,6 +39,7 @@ class SiteTableSeeder extends Seeder
             'site_language_switch'                       => Activity::ENABLE,
             'site_app_debug'                             => Activity::DISABLE,
             'site_auto_update'                           => Activity::DISABLE,
+            'site_auto_visitor_currency'                 => Activity::ENABLE,
             'site_online_payment_gateway'                => $envService->getValue('DEMO') ? Activity::ENABLE : Activity::DISABLE,
             'site_default_sms_gateway'                   => 0,
             'site_cash_on_delivery'                      => Activity::ENABLE,

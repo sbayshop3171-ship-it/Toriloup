@@ -139,6 +139,7 @@ class TenantProvisioningService
                 'site_default_currency' => $tenantCurrency?->id ?? 1,
                 'site_default_currency_code' => $primaryCurrencyCode,
                 'site_default_currency_symbol' => $tenantCurrency?->symbol ?? '$',
+                'site_auto_visitor_currency' => 5,
                 'site_online_payment_gateway' => 5,
                 'site_cash_on_delivery' => 5,
                 'shipping_setup_method' => 5,

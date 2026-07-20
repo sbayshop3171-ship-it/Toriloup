@@ -36,6 +36,7 @@ class SiteRequest extends FormRequest
             'site_language_switch'                        => ['required', 'numeric'],
             'site_app_debug'                              => ['required', 'numeric'],
             'site_auto_update'                            => ['nullable', 'numeric'],
+            'site_auto_visitor_currency'                  => ['nullable', 'numeric'],
             'site_android_app_link'                       => ['nullable', 'string', 'max:190'],
             'site_ios_app_link'                           => ['nullable', 'string', 'max:190'],
             'site_copyright'                              => ['required', 'string', 'max:190'],

@@ -2,18 +2,23 @@
 
 namespace App\Services\Currency;
 
-use App\Models\Country;
+use App\Enums\Activity;
 use App\Models\Address;
 use App\Models\Currency;
 use App\Models\Tenant;
 use App\Services\CountryMetadataService;
+use App\Services\Saas\TenantSettingsService;
 use Illuminate\Http\Request;
 
 class VisitorCurrencyResolver
 {
+    /** @var array<int, array<string, mixed>> */
+    private array $tenantSettingsCache = [];
+
     public function __construct(
         private readonly CountryMetadataService $countryMetadataService,
         private readonly CurrencyCatalogService $currencyCatalogService,
+        private readonly TenantSettingsService $tenantSettingsService,
     ) {
     }
 
@@ -23,14 +28,18 @@ class VisitorCurrencyResolver
      */
     public function resolve(Request $request, ?Tenant $tenant = null, array $settings = []): array
     {
+        $settings = $this->effectiveSettings($tenant, $settings);
         $candidates = [
             ['source' => 'manual', 'currency_code' => $this->manualCurrencyCode($request), 'country_code' => null],
-            ['source' => 'checkout_shipping', 'currency_code' => $this->checkoutShippingCurrencyCode($request), 'country_code' => null],
-            ['source' => 'country_header', 'currency_code' => null, 'country_code' => $this->headerCountryCode($request)],
-            ['source' => 'browser_locale', 'currency_code' => null, 'country_code' => $this->browserCountryCode($request)],
-            ['source' => 'store_country', 'currency_code' => null, 'country_code' => $this->settingsCountryCode($tenant, $settings)],
-            ['source' => 'store_base', 'currency_code' => $this->baseCurrencyCode($tenant, $settings), 'country_code' => null],
         ];
+
+        if ($this->autoVisitorCurrencyEnabled($settings)) {
+            $candidates[] = ['source' => 'checkout_shipping', 'currency_code' => $this->checkoutShippingCurrencyCode($request), 'country_code' => null];
+            $candidates[] = ['source' => 'country_header', 'currency_code' => null, 'country_code' => $this->headerCountryCode($request)];
+            $candidates[] = ['source' => 'browser_locale', 'currency_code' => null, 'country_code' => $this->browserCountryCode($request)];
+        }
+
+        $candidates[] = ['source' => 'store_base', 'currency_code' => $this->baseCurrencyCode($tenant, $settings), 'country_code' => null];
 
         foreach ($candidates as $candidate) {
             $currencyCode = $candidate['currency_code'];
@@ -61,6 +70,8 @@ class VisitorCurrencyResolver
      */
     public function baseCurrencyCode(?Tenant $tenant = null, array $settings = []): string
     {
+        $settings = $this->effectiveSettings($tenant, $settings);
+
         if (filled($tenant?->primary_currency_code)) {
             return strtoupper((string) $tenant->primary_currency_code);
         }
@@ -154,16 +165,25 @@ class VisitorCurrencyResolver
     /**
      * @param  array<string, mixed>  $settings
      */
-    private function settingsCountryCode(?Tenant $tenant, array $settings): ?string
+    private function autoVisitorCurrencyEnabled(array $settings): bool
     {
-        foreach ([$settings['company_country_code'] ?? null, $tenant?->country_code] as $countryCode) {
-            $countryCode = strtoupper(trim((string) $countryCode));
-
-            if (preg_match('/^[A-Z]{2}$/', $countryCode)) {
-                return $countryCode;
-            }
+        if (!array_key_exists('site_auto_visitor_currency', $settings)) {
+            return true;
         }
 
-        return null;
+        return (int) $settings['site_auto_visitor_currency'] !== Activity::DISABLE;
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    private function effectiveSettings(?Tenant $tenant, array $settings): array
+    {
+        if ($settings !== [] || !$tenant instanceof Tenant) {
+            return $settings;
+        }
+
+        return $this->tenantSettingsCache[$tenant->id] ??= $this->tenantSettingsService->mergedForTenant($tenant);
     }
 }

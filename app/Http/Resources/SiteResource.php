@@ -39,6 +39,7 @@ class SiteResource extends JsonResource
             "site_language_switch"                       => $this->info['site_language_switch'],
             "site_app_debug"                             => $this->info['site_app_debug'],
             "site_auto_update"                           => $this->info['site_auto_update'],
+            "site_auto_visitor_currency"                 => $this->info['site_auto_visitor_currency'] ?? 5,
             "site_android_app_link"                      => $this->info['site_android_app_link'],
             "site_ios_app_link"                          => $this->info['site_ios_app_link'],
             "site_copyright"                             => $this->info['site_copyright'],

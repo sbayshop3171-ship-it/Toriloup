@@ -56,6 +56,7 @@ class SettingResource extends JsonResource
             'site_phone_verification'               => $this->info['site_phone_verification'],
             'site_email_verification'               => $this->info['site_email_verification'],
             'site_language_switch'                  => $this->info['site_language_switch'],
+            'site_auto_visitor_currency'            => $this->info['site_auto_visitor_currency'] ?? 5,
             'site_online_payment_gateway'           => $this->info['site_online_payment_gateway'],
             'site_cash_on_delivery'                 => $this->info['site_cash_on_delivery'],
             'shipping_setup_method'                 => $this->info['shipping_setup_method'],

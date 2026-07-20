@@ -153,6 +153,41 @@
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
+                        <label class="db-field-title required" for="site_auto_visitor_currency_enable">
+                            Auto Visitor Currency
+                        </label>
+                        <div class="db-field-radio-group">
+                            <div class="db-field-radio">
+                                <div class="custom-radio">
+                                    <input :value="enums.activityEnum.ENABLE"
+                                        v-model="form.site_auto_visitor_currency"
+                                        id="site_auto_visitor_currency_enable" type="radio"
+                                        class="custom-radio-field" />
+                                    <span class="custom-radio-span"></span>
+                                </div>
+                                <label for="site_auto_visitor_currency_enable" class="db-field-label">
+                                    {{ $t("label.enable") }}
+                                </label>
+                            </div>
+                            <div class="db-field-radio">
+                                <div class="custom-radio">
+                                    <input :value="enums.activityEnum.DISABLE"
+                                        v-model="form.site_auto_visitor_currency"
+                                        id="site_auto_visitor_currency_disable" type="radio"
+                                        class="custom-radio-field" />
+                                    <span class="custom-radio-span"></span>
+                                </div>
+                                <label for="site_auto_visitor_currency_disable" class="db-field-label">
+                                    {{ $t("label.disable") }}
+                                </label>
+                            </div>
+                        </div>
+                        <small class="db-field-alert" v-if="errors.site_auto_visitor_currency">
+                            {{ errors.site_auto_visitor_currency[0] }}
+                        </small>
+                    </div>
+
+                    <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="enable">
                             {{ $t("label.currency_position") }}
                         </label>
@@ -427,6 +462,7 @@ export default {
                 site_language_switch: null,
                 site_app_debug: null,
                 site_currency_position: null,
+                site_auto_visitor_currency: activityEnum.ENABLE,
                 site_email_verification: null,
                 site_phone_verification: null,
                 site_digit_after_decimal_point: null,
@@ -508,6 +544,7 @@ export default {
                     site_language_switch: res.data.data.site_language_switch,
                     site_app_debug: res.data.data.site_app_debug,
                     site_currency_position: res.data.data.site_currency_position,
+                    site_auto_visitor_currency: res.data.data.site_auto_visitor_currency ?? activityEnum.ENABLE,
                     site_email_verification: res.data.data.site_email_verification,
                     site_phone_verification: res.data.data.site_phone_verification,
                     site_digit_after_decimal_point: res.data.data.site_digit_after_decimal_point,

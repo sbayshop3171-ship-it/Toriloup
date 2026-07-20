@@ -62,6 +62,7 @@ class SiteService
             $data['site_default_currency_symbol'] = $currency?->symbol ?? (string) ($data['site_default_currency_symbol'] ?? '$');
             $data['site_default_currency_code'] = $currency?->code ?? config('currency.base_code', 'USD');
             $data['site_app_debug'] = $app_debug;
+            $data['site_auto_visitor_currency'] = $data['site_auto_visitor_currency'] ?? Activity::ENABLE;
 
             if ($tenant = $this->merchantTenant()) {
                 $this->currencyCatalogService->ensureTenantCurrencies($tenant);

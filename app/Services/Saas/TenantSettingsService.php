@@ -200,6 +200,7 @@ class TenantSettingsService
             'site_default_language' => 1,
             'site_app_debug' => 10,
             'site_auto_update' => 10,
+            'site_auto_visitor_currency' => 5,
             'site_android_app_link' => null,
             'site_ios_app_link' => null,
             'site_copyright' => 'Toriloup',

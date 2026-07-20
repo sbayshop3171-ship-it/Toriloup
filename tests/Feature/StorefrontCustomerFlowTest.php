@@ -36,8 +36,10 @@ use App\Models\TenantDomain;
 use App\Models\TenantPaymentMethod;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Currency\CurrencyCatalogService;
 use App\Services\PaymentAttemptService;
 use App\Services\Saas\MerchantWalletService;
+use App\Services\Saas\TenantSettingsService;
 use Dipokhalder\Settings\Facades\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -132,6 +134,70 @@ class StorefrontCustomerFlowTest extends TestCase
             ->withHeaders($this->jsonHeaders())
             ->getJson('http://beta-store.company.com/api/frontend/product/show/alpha-shirt')
             ->assertNotFound();
+    }
+
+    public function test_store_base_currency_is_original_price_and_ip_changes_display_currency(): void
+    {
+        $tenant = $this->createTenant('bdt-base-currency-store');
+        $this->configureTenantCurrency($tenant, 'BDT');
+        $this->createProductForTenant($tenant, 'BDT Product', 'bdt-product', '1000201');
+
+        $localResponse = $this
+            ->withHeaders($this->jsonHeaders() + ['CF-IPCountry' => 'BD'])
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/product");
+
+        $localResponse->assertOk();
+        $this->assertSame('BDT', $localResponse->json('data.0.base_currency_code'));
+        $this->assertSame('BDT', $localResponse->json('data.0.display_currency_code'));
+        $this->assertEquals(120.0, (float) $localResponse->json('data.0.price'));
+
+        $foreignResponse = $this
+            ->withHeaders($this->jsonHeaders() + ['CF-IPCountry' => 'US'])
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/product");
+
+        $foreignResponse->assertOk();
+        $this->assertSame('BDT', $foreignResponse->json('data.0.base_currency_code'));
+        $this->assertSame('USD', $foreignResponse->json('data.0.display_currency_code'));
+        $this->assertEqualsWithDelta(1.0, (float) $foreignResponse->json('data.0.price'), 0.01);
+    }
+
+    public function test_usd_base_currency_converts_to_bdt_for_bangladesh_visitors(): void
+    {
+        $tenant = $this->createTenant('usd-base-currency-store');
+        $this->configureTenantCurrency($tenant, 'USD');
+        $this->createProductForTenant($tenant, 'USD Product', 'usd-product', '1000202');
+
+        $response = $this
+            ->withHeaders($this->jsonHeaders() + ['CF-IPCountry' => 'BD'])
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/product");
+
+        $response->assertOk();
+        $this->assertSame('USD', $response->json('data.0.base_currency_code'));
+        $this->assertSame('BDT', $response->json('data.0.display_currency_code'));
+        $this->assertEquals(14400.0, (float) $response->json('data.0.price'));
+    }
+
+    public function test_merchant_can_disable_auto_visitor_currency_but_manual_currency_still_works(): void
+    {
+        $tenant = $this->createTenant('manual-currency-store');
+        $this->configureTenantCurrency($tenant, 'USD', Activity::DISABLE);
+        $this->createProductForTenant($tenant, 'Manual Currency Product', 'manual-currency-product', '1000203');
+
+        $autoDisabledResponse = $this
+            ->withHeaders($this->jsonHeaders() + ['CF-IPCountry' => 'BD'])
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/product");
+
+        $autoDisabledResponse->assertOk();
+        $this->assertSame('USD', $autoDisabledResponse->json('data.0.display_currency_code'));
+        $this->assertEquals(120.0, (float) $autoDisabledResponse->json('data.0.price'));
+
+        $manualResponse = $this
+            ->withHeaders($this->jsonHeaders() + ['CF-IPCountry' => 'BD', 'X-Currency-Code' => 'BDT'])
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/product");
+
+        $manualResponse->assertOk();
+        $this->assertSame('BDT', $manualResponse->json('data.0.display_currency_code'));
+        $this->assertEquals(14400.0, (float) $manualResponse->json('data.0.price'));
     }
 
     public function test_storefront_sliders_use_only_current_merchant_sliders(): void
@@ -971,6 +1037,29 @@ class StorefrontCustomerFlowTest extends TestCase
             'shipping_type' => Activity::DISABLE,
             'shipping_cost' => 0,
             'is_product_quantity_multiply' => Ask::NO,
+        ]);
+    }
+
+    private function configureTenantCurrency(Tenant $tenant, string $currencyCode, int $autoVisitorCurrency = Activity::ENABLE): void
+    {
+        $currencyCode = strtoupper($currencyCode);
+        $countryCode = $currencyCode === 'BDT' ? 'BD' : 'US';
+
+        $tenant->forceFill([
+            'country_code' => $countryCode,
+            'primary_currency_code' => $currencyCode,
+        ])->save();
+
+        $catalog = app(CurrencyCatalogService::class);
+        $catalog->ensureTenantCurrencies($tenant);
+        $currency = $catalog->findByCode($currencyCode, $tenant);
+
+        app(TenantSettingsService::class)->seedDefaultsForTenant($tenant, [
+            'company_country_code' => $countryCode,
+            'site_default_currency' => $currency?->id ?? 1,
+            'site_default_currency_code' => $currencyCode,
+            'site_default_currency_symbol' => $currency?->symbol ?? $currencyCode,
+            'site_auto_visitor_currency' => $autoVisitorCurrency,
         ]);
     }
 
