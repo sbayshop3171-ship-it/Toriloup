@@ -50,6 +50,7 @@
                 </router-link>
 
                 <button @click.prevent="confirmOrder($event)"
+                    ref="desktopConfirmButton"
                     :disabled="isSubmitting"
                     :class="{ 'opacity-60 cursor-not-allowed': isSubmitting }"
                     class="field-button w-fit font-semibold tracking-wide normal-case">
@@ -69,6 +70,7 @@
                 </router-link>
 
                 <button @click.prevent="confirmOrder($event)"
+                    ref="mobileConfirmButton"
                     :disabled="isSubmitting"
                     :class="{ 'opacity-60 cursor-not-allowed': isSubmitting }"
                     class="field-button font-semibold tracking-wide normal-case">
@@ -103,7 +105,10 @@ export default {
             statusEnum: statusEnum,
             sourceEnum: sourceEnum,
             form: {},
-            isSubmitting: false
+            isSubmitting: false,
+            hasLeftForPayment: false,
+            pageShowHandler: null,
+            visibilityChangeHandler: null
         }
     },
     computed: {
@@ -151,26 +156,52 @@ export default {
         },
     },
     mounted() {
-        this.loading.isActive = true;
-        this.$store.dispatch('frontendPaymentGateway/lists', { status: this.statusEnum.ACTIVE }).then(res => {
-            if (res.data.data.length > 0) {
-                _.forEach(res.data.data, (gateway) => {
-                    if (gateway.slug === "credit") {
-                        this.credit = gateway;
-                    } else if (gateway.slug === "cashondelivery") {
-                        this.cashOnDelivery = gateway;
-                    } else {
-                        this.paymentGateways.push(gateway);
-                    }
-                });
-                this.syncSelectedPaymentMethod();
-            }
-            this.loading.isActive = false;
-        }).catch((err) => {
-            this.loading.isActive = false;
-        });
+        this.resetCheckoutPaymentState();
+        this.pageShowHandler = this.handlePageShow.bind(this);
+        this.visibilityChangeHandler = this.handleVisibilityChange.bind(this);
+        window.addEventListener('pageshow', this.pageShowHandler);
+        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
+
+        this.loadPaymentGateways();
+    },
+    beforeUnmount() {
+        window.removeEventListener('pageshow', this.pageShowHandler);
+        document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+    },
+    activated() {
+        this.resetCheckoutPaymentState();
     },
     methods: {
+        loadPaymentGateways: function () {
+            this.loading.isActive = true;
+            this.$store.dispatch('frontendPaymentGateway/lists', { status: this.statusEnum.ACTIVE }).then(res => {
+                if (res.data.data.length > 0) {
+                    _.forEach(res.data.data, (gateway) => {
+                        if (gateway.slug === "credit") {
+                            this.credit = gateway;
+                        } else if (gateway.slug === "cashondelivery") {
+                            this.cashOnDelivery = gateway;
+                        } else {
+                            this.paymentGateways.push(gateway);
+                        }
+                    });
+                    this.syncSelectedPaymentMethod();
+                }
+                this.loading.isActive = false;
+            }).catch((err) => {
+                this.loading.isActive = false;
+            });
+        },
+        handlePageShow: function (event) {
+            if (event.persisted || this.hasLeftForPayment || this.isSubmitting || this.loading.isActive) {
+                this.resetCheckoutPaymentState();
+            }
+        },
+        handleVisibilityChange: function () {
+            if (document.visibilityState === 'visible' && this.hasLeftForPayment) {
+                this.resetCheckoutPaymentState();
+            }
+        },
         selectPaymentMethod: function (paymentMethod) {
             if (this.isSubmitting) {
                 return;
@@ -213,13 +244,25 @@ export default {
 
             this.selectPaymentMethod(methods.length > 0 ? methods[0] : {});
         },
+        resetConfirmButtons: function () {
+            [this.$refs.desktopConfirmButton, this.$refs.mobileConfirmButton].forEach((button) => {
+                if (button) {
+                    button.disabled = false;
+                }
+            });
+        },
+        resetCheckoutPaymentState: function () {
+            this.hasLeftForPayment = false;
+            this.isSubmitting = false;
+            this.loading.isActive = false;
+            this.$nextTick(() => this.resetConfirmButtons());
+        },
         resetConfirmButton: function (button) {
             if (button) {
                 button.disabled = false;
             }
 
-            this.isSubmitting = false;
-            this.loading.isActive = false;
+            this.resetCheckoutPaymentState();
         },
         buildOrderForm: function (paymentMethod) {
             return {
@@ -301,6 +344,7 @@ export default {
                 }
 
                 isRedirecting = true;
+                this.hasLeftForPayment = true;
                 window.location.assign(new URL(
                     "/payment/" + paymentSlug + "/pay/" + orderId,
                     window.location.origin
