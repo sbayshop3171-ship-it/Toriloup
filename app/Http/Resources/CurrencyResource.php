@@ -16,12 +16,14 @@ class CurrencyResource extends JsonResource
      */
     public function toArray($request): array
     {
+        $code = strtoupper((string) $this->code);
+
         return [
             "id"                => $this->id,
             "name"              => $this->name,
-            "name_symbol"       => $this->name . ' (' . $this->symbol . ')',
+            "name_symbol"       => $code . ' - ' . $this->name . ' (' . $this->symbol . ')',
             "symbol"            => $this->symbol,
-            "code"              => $this->code,
+            "code"              => $code,
             "minor_unit"        => (int) ($this->minor_unit ?? 2),
             "is_cryptocurrency" => $this->is_cryptocurrency,
             "exchange_rate"     => AppLibrary::convertAmountFormat($this->exchange_rate),

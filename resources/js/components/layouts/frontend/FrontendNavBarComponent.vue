@@ -127,26 +127,6 @@
                 </div>
                 <!-- Language End -->
 
-                <!-- Currency Start -->
-                <div v-if="currencyOptions.length > 0" class="relative group hidden lg:block">
-                    <button type="button" class="flex items-center gap-2 py-5 down-arrow">
-                        <span class="font-semibold uppercase">{{ selectedCurrencyCode }}</span>
-                    </button>
-
-                    <ul
-                        class="w-44 absolute top-16 ltr:right-0 rtl:left-0 shadow-paper rounded-lg z-10 p-2 bg-white transition-all duration-300 origin-top scale-y-0 group-hover:scale-y-100">
-                        <li v-for="currency in currencyOptions" :key="currency.code"
-                            @click.prevent="changeCurrency(currency)"
-                            class="flex items-center gap-3 px-2 py-1.5 rounded-lg relative w-full cursor-pointer transition-all duration-300 hover:bg-slate-100">
-                            <span class="w-6 flex-shrink-0 text-sm font-semibold text-primary">{{ currency.symbol }}</span>
-                            <span class="text-sm font-medium uppercase flex-auto">{{ currency.code }}</span>
-                            <i v-if="selectedCurrencyCode === String(currency.code || '').toUpperCase()" class="lab-fill-check-circle text-sm text-primary"></i>
-                        </li>
-                    </ul>
-                </div>
-                <!-- Currency End -->
-
-
                 <!-- Wishlist Start -->
                 <router-link class="hidden lg:block relative" :to="{ name: 'frontend.wishlist' }">
                     <i class="lab-line-heart text-xl"></i>
@@ -433,17 +413,6 @@ export default {
         carts: function () {
             return this.$store.getters['frontendCart/lists'];
         },
-        currencyOptions: function () {
-            return Array.isArray(this.setting.currency_options) ? this.setting.currency_options : [];
-        },
-        selectedCurrency: function () {
-            const globalCurrency = this.$store.getters['globalState/lists'].display_currency;
-
-            return globalCurrency || this.setting.display_currency || this.currencyOptions[0] || {};
-        },
-        selectedCurrencyCode: function () {
-            return String(this.selectedCurrency.code || this.setting.site_default_currency_code || "USD").toUpperCase();
-        },
     },
     mounted() {
         this.currentRoute = this.$route.path;
@@ -570,28 +539,11 @@ export default {
                 return;
             }
 
-            const globalState = this.$store.getters['globalState/lists'];
             this.$store.dispatch("globalState/set", {
                 currency_code: displayCurrency.code,
                 display_currency: displayCurrency,
-                currency_manual: globalState.currency_manual === true,
+                currency_manual: false,
             }).catch();
-        },
-        changeCurrency: function (currency) {
-            const code = String(currency?.code || "").toUpperCase();
-
-            if (!code || code === this.selectedCurrencyCode) {
-                return;
-            }
-
-            appService.setCurrencyPreference(code);
-            this.$store.dispatch("globalState/set", {
-                currency_code: code,
-                display_currency: currency,
-                currency_manual: true,
-            }).finally(() => {
-                window.setTimeout(() => window.location.reload(), 50);
-            });
         },
         logout: function () {
             this.$store.dispatch("logout").then(res => {

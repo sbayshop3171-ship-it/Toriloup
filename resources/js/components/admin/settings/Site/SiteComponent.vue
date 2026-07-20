@@ -17,7 +17,7 @@
                             v-bind:class="errors.site_default_currency ? 'is-invalid' : ''"
                             v-model="form.site_default_currency" :options="currencies" label-by="name_symbol"
                             value-by="id" :closeOnSelect="true" :searchable="true" :clearOnClose="true" placeholder="--"
-                            search-placeholder="--" />
+                            search-placeholder="Search currency code or name" />
                         <small class="db-field-alert" v-if="errors.site_default_currency">
                             {{ errors.site_default_currency[0] }}
                         </small>
@@ -582,7 +582,7 @@ export default {
                 });
                 await this.$store.dispatch('timezone/lists');
                 await this.$store.dispatch('currency/lists', {
-                    order_column: 'id',
+                    order_column: 'code',
                     order_type: 'asc',
                     status: statusEnum.ACTIVE
                 });
@@ -601,11 +601,16 @@ export default {
         list: function () {
             this.loading.isActive = true;
             this.$store.dispatch('site/lists').then(res => {
+                const siteDefaultCurrency = this.resolveCurrencyId(
+                    res.data.data.site_default_currency,
+                    res.data.data.site_default_currency_code
+                );
+
                 this.form = {
                     site_date_format: res.data.data.site_date_format,
                     site_time_format: res.data.data.site_time_format,
                     site_default_timezone: res.data.data.site_default_timezone,
-                    site_default_currency: res.data.data.site_default_currency,
+                    site_default_currency: siteDefaultCurrency,
                     site_default_currency_symbol: res.data.data.site_default_currency_symbol,
                     site_default_language: res.data.data.site_default_language,
                     site_language_switch: res.data.data.site_language_switch,
@@ -629,6 +634,23 @@ export default {
                 this.loading.isActive = false;
             });
 
+        },
+        resolveCurrencyId: function (id, code) {
+            const normalizedId = Number(id);
+
+            if (normalizedId > 0 && this.currencies.some(currency => Number(currency.id) === normalizedId)) {
+                return normalizedId;
+            }
+
+            const normalizedCode = String(code || "").toUpperCase();
+
+            if (!normalizedCode) {
+                return id;
+            }
+
+            const currency = this.currencies.find(currency => String(currency.code || "").toUpperCase() === normalizedCode);
+
+            return currency ? currency.id : id;
         },
         save: function () {
             try {

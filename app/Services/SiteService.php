@@ -38,7 +38,10 @@ class SiteService
     {
         try {
             if ($tenant = $this->merchantTenant()) {
-                return $this->tenantSettingsService->groupForTenant($tenant, 'site');
+                return $this->normalizeMerchantCurrencySettings(
+                    $tenant,
+                    $this->tenantSettingsService->groupForTenant($tenant, 'site')
+                );
             }
 
             return Settings::group('site')->all();
@@ -120,5 +123,42 @@ class SiteService
         }
 
         return null;
+    }
+
+    /**
+     * Keep the merchant currency form aligned with the tenant's actual store base currency.
+     *
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    private function normalizeMerchantCurrencySettings(Tenant $tenant, array $settings): array
+    {
+        $currencyCode = strtoupper(trim((string) (
+            $tenant->primary_currency_code
+            ?: ($settings['site_default_currency_code'] ?? '')
+            ?: config('currency.base_code', 'USD')
+        )));
+
+        if ($currencyCode === '') {
+            $currencyCode = strtoupper((string) config('currency.base_code', 'USD'));
+        }
+
+        $currency = $this->currencyCatalogService->findByCode($currencyCode, $tenant);
+
+        if (!$currency instanceof Currency && filled($settings['site_default_currency'] ?? null)) {
+            $storedCurrency = Currency::withoutGlobalScopes()->find((int) $settings['site_default_currency']);
+
+            if ($storedCurrency instanceof Currency) {
+                $currency = $this->currencyCatalogService->findByCode((string) $storedCurrency->code, $tenant)
+                    ?: $storedCurrency;
+            }
+        }
+
+        $settings['site_default_currency'] = $currency?->id ?? ($settings['site_default_currency'] ?? null);
+        $settings['site_default_currency_code'] = strtoupper((string) ($currency?->code ?? $currencyCode));
+        $settings['site_default_currency_symbol'] = $currency?->symbol ?? ($settings['site_default_currency_symbol'] ?? '$');
+        $settings['site_auto_visitor_currency'] = $settings['site_auto_visitor_currency'] ?? Activity::ENABLE;
+
+        return $settings;
     }
 }

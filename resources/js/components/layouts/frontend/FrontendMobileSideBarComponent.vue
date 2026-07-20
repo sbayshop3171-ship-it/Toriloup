@@ -57,27 +57,6 @@
                     </ul>
                 </div>
 
-                <div v-if="currencyOptions.length > 0">
-                    <button type="button"
-                        class="language-toggle flex items-center justify-start text-left gap-2 py-3 w-full border-b border-slate-100"
-                        @click="colspanHideShow($event, 'mobile-currency-colspan')">
-                        <span class="font-semibold uppercase text-primary">{{ selectedCurrencySymbol }}</span>
-                        <span class="font-medium uppercase flex-auto text-left text-heading">{{ selectedCurrencyCode }}</span>
-                        <i class="lab-fill-arrow-down text-sm font-bold transition-all duration-500"></i>
-                    </button>
-
-                    <ul id="mobile-currency-colspan"
-                        class="w-full flex flex-col gap-2 mb-3 transition-all duration-500 h-0 overflow-hidden">
-                        <li v-for="currency in currencyOptions" :key="currency.code"
-                            @click.prevent="changeCurrency(currency)"
-                            class="flex items-center gap-3 px-2.5 py-2 rounded-lg w-full cursor-pointer bg-slate-100">
-                            <span class="w-6 flex-shrink-0 text-sm font-semibold text-primary">{{ currency.symbol }}</span>
-                            <span class="text-sm font-medium uppercase flex-auto text-heading">{{ currency.code }}</span>
-                            <i v-if="selectedCurrencyCode === String(currency.code || '').toUpperCase()" class="lab-fill-check-circle text-sm text-primary"></i>
-                        </li>
-                    </ul>
-                </div>
-
                 <h4 class="text-base font-bold capitalize mb-3 !text-heading">
                     {{ $t('label.contact') }}</h4>
                 <ul class="flex flex-col gap-5">
@@ -117,7 +96,6 @@
 import targetService from "../../../services/targetService";
 import activityEnum from "../../../enums/modules/activityEnum";
 import FrontendLogoSlotComponent from "./FrontendLogoSlotComponent";
-import appService from "../../../services/appService";
 
 export default {
     name: "FrontendMobileSideBarComponent",
@@ -141,20 +119,6 @@ export default {
         },
         pages: function () {
             return this.$store.getters['frontendPage/lists'];
-        },
-        currencyOptions: function () {
-            return Array.isArray(this.setting.currency_options) ? this.setting.currency_options : [];
-        },
-        selectedCurrency: function () {
-            const globalCurrency = this.$store.getters['globalState/lists'].display_currency;
-
-            return globalCurrency || this.setting.display_currency || this.currencyOptions[0] || {};
-        },
-        selectedCurrencyCode: function () {
-            return String(this.selectedCurrency.code || this.setting.site_default_currency_code || "USD").toUpperCase();
-        },
-        selectedCurrencySymbol: function () {
-            return this.selectedCurrency.symbol || this.selectedCurrencyCode;
         }
     },
     methods: {
@@ -175,22 +139,6 @@ export default {
                     this.$i18n.locale = res.data.data.code;
                 }).catch();
             }).catch();
-        },
-        changeCurrency: function (currency) {
-            const code = String(currency?.code || "").toUpperCase();
-
-            if (!code || code === this.selectedCurrencyCode) {
-                return;
-            }
-
-            appService.setCurrencyPreference(code);
-            this.$store.dispatch("globalState/set", {
-                currency_code: code,
-                display_currency: currency,
-                currency_manual: true,
-            }).finally(() => {
-                window.setTimeout(() => window.location.reload(), 50);
-            });
         },
     }
 }

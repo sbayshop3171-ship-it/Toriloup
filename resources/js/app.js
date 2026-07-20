@@ -39,6 +39,26 @@ const toastOptions = {
 const API_URL = ENV.API_URL;
 const API_KEY = ENV.API_KEY;
 
+const clearLegacyCurrencyPreference = () => {
+    try {
+        if (typeof document !== "undefined") {
+            document.cookie = "toriloup_currency=; path=/; max-age=0; SameSite=Lax";
+        }
+
+        if (typeof localStorage !== "undefined" && localStorage.getItem("vuex")) {
+            const vuex = JSON.parse(localStorage.getItem("vuex"));
+
+            if (vuex.globalState?.lists) {
+                vuex.globalState.lists.currency_manual = false;
+                delete vuex.globalState.lists.currency_code;
+                localStorage.setItem("vuex", JSON.stringify(vuex));
+            }
+        }
+    } catch (e) {}
+};
+
+clearLegacyCurrencyPreference();
+
 axios.defaults.baseURL = API_URL + '/api';
 
 axios.interceptors.request.use(
@@ -59,13 +79,6 @@ axios.interceptors.request.use(
 
             if (vuex.globalState) {
                 config.headers['x-localization'] = vuex.globalState.lists.language_code;
-                const currencyCode = vuex.globalState.lists.currency_manual === true
-                    ? (vuex.globalState.lists.currency_code || vuex.globalState.lists.display_currency?.code)
-                    : null;
-
-                if (currencyCode) {
-                    config.headers['X-Currency-Code'] = String(currencyCode).toUpperCase();
-                }
             }
         }
         return config;

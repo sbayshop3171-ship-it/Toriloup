@@ -121,11 +121,10 @@ export default {
                 latitude: null,
                 longitude: null
             });
-            const existingGlobalState = this.$store.getters['globalState/lists'];
             this.$store.dispatch("globalState/set", {
                 currency_code: displayCurrency?.code || res.data.data.site_default_currency_code,
                 display_currency: displayCurrency,
-                currency_manual: existingGlobalState.currency_manual === true,
+                currency_manual: false,
             }).catch();
         }).catch();
 
