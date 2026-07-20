@@ -4,18 +4,24 @@ namespace Tests\Feature;
 
 use App\Enums\Activity;
 use App\Enums\Ask;
+use App\Enums\DiscountType;
 use App\Enums\Role as LegacyRole;
 use App\Models\Benefit;
 use App\Models\Barcode;
 use App\Models\Customer;
+use App\Models\Coupon;
 use App\Models\Currency;
 use App\Models\MenuSection;
 use App\Models\MenuTemplate;
+use App\Models\OrderArea;
 use App\Models\Outlet;
 use App\Models\Page;
 use App\Models\PlatformRole;
 use App\Models\Product;
+use App\Models\ProductAttribute;
+use App\Models\ProductAttributeOption;
 use App\Models\ProductCategory;
+use App\Models\ProductVariation;
 use App\Models\Slider;
 use App\Models\Tax;
 use App\Models\Tenant;
@@ -524,6 +530,140 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             'setting_key' => 'site_default_timezone',
             'setting_value' => 'Europe/London',
         ]);
+    }
+
+    public function test_merchant_base_currency_change_converts_current_catalog_setup_amounts(): void
+    {
+        $context = $this->createMerchantContext('legacy-base-currency-conversion-store', ['settings']);
+        $catalog = app(\App\Services\Currency\CurrencyCatalogService::class);
+        $catalog->ensureTenantCurrencies($context['tenant']);
+
+        $usd = $catalog->findByCode('USD', $context['tenant']);
+        $bdt = $catalog->findByCode('BDT', $context['tenant']);
+        $usd->forceFill(['symbol' => '$', 'exchange_rate' => 1, 'rate_source' => 'test', 'rate_synced_at' => now()])->save();
+        $bdt->forceFill(['symbol' => 'Tk', 'exchange_rate' => 123.36, 'rate_source' => 'test', 'rate_synced_at' => now()])->save();
+
+        $category = ProductCategory::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Conversion Category',
+            'slug' => 'conversion-category',
+            'status' => 1,
+        ]);
+        $unit = Unit::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Piece',
+            'code' => 'pc',
+            'status' => 1,
+        ]);
+        $barcode = Barcode::query()->create(['name' => 'EAN 13']);
+        $attribute = ProductAttribute::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Size',
+        ]);
+        $attributeOption = ProductAttributeOption::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'product_attribute_id' => $attribute->id,
+            'name' => 'Small',
+        ]);
+
+        $product = Product::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Conversion Product',
+            'slug' => 'conversion-product',
+            'sku' => 'CONV100',
+            'product_category_id' => $category->id,
+            'barcode_id' => $barcode->id,
+            'unit_id' => $unit->id,
+            'buying_price' => 12,
+            'selling_price' => 10,
+            'variation_price' => 10,
+            'shipping_cost' => 5,
+            'status' => 5,
+            'can_purchasable' => 1,
+            'show_stock_out' => 1,
+            'maximum_purchase_quantity' => 10,
+            'low_stock_quantity_warning' => 2,
+            'refundable' => 1,
+        ]);
+        $variation = ProductVariation::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'product_id' => $product->id,
+            'product_attribute_id' => $attribute->id,
+            'product_attribute_option_id' => $attributeOption->id,
+            'price' => 9,
+            'sku' => 'CONV101',
+        ]);
+        $orderArea = OrderArea::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'country' => 'Bangladesh',
+            'state' => 'Dhaka',
+            'city' => 'Dhaka',
+            'shipping_cost' => 3,
+            'status' => 5,
+        ]);
+        $coupon = Coupon::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Conversion Coupon',
+            'description' => 'Currency conversion test',
+            'code' => 'CONVERT',
+            'discount' => 2,
+            'discount_type' => DiscountType::FIXED,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDay(),
+            'minimum_order' => 20,
+            'maximum_discount' => 4,
+            'limit_per_user' => 1,
+        ]);
+        app(\App\Services\Saas\TenantSettingsService::class)->syncGroupForTenant(
+            $context['tenant'],
+            'shipping_setup',
+            [
+                'shipping_setup_flat_rate_wise_cost' => 1.5,
+                'shipping_setup_area_wise_default_cost' => 2.25,
+            ]
+        );
+
+        Sanctum::actingAs($context['user'], ['surface:merchant']);
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->putJson('http://merchant.company.com/api/admin/setting/site', [
+                'site_default_currency' => $bdt->id,
+                'site_auto_visitor_currency' => Activity::ENABLE,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.site_default_currency_code', 'BDT');
+
+        $this->assertEqualsWithDelta(1480.32, (float) $product->refresh()->buying_price, 0.001);
+        $this->assertEqualsWithDelta(1233.60, (float) $product->selling_price, 0.001);
+        $this->assertEqualsWithDelta(616.80, (float) $product->shipping_cost, 0.001);
+        $this->assertEqualsWithDelta(1110.24, (float) $variation->refresh()->price, 0.001);
+        $this->assertEqualsWithDelta(370.08, (float) $orderArea->refresh()->shipping_cost, 0.001);
+        $this->assertEqualsWithDelta(246.72, (float) $coupon->refresh()->discount, 0.001);
+        $this->assertEqualsWithDelta(2467.20, (float) $coupon->minimum_order, 0.001);
+
+        $shippingSettings = app(\App\Services\Saas\TenantSettingsService::class)
+            ->groupForTenant($context['tenant'], 'shipping_setup');
+        $this->assertEqualsWithDelta(185.04, (float) $shippingSettings['shipping_setup_flat_rate_wise_cost'], 0.001);
+        $this->assertEqualsWithDelta(277.56, (float) $shippingSettings['shipping_setup_area_wise_default_cost'], 0.001);
+
+        $product->forceFill([
+            'buying_price' => 50,
+            'selling_price' => 50,
+            'variation_price' => 50,
+            'shipping_cost' => 50,
+        ])->save();
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->putJson('http://merchant.company.com/api/admin/setting/site', [
+                'site_default_currency' => $usd->id,
+                'site_auto_visitor_currency' => Activity::ENABLE,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.site_default_currency_code', 'USD');
+
+        $this->assertEqualsWithDelta(0.41, (float) $product->refresh()->selling_price, 0.001);
     }
 
     public function test_merchant_legacy_user_modules_are_tenant_scoped(): void

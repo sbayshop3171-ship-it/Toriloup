@@ -159,7 +159,7 @@ class StorefrontCustomerFlowTest extends TestCase
         $foreignResponse->assertOk();
         $this->assertSame('BDT', $foreignResponse->json('data.0.base_currency_code'));
         $this->assertSame('USD', $foreignResponse->json('data.0.display_currency_code'));
-        $this->assertEqualsWithDelta(1.0, (float) $foreignResponse->json('data.0.price'), 0.01);
+        $this->assertEqualsWithDelta(0.97, (float) $foreignResponse->json('data.0.price'), 0.01);
     }
 
     public function test_usd_base_currency_converts_to_bdt_for_bangladesh_visitors(): void
@@ -175,7 +175,7 @@ class StorefrontCustomerFlowTest extends TestCase
         $response->assertOk();
         $this->assertSame('USD', $response->json('data.0.base_currency_code'));
         $this->assertSame('BDT', $response->json('data.0.display_currency_code'));
-        $this->assertEquals(14400.0, (float) $response->json('data.0.price'));
+        $this->assertEquals(14803.2, (float) $response->json('data.0.price'));
     }
 
     public function test_storefront_currency_uses_ip_location_when_country_header_is_missing(): void
@@ -197,7 +197,7 @@ class StorefrontCustomerFlowTest extends TestCase
         $response->assertOk();
         $this->assertSame('USD', $response->json('data.0.base_currency_code'));
         $this->assertSame('BDT', $response->json('data.0.display_currency_code'));
-        $this->assertEquals(14400.0, (float) $response->json('data.0.price'));
+        $this->assertEquals(14803.2, (float) $response->json('data.0.price'));
     }
 
     public function test_merchant_can_disable_auto_visitor_currency_but_manual_currency_still_works(): void
@@ -220,7 +220,7 @@ class StorefrontCustomerFlowTest extends TestCase
 
         $manualResponse->assertOk();
         $this->assertSame('BDT', $manualResponse->json('data.0.display_currency_code'));
-        $this->assertEquals(14400.0, (float) $manualResponse->json('data.0.price'));
+        $this->assertEquals(14803.2, (float) $manualResponse->json('data.0.price'));
     }
 
     public function test_storefront_sliders_use_only_current_merchant_sliders(): void
@@ -1075,6 +1075,7 @@ class StorefrontCustomerFlowTest extends TestCase
 
         $catalog = app(CurrencyCatalogService::class);
         $catalog->ensureTenantCurrencies($tenant);
+        $this->seedTestCurrencyRates($tenant);
         $currency = $catalog->findByCode($currencyCode, $tenant);
 
         app(TenantSettingsService::class)->seedDefaultsForTenant($tenant, [
@@ -1084,6 +1085,29 @@ class StorefrontCustomerFlowTest extends TestCase
             'site_default_currency_symbol' => $currency?->symbol ?? $currencyCode,
             'site_auto_visitor_currency' => $autoVisitorCurrency,
         ]);
+    }
+
+    private function seedTestCurrencyRates(Tenant $tenant): void
+    {
+        foreach ([
+            'USD' => ['symbol' => '$', 'rate' => 1],
+            'BDT' => ['symbol' => 'Tk', 'rate' => 123.36],
+            'EUR' => ['symbol' => '€', 'rate' => 0.88],
+        ] as $code => $data) {
+            $currency = Currency::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('code', $code)
+                ->first();
+
+            if ($currency instanceof Currency) {
+                $currency->forceFill([
+                    'symbol' => $data['symbol'],
+                    'exchange_rate' => $data['rate'],
+                    'rate_source' => 'test',
+                    'rate_synced_at' => now(),
+                ])->save();
+            }
+        }
     }
 
     private function preparePaymentPageSettings(Tenant $tenant, string $companyName): Currency

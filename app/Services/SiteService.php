@@ -9,11 +9,13 @@ use App\Libraries\QueryExceptionLibrary;
 use App\Models\Currency;
 use App\Models\Tenant;
 use App\Services\Currency\CurrencyCatalogService;
+use App\Services\Currency\MerchantBaseCurrencyConversionService;
 use App\Services\Saas\TenantSettingsService;
 use App\Services\Tenancy\TenantContext;
 use Dipokhalder\EnvEditor\EnvEditor;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Dipokhalder\Settings\Facades\Settings;
 
@@ -26,6 +28,7 @@ class SiteService
         private readonly TenantContext $tenantContext,
         private readonly TenantSettingsService $tenantSettingsService,
         private readonly CurrencyCatalogService $currencyCatalogService,
+        private readonly MerchantBaseCurrencyConversionService $merchantBaseCurrencyConversionService,
     )
     {
         $this->envService = $envEditor;
@@ -62,30 +65,46 @@ class SiteService
 
             if ($tenant = $this->merchantTenant()) {
                 $data = $request->validated();
-                $merchantSettings = [
-                    'site_auto_visitor_currency' => $data['site_auto_visitor_currency'] ?? Activity::ENABLE,
-                ];
+                $currentSettings = $this->tenantSettingsService->groupForTenant($tenant, 'site');
 
-                if ($currency instanceof Currency) {
-                    $tenantCurrencyId = $this->currencyCatalogService->currencyIdForCode($currency->code, $tenant);
+                return DB::transaction(function () use ($tenant, $currency, $data, $currentSettings, $request) {
+                    $merchantSettings = [
+                        'site_auto_visitor_currency' => $data['site_auto_visitor_currency'] ?? Activity::ENABLE,
+                    ];
 
-                    if ($tenantCurrencyId !== null) {
-                        $merchantSettings['site_default_currency'] = $tenantCurrencyId;
-                        $merchantSettings['site_default_currency_code'] = strtoupper($currency->code);
-                        $merchantSettings['site_default_currency_symbol'] = $currency->symbol;
+                    if ($currency instanceof Currency) {
+                        $tenantCurrency = $this->currencyCatalogService->findByCode($currency->code, $tenant);
 
-                        $tenant->forceFill([
-                            'primary_currency_code' => strtoupper($currency->code),
-                        ])->save();
+                        if ($tenantCurrency instanceof Currency) {
+                            $oldCurrencyCode = $this->currentMerchantBaseCurrencyCode($tenant, $currentSettings);
+                            $newCurrencyCode = strtoupper($tenantCurrency->code);
+
+                            if ($oldCurrencyCode !== $newCurrencyCode) {
+                                $this->merchantBaseCurrencyConversionService->convertCurrentAmounts(
+                                    $tenant,
+                                    $oldCurrencyCode,
+                                    $newCurrencyCode,
+                                    $request->user()
+                                );
+                            }
+
+                            $merchantSettings['site_default_currency'] = $tenantCurrency->id;
+                            $merchantSettings['site_default_currency_code'] = $newCurrencyCode;
+                            $merchantSettings['site_default_currency_symbol'] = $tenantCurrency->symbol;
+
+                            $tenant->forceFill([
+                                'primary_currency_code' => $newCurrencyCode,
+                            ])->save();
+                        }
                     }
-                }
 
-                return $this->tenantSettingsService->syncGroupForTenant(
-                    $tenant,
-                    'site',
-                    $merchantSettings,
-                    request()->user()
-                );
+                    return $this->tenantSettingsService->syncGroupForTenant(
+                        $tenant,
+                        'site',
+                        $merchantSettings,
+                        $request->user()
+                    );
+                });
             }
 
             $app_debug = $this->envService->getValue('DEMO') ? Activity::DISABLE : $request->site_app_debug;
@@ -135,11 +154,7 @@ class SiteService
      */
     private function normalizeMerchantCurrencySettings(Tenant $tenant, array $settings): array
     {
-        $currencyCode = strtoupper(trim((string) (
-            $tenant->primary_currency_code
-            ?: ($settings['site_default_currency_code'] ?? '')
-            ?: config('currency.base_code', 'USD')
-        )));
+        $currencyCode = $this->currentMerchantBaseCurrencyCode($tenant, $settings);
 
         if ($currencyCode === '') {
             $currencyCode = strtoupper((string) config('currency.base_code', 'USD'));
@@ -162,5 +177,17 @@ class SiteService
         $settings['site_auto_visitor_currency'] = $settings['site_auto_visitor_currency'] ?? Activity::ENABLE;
 
         return $settings;
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    private function currentMerchantBaseCurrencyCode(Tenant $tenant, array $settings): string
+    {
+        return strtoupper(trim((string) (
+            $tenant->primary_currency_code
+            ?: ($settings['site_default_currency_code'] ?? '')
+            ?: config('currency.base_code', 'USD')
+        )));
     }
 }
