@@ -1,6 +1,6 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12 xl:col-6">
+    <div class="col-12 xl:col-6 dashboard-chart-panel">
         <div class="db-card">
             <div class="db-card-header">
                 <h3 class="font-semibold text-lg capitalize text-heading">{{ $t('label.sales_summary') }}</h3>
@@ -13,7 +13,7 @@
                 </div>
             </div>
             <div class="db-card-body">
-                <ul class="flex gap-11">
+                <ul class="dashboard-chart-metrics flex gap-11">
                     <li>
                         <div class="flex items-center gap-2.5">
                             <i class="lab lab-line-bar-chart lab-font-size-20 lab-font-color-2"></i>
@@ -29,7 +29,7 @@
                         <p class="text-xs capitalize">{{ $t("label.avg_sales_per_day") }}</p>
                     </li>
                 </ul>
-                <apexchart height="188" v-if="options" :options="options" :series="options.series"></apexchart>
+                <apexchart :height="chartHeight" v-if="options" :options="options" :series="options.series"></apexchart>
             </div>
         </div>
     </div>
@@ -52,17 +52,26 @@ export default {
             last_date: null,
             total_sales: null,
             avg_per_day: null,
+            chartHeight: 188,
             options: null
         };
     },
     mounted() {
+        this.updateChartHeight();
+        window.addEventListener("resize", this.updateChartHeight);
         const date = new Date();
         const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
         const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
         this.modelValue = [startDate, endDate];
         this.salesSummary();
     },
+    beforeUnmount() {
+        window.removeEventListener("resize", this.updateChartHeight);
+    },
     methods: {
+        updateChartHeight: function () {
+            this.chartHeight = window.matchMedia("(max-width: 767px)").matches ? 150 : 188;
+        },
         salesSummary: function (e) {
             let date = {
                 first_date: '',

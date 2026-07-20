@@ -384,8 +384,51 @@ export default {
             }
         );
     },
+    closeMobileFilterSheets: function () {
+        document?.querySelectorAll(".table-filter-div.active").forEach((filterSheet) => {
+            filterSheet.classList.remove("active");
+            filterSheet.style.height = "0px";
+            filterSheet.style.overflow = "hidden";
+            filterSheet.style.opacity = "0";
+            filterSheet.style.visibility = "hidden";
+        });
+
+        if (!document?.querySelector(".db-sidebar.active")) {
+            document?.querySelector(".backdrop")?.classList?.remove("active");
+            document?.body?.classList?.remove("overflow-hidden");
+            document.body.style.overflowY = "auto";
+        }
+    },
     handleSlide: function (id) {
         const targetElement = document.querySelector(`#${id}`);
+
+        if (!targetElement) {
+            return;
+        }
+
+        if (targetElement.classList.contains("table-filter-div") && this.isMobileSidebarBreakpoint()) {
+            const willOpen = !targetElement.classList.contains("active");
+
+            document?.querySelectorAll(".table-filter-div.active").forEach((filterSheet) => {
+                if (filterSheet !== targetElement) {
+                    filterSheet.classList.remove("active");
+                    filterSheet.style.height = "0px";
+                    filterSheet.style.overflow = "hidden";
+                    filterSheet.style.opacity = "0";
+                    filterSheet.style.visibility = "hidden";
+                }
+            });
+
+            targetElement.classList.toggle("active", willOpen);
+            targetElement.style.height = willOpen ? "auto" : "0px";
+            targetElement.style.overflow = willOpen ? "auto" : "hidden";
+            targetElement.style.opacity = willOpen ? "1" : "0";
+            targetElement.style.visibility = willOpen ? "visible" : "hidden";
+            document?.querySelector(".backdrop")?.classList?.toggle("active", willOpen);
+            document?.body?.classList?.toggle("overflow-hidden", willOpen);
+            document.body.style.overflowY = willOpen ? "hidden" : "auto";
+            return;
+        }
 
         targetElement.classList.add(
             "transition-all",
@@ -518,11 +561,16 @@ export default {
             document.body.style.overflowY = "auto";
         }
     },
+    closeMobilePanels: function () {
+        this.closeMobileFilterSheets();
+        this.closeSidebar();
+    },
 
     normalizeSidebarForViewport: function () {
         this.responsiveLoad();
 
         if (!this.isMobileSidebarBreakpoint()) {
+            this.closeMobileFilterSheets();
             const backdrop = document?.querySelector(".backdrop");
 
             if (backdrop?.classList?.contains("active")) {

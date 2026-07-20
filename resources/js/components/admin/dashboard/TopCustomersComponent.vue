@@ -1,14 +1,14 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12 xl:col-6">
+    <div class="col-12 xl:col-6 dashboard-top-panel">
         <div class="db-card">
             <div class="db-card-header">
                 <h3 class="font-semibold text-lg capitalize text-heading">{{ $t('label.top_customers') }}</h3>
             </div>
             <div class="db-card-body" id="topCustomers" >
-                <div class="min-h-[276px]">
-                    <ul class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <li class="w-full rounded-xl pt-3 border border-[#D9DBE9]" v-if="top_customers.length > 0"
+                <div class="dashboard-top-customers-body min-h-[276px]">
+                    <ul class="dashboard-top-customers-grid grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                        <li class="dashboard-top-customer-card w-full rounded-xl pt-3 border border-[#D9DBE9]" v-if="top_customers.length > 0"
                             v-for="top_customer in top_customers" :key="top_customer">
                             <img class="w-12 mx-auto rounded-full mb-2" :src="top_customer.image" alt="avatar">
                             <h4

@@ -1,6 +1,6 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="flex items-center justify-between gap-3 mb-4">
+    <div class="dashboard-chart-heading flex items-center justify-between gap-3 mb-4">
         <h4 class="font-semibold text-xl capitalize text-heading">{{ $t('menu.order_statistics') }}</h4>
         <div class="relative cursor-pointer">
             <Datepicker hideInputIcon autoApply :enableTimePicker="false" utc="false" 
@@ -9,9 +9,9 @@
             </Datepicker>
         </div>
     </div>
-    <div class="row mb-3">
+    <div class="row mb-3 dashboard-stat-grid">
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
                 <div class="bg-admin-orange/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-box text-admin-orange text-2xl lab-font-size-24"></i>
                 </div>
@@ -24,7 +24,8 @@
             </div>
         </div>
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white"
+                :class="{ 'dashboard-stat-card-alert': Number(pending_order || 0) > 0 }">
                 <div class="bg-admin-yellow/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-box-time text-admin-yellow text-2xl lab-font-size-24"></i>
                 </div>
@@ -35,7 +36,7 @@
             </div>
         </div>
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
                 <div class="bg-admin-green/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-box-search text-admin-green text-2xl lab-font-size-24"></i>
                 </div>
@@ -47,7 +48,7 @@
             </div>
         </div>
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
                 <div class="bg-admin-sky/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-shipping text-admin-sky text-2xl lab-font-size-24"></i>
                 </div>
@@ -60,7 +61,7 @@
             </div>
         </div>
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
                 <div class="bg-admin-purple/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-box-tick text-admin-purple text-2xl lab-font-size-24"></i>
                 </div>
@@ -71,7 +72,7 @@
             </div>
         </div>
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
                 <div class="bg-admin-red/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-box-cross text-admin-red text-2xl lab-font-size-24"></i>
                 </div>
@@ -82,7 +83,7 @@
             </div>
         </div>
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
                 <div class="bg-admin-blue/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-box-rotate text-admin-blue text-2xl lab-font-size-24"></i>
                 </div>
@@ -93,7 +94,7 @@
             </div>
         </div>
         <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
-            <div class="flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
+            <div class="dashboard-stat-card flex items-center gap-4 p-4 rounded-lg shadow-xs bg-white">
                 <div class="bg-admin-red/10 w-12 h-12 rounded-full flex items-center justify-center">
                     <i class="lab-fill-box-cross text-admin-red text-2xl lab-font-size-24"></i>
                 </div>

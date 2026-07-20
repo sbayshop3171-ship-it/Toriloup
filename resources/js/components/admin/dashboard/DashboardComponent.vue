@@ -6,10 +6,11 @@
         <p>{{ $t('label.data_reset') }}</p>
     </div>
 
-    <div class="mb-8">
+    <div class="dashboard-welcome mb-5 sm:mb-8">
         <h3 class="capitalize font-bold text-2xl text-primary mb-1.5">{{ visitorMessage() }}</h3>
         <h4 class="capitalize font-medium text-xl text-secondary">{{ authInfo.name }}</h4>
     </div>
+    <DashboardQuickActionsComponent v-if="isMerchantWorkspace" :setup="merchantSetup" />
     <!--========OVERVIEW START=============-->
     <OverviewComponent :merchant-setup="merchantSetup" :is-merchant-workspace="isMerchantWorkspace" />
     <!--========OVERVIEW END=============-->
@@ -58,6 +59,7 @@ import OrderSummaryComponent from "./OrderSummaryComponent";
 import CustomerStatsComponent from "./CustomerStatsComponent";
 import TopCustomersComponent from "./TopCustomersComponent";
 import TopProductsComponent from "./TopProductsComponent";
+import DashboardQuickActionsComponent from "./DashboardQuickActionsComponent.vue";
 import MerchantSetupChecklistComponent from "./MerchantSetupChecklistComponent";
 import MerchantWalletSnapshotComponent from "./MerchantWalletSnapshotComponent.vue";
 import ENV from "../../../config/env";
@@ -74,6 +76,7 @@ export default {
         CustomerStatsComponent,
         TopCustomersComponent,
         TopProductsComponent,
+        DashboardQuickActionsComponent,
         MerchantSetupChecklistComponent,
         MerchantWalletSnapshotComponent,
     },

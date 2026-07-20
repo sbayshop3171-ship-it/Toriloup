@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Saas;
 
 use App\Enums\PaymentStatus;
+use App\Enums\OrderStatus;
 use App\Enums\Status;
 use App\Http\Controllers\Controller;
 use App\Libraries\AppLibrary;
@@ -37,12 +38,20 @@ class MerchantDashboardController extends Controller
         $primaryDomain = $this->primaryDomain($tenant) ?? $fallbackDomain;
         $storefrontHostname = $this->storefrontHostname($tenant, $primaryDomain, $fallbackDomain);
         $totalSales = $this->totalSales();
+        $todayOrders = Order::query()->whereDate('order_datetime', today());
+        $todayRevenue = (float) (clone $todayOrders)
+            ->where('payment_status', PaymentStatus::PAID)
+            ->sum('total');
         $currentSubscription = $this->subscriptionManagerService->currentSubscription($tenant);
         $pendingSession = $this->subscriptionManagerService->pendingCheckoutSession($tenant);
 
         $metrics = [
             'total_sales' => AppLibrary::currencyAmountFormat($totalSales),
             'total_sales_raw' => $totalSales,
+            'today_revenue' => AppLibrary::currencyAmountFormat($todayRevenue),
+            'today_revenue_raw' => $todayRevenue,
+            'today_orders' => (clone $todayOrders)->count(),
+            'pending_orders' => Order::query()->where('status', OrderStatus::PENDING)->count(),
             'total_orders' => Order::query()->count(),
             'total_products' => Product::query()->count(),
             'total_customers' => Customer::query()->count(),

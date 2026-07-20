@@ -1,6 +1,6 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12 xl:col-6">
+    <div class="col-12 xl:col-6 dashboard-chart-panel">
         <div class="db-card">
             <div class="db-card-header">
                 <h3 class="font-semibold text-lg capitalize text-heading">{{ $t('label.orders_summary') }}</h3>
@@ -13,7 +13,7 @@
             </div>
             <div class="db-card-body">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
-                    <apexchart v-if="options" :options="options" :series="options.series"></apexchart>
+                    <apexchart v-if="options" :height="chartHeight" :options="options" :series="options.series"></apexchart>
                     <ul class="flex flex-col gap-8 w-full sm:w-36">
                         <li class="w-full">
                             <span class="block capitalize mb-1 text-heading">
@@ -58,13 +58,22 @@ export default {
             canceled: null,
             rejected: null,
             modelValue: null,
+            chartHeight: 320,
             options: null
         };
     },
     mounted() {
+        this.updateChartHeight();
+        window.addEventListener("resize", this.updateChartHeight);
         this.orderSummary();
     },
+    beforeUnmount() {
+        window.removeEventListener("resize", this.updateChartHeight);
+    },
     methods: {
+        updateChartHeight: function () {
+            this.chartHeight = window.matchMedia("(max-width: 767px)").matches ? 220 : 320;
+        },
         orderSummary: function (e) {
             let date = {
                 first_date: '',

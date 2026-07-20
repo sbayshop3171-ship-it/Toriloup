@@ -390,7 +390,7 @@ export default {
         },
         handleBackdropClick: function () {
             this.notificationDropdownStatus = false;
-            appService.closeSidebar();
+            appService.closeMobilePanels();
         },
         toggleNotificationDropdown: function () {
             this.notificationDropdownStatus = !this.notificationDropdownStatus;

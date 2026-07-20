@@ -60,6 +60,7 @@
                     </div>
                 </div>
             </div>
+            <BackendMobileNavComponent v-if="showMerchantMobileNav" />
         </main>
         <div v-else>
             <router-view></router-view>
@@ -74,6 +75,7 @@
 <script>
 import BackendNavbarComponent from "./layouts/backend/BackendNavbarComponent";
 import BackendMenuComponent from "./layouts/backend/BackendMenuComponent";
+import BackendMobileNavComponent from "./layouts/backend/BackendMobileNavComponent.vue";
 import FrontendNavbarComponent from "./layouts/frontend/FrontendNavBarComponent";
 import FrontendFooterComponent from "./layouts/frontend/FrontendFooterComponent";
 import FrontendCartComponent from "./layouts/frontend/FrontendCartComponent";
@@ -87,6 +89,7 @@ import env from "../config/env";
 import LoadingComponent from "../components/frontend/components/LoadingComponent.vue";
 import { isAdminSurfaceHost, isMerchantHost, resolveGuestHomeRoute } from "../services/workspaceService";
 import appService from "../services/appService";
+import backendMobileService from "../services/backendMobileService";
 
 export default {
     name: "DefaultComponent",
@@ -100,12 +103,14 @@ export default {
         FrontendFooterComponent,
         BackendNavbarComponent,
         BackendMenuComponent,
+        BackendMobileNavComponent,
         FrontendCookiesComponent,
         LoadingComponent
     },
     data() {
         return {
             theme: "loading",
+            backendMobileEnhancementStopper: null,
         }
     },
     beforeMount() {
@@ -138,6 +143,14 @@ export default {
             }).catch();
         }
     },
+    mounted() {
+        this.backendMobileEnhancementStopper = backendMobileService.startBackendMobileEnhancements();
+    },
+    beforeUnmount() {
+        if (typeof this.backendMobileEnhancementStopper === "function") {
+            this.backendMobileEnhancementStopper();
+        }
+    },
     computed: {
         logged: function () {
             return this.$store.getters.authStatus;
@@ -152,6 +165,9 @@ export default {
         },
         showBackendShell: function () {
             return this.logged || this.$route?.meta?.auth === true;
+        },
+        showMerchantMobileNav: function () {
+            return this.showBackendShell && isMerchantHost() && !this.isAuthRoute();
         },
         lockedSubscriptionFeature: function () {
             const featureCode = this.$route?.meta?.subscriptionFeature;
@@ -276,6 +292,7 @@ export default {
             this.theme = this.resolveTheme(e);
             this.displayModeDefine(e);
             this.ensureMerchantSetupForRoute(e);
+            this.$nextTick(() => backendMobileService.enhanceMobileTables());
         },
         displayMode() {
             this.displayModeDefine();

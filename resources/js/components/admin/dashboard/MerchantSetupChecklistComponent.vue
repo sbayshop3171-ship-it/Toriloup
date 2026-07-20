@@ -2,8 +2,8 @@
     <div :class="isFullMode ? 'mb-9' : ''">
         <div :class="isFullMode ? 'row' : ''">
             <div v-if="showChecklist" :class="isFullMode ? 'col-12 xl:col-8' : ''">
-                <div class="db-card">
-                    <div class="db-card-header border-none">
+                <div class="db-card dashboard-setup-card">
+                    <div class="db-card-header border-none dashboard-setup-header">
                         <div>
                             <h3 class="db-card-title">Store Setup Checklist</h3>
                             <p class="text-sm text-paragraph">
@@ -17,14 +17,14 @@
                             </p>
                         </div>
                     </div>
-                    <div class="px-5 pb-5">
+                    <div class="px-5 pb-5 dashboard-setup-body">
                         <div class="w-full h-2 rounded-full bg-[#EEF2FF] overflow-hidden mb-5">
                             <div class="h-full rounded-full bg-primary transition-all duration-500"
                                 :style="{ width: progress.percent + '%' }"></div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="dashboard-setup-grid grid grid-cols-1 md:grid-cols-2 gap-3">
                             <button v-for="step in steps" :key="step.key" type="button"
-                                class="text-left p-4 rounded-xl border transition-all duration-300 bg-white hover:border-primary/40"
+                                class="dashboard-setup-step text-left p-4 rounded-xl border transition-all duration-300 bg-white hover:border-primary/40"
                                 :class="step.completed ? 'border-green-100' : 'border-[#E5E7EB]'"
                                 @click="goStep(step)">
                                 <div class="flex items-start gap-3">
@@ -48,7 +48,7 @@
                 </div>
             </div>
             <div v-if="showStorefrontStatus" :class="isFullMode ? 'col-12 xl:col-4' : ''">
-                <div class="db-card">
+                <div class="db-card dashboard-storefront-card">
                     <div class="db-card-header border-none">
                         <div>
                             <h3 class="db-card-title">Storefront Status</h3>
