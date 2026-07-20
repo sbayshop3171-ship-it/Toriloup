@@ -59,17 +59,11 @@ class SiteService
         try {
             $currency = Currency::query()->find($request->site_default_currency)
                 ?: Currency::withoutGlobalScopes()->find($request->site_default_currency);
-            $app_debug = $this->envService->getValue('DEMO') ? Activity::DISABLE : $request->site_app_debug;
-
-            $data = $request->validated();
-            $data['site_default_currency_symbol'] = $currency?->symbol ?? (string) ($data['site_default_currency_symbol'] ?? '$');
-            $data['site_default_currency_code'] = $currency?->code ?? config('currency.base_code', 'USD');
-            $data['site_app_debug'] = $app_debug;
-            $data['site_auto_visitor_currency'] = $data['site_auto_visitor_currency'] ?? Activity::ENABLE;
 
             if ($tenant = $this->merchantTenant()) {
+                $data = $request->validated();
                 $merchantSettings = [
-                    'site_auto_visitor_currency' => $data['site_auto_visitor_currency'],
+                    'site_auto_visitor_currency' => $data['site_auto_visitor_currency'] ?? Activity::ENABLE,
                 ];
 
                 if ($currency instanceof Currency) {
@@ -93,6 +87,14 @@ class SiteService
                     request()->user()
                 );
             }
+
+            $app_debug = $this->envService->getValue('DEMO') ? Activity::DISABLE : $request->site_app_debug;
+
+            $data = $request->validated();
+            $data['site_default_currency_symbol'] = $currency?->symbol ?? (string) ($data['site_default_currency_symbol'] ?? '$');
+            $data['site_default_currency_code'] = $currency?->code ?? config('currency.base_code', 'USD');
+            $data['site_app_debug'] = $app_debug;
+            $data['site_auto_visitor_currency'] = $data['site_auto_visitor_currency'] ?? Activity::ENABLE;
 
             Settings::group('site')->set($data);
 

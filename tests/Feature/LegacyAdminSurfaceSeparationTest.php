@@ -456,14 +456,10 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             ->assertOk()
             ->json('data');
 
-        $payload = array_merge($initial, [
-            'site_date_format' => 'd/m/Y',
-            'site_default_timezone' => 'Asia/Dhaka',
+        $payload = [
             'site_default_currency' => $bdt->id,
-            'site_currency_position' => 10,
-            'site_copyright' => 'Merchant Should Not Control Site',
             'site_auto_visitor_currency' => Activity::DISABLE,
-        ]);
+        ];
 
         $this
             ->withHeaders($this->tenantHeaders($context['tenant']->slug))

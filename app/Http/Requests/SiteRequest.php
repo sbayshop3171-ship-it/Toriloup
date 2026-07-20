@@ -23,6 +23,13 @@ class SiteRequest extends FormRequest
      */
     public function rules(): array
     {
+        if (app()->bound('saas.currentSurface') && app('saas.currentSurface') === 'merchant') {
+            return [
+                'site_default_currency'      => ['required', 'numeric'],
+                'site_auto_visitor_currency' => ['nullable', 'numeric'],
+            ];
+        }
+
         return [
             'site_date_format'                            => ['required', 'string', 'max:190'],
             'site_time_format'                            => ['required', 'string', 'max:190'],

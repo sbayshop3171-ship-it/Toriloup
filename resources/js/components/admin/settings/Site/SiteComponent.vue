@@ -803,8 +803,14 @@ export default {
                 if ((this.demo === 'true' || this.demo === 'TRUE' || this.demo === 'True' || this.demo === '1' || this.demo === 1) && this.form.site_app_debug === activityEnum.ENABLE) {
                     alertService.error(this.$t("message.app_debug_disabled"));
                 }
+
+                const payload = this.merchantCurrencyOnly ? {
+                    site_default_currency: this.form.site_default_currency,
+                    site_auto_visitor_currency: this.form.site_auto_visitor_currency ?? activityEnum.ENABLE,
+                } : this.form;
+
                 this.loading.isActive = true;
-                this.$store.dispatch("site/save", this.form).then((res) => {
+                this.$store.dispatch("site/save", payload).then((res) => {
                     this.loading.isActive = false;
                     alertService.successFlip(res.config.method === "put" ?? 0, this.pageTitle);
                     this.list();
@@ -815,8 +821,14 @@ export default {
                     this.errors = {};
                     if (err.response && err.response.data && err.response.data.errors) {
                         this.errors = err.response.data.errors;
+                        const firstErrorGroup = Object.values(this.errors)[0];
+                        const firstError = Array.isArray(firstErrorGroup) ? firstErrorGroup[0] : firstErrorGroup;
+
+                        if (this.merchantCurrencyOnly && firstError) {
+                            alertService.error(firstError);
+                        }
                     } else {
-                        alertService.error(err.response.data.message);
+                        alertService.error(err?.response?.data?.message || "Settings could not be saved.");
                     }
                 });
             } catch (err) {
