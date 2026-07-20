@@ -40,6 +40,7 @@
         "purchase": "ক্রয়",
         "stock": "স্টক",
         "pos": "পস",
+        "sell": "সেল",
         "pos_orders": "পস অর্ডার",
         "online_orders": "অনলাইন অর্ডার",
         "coupons": "কুপন",

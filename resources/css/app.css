@@ -700,26 +700,102 @@
     .pos-group .active { @apply bg-primary-light border-primary }
 
     /* BACKEND MOBILE APP SHELL */
+    .backend-mobile-top-header {
+        @apply flex w-full items-center gap-3 rounded-2xl border border-white/80 bg-white/95 p-3 shadow-[0_12px_30px_rgba(15,23,42,0.10)];
+    }
+
+    .backend-mobile-store-avatar {
+        @apply flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#F8FAFC] text-primary shadow-sm;
+    }
+
+    .backend-mobile-store-avatar img {
+        @apply h-full w-full object-cover;
+    }
+
+    .backend-mobile-store-name {
+        @apply min-w-0 truncate text-base font-bold leading-5 text-heading;
+    }
+
+    .backend-mobile-store-dot {
+        @apply h-2 w-2 flex-shrink-0 rounded-full bg-primary;
+    }
+
+    .backend-mobile-store-revenue {
+        @apply mt-1 flex min-w-0 items-center gap-2 text-xs leading-4 text-paragraph;
+    }
+
+    .backend-mobile-store-revenue span {
+        @apply truncate;
+    }
+
+    .backend-mobile-store-revenue strong {
+        @apply flex-shrink-0 font-bold text-primary;
+    }
+
+    .backend-mobile-header-action {
+        @apply relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#FFF4F1] text-primary;
+    }
+
+    .backend-mobile-header-badge {
+        @apply absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-primary px-1 text-[10px] font-semibold leading-none text-white;
+    }
+
+    .backend-mobile-notification-panel {
+        @apply absolute right-0 top-12 z-[75] w-[calc(100vw_-_24px)] max-w-[340px] overflow-hidden rounded-xl border border-[#EFF0F6] bg-white shadow-paper;
+    }
+
     .backend-mobile-bottom-nav {
-        @apply fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 items-stretch border-t border-gray-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)];
-        padding: 0.35rem 0.5rem max(0.45rem, env(safe-area-inset-bottom));
+        @apply fixed z-50 grid items-stretch border border-gray-200 bg-white shadow-[0_-12px_30px_rgba(15,23,42,0.14)];
+        grid-template-columns: 1fr 1fr 76px 1fr 1fr;
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: max(0.65rem, env(safe-area-inset-bottom));
+        min-height: 64px;
+        border-radius: 24px;
+        padding: 0.4rem 0.45rem;
     }
 
     .backend-mobile-nav-item {
-        @apply relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium leading-none text-paragraph transition;
-        min-height: 48px;
+        @apply relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 text-[11px] font-semibold leading-none text-paragraph transition;
+        min-height: 52px;
     }
 
     .backend-mobile-nav-item i {
         @apply text-[18px] leading-none;
     }
 
-    .backend-mobile-nav-item span:last-child {
+    .backend-mobile-nav-item > span:last-child {
         @apply max-w-full truncate;
     }
 
     .backend-mobile-nav-item.active {
         @apply bg-primary/10 text-primary;
+    }
+
+    .backend-mobile-nav-fab {
+        @apply relative flex min-w-0 flex-col items-center justify-start gap-1 text-[11px] font-bold leading-none text-primary transition;
+        min-height: 52px;
+        transform: translateY(-26px);
+    }
+
+    .backend-mobile-fab-button {
+        @apply relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white shadow-[0_12px_24px_rgba(255,61,31,0.30)] ring-4 ring-white;
+    }
+
+    .backend-mobile-fab-button i {
+        @apply text-2xl leading-none;
+    }
+
+    .backend-mobile-nav-fab.active .backend-mobile-fab-button {
+        @apply ring-[#FFDADA];
+    }
+
+    .backend-mobile-nav-fab > span:last-child {
+        @apply max-w-full truncate;
+    }
+
+    .backend-mobile-fab-badge {
+        @apply absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#FFC107] px-1 text-[10px] font-bold leading-none text-heading;
     }
 
     .backend-mobile-dot {
@@ -792,6 +868,15 @@
     @media (max-width: 1023px) {
         .db-main {
             padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+        }
+
+        .merchant-mobile-shell {
+            padding-top: 6.85rem;
+            padding-bottom: calc(7.75rem + env(safe-area-inset-bottom));
+        }
+
+        .merchant-mobile-shell .db-header.backend-mobile-header-shell {
+            @apply min-h-0 bg-transparent px-3 py-3;
         }
 
         .table-filter-div.active {

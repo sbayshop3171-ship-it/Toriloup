@@ -40,6 +40,7 @@
         "purchase": "الشراء",
         "stock": "المخزون",
         "pos": "POS",
+        "sell": "بيع",
         "pos_orders": "طلبات POS",
         "online_orders": "طلبات عبر الإنترنت",
         "coupons": "القسائم",

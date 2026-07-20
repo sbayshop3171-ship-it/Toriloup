@@ -16,7 +16,7 @@
     </div>
 
     <div v-if="theme === 'backend'">
-        <main class="db-main" v-if="showBackendShell">
+        <main class="db-main" :class="{ 'merchant-mobile-shell': showMerchantMobileNav }" v-if="showBackendShell">
             <BackendNavbarComponent />
             <BackendMenuComponent />
             <div class="relative min-h-full">

@@ -78,10 +78,17 @@
 
             <router-link
                 :to="adminPath('pos')"
-                class="backend-mobile-nav-item"
+                class="backend-mobile-nav-fab"
                 :class="{ active: isActive(['pos']), 'opacity-70': isFeatureLocked(posItem) }">
-                <i class="lab lab-line-pos"></i>
-                <span>{{ $t('menu.pos') }}</span>
+                <span class="backend-mobile-fab-button">
+                    <i class="lab lab-line-pos"></i>
+                    <span
+                        v-if="badgeForUrls(sellUrls) > 0"
+                        class="backend-mobile-fab-badge">
+                        {{ badgeText(badgeForUrls(sellUrls)) }}
+                    </span>
+                </span>
+                <span>{{ $t('menu.sell') }}</span>
             </router-link>
 
             <router-link
@@ -190,6 +197,7 @@ export default {
             notificationSyncEventName: backendNotificationService.syncEventName,
             orderUrls: orderUrls,
             productUrls: productUrls,
+            sellUrls: ["pos", "pos-orders"],
             posItem: { feature: "pos" },
         };
     },
