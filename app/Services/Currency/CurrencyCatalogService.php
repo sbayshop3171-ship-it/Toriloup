@@ -21,7 +21,9 @@ class CurrencyCatalogService
 
     public function seedGlobalCurrencies(bool $force = false): int
     {
-        if (!$force && self::$globalSeeded && Currency::withoutGlobalScopes()->whereNull('tenant_id')->exists()) {
+        $hasGlobalCurrencies = Currency::withoutGlobalScopes()->whereNull('tenant_id')->exists();
+
+        if (!$force && self::$globalSeeded && $hasGlobalCurrencies) {
             return 0;
         }
 
@@ -37,13 +39,23 @@ class CurrencyCatalogService
                 $currency = new Currency(['tenant_id' => null, 'code' => $metadata['code']]);
             }
 
-            $currency->fill($this->filterCurrencyColumns(array_merge($metadata, [
+            $attributes = array_merge($metadata, [
                 'is_cryptocurrency' => Ask::NO,
                 'exchange_rate' => $this->rateForCode($metadata['code']),
                 'is_auto_managed' => true,
                 'is_enabled' => true,
                 'rate_source' => 'seed',
-            ])));
+            ]);
+
+            if (!$force && $currency->exists) {
+                $attributes = array_merge($metadata, [
+                    'is_cryptocurrency' => $currency->is_cryptocurrency ?? Ask::NO,
+                    'is_auto_managed' => $currency->is_auto_managed ?? true,
+                    'is_enabled' => $currency->is_enabled ?? true,
+                ]);
+            }
+
+            $currency->fill($this->filterCurrencyColumns($attributes));
             $currency->save();
             $count++;
         }

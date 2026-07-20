@@ -223,6 +223,38 @@ class StorefrontCustomerFlowTest extends TestCase
         $this->assertEquals(14803.2, (float) $manualResponse->json('data.0.price'));
     }
 
+    public function test_currency_catalog_seed_preserves_synced_rates_across_requests(): void
+    {
+        $tenant = $this->createTenant('currency-rate-preserve-store');
+        $catalog = app(CurrencyCatalogService::class);
+        $catalog->ensureTenantCurrencies($tenant);
+
+        foreach ([null, $tenant->id] as $tenantId) {
+            Currency::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('code', 'BDT')
+                ->first()
+                ?->forceFill([
+                    'exchange_rate' => 123.36,
+                    'rate_source' => 'open_er_api',
+                    'rate_synced_at' => now(),
+                    'is_auto_managed' => true,
+                ])
+                ->save();
+        }
+
+        $this->resetCurrencyCatalogState();
+        app(CurrencyCatalogService::class)->ensureTenantCurrencies($tenant);
+
+        $globalBdt = Currency::withoutGlobalScopes()->whereNull('tenant_id')->where('code', 'BDT')->first();
+        $tenantBdt = Currency::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('code', 'BDT')->first();
+
+        $this->assertEqualsWithDelta(123.36, (float) $globalBdt->exchange_rate, 0.001);
+        $this->assertSame('open_er_api', $globalBdt->rate_source);
+        $this->assertEqualsWithDelta(123.36, (float) $tenantBdt->exchange_rate, 0.001);
+        $this->assertSame('open_er_api', $tenantBdt->rate_source);
+    }
+
     public function test_storefront_sliders_use_only_current_merchant_sliders(): void
     {
         $tenant = $this->createTenant('fallback-slider-store');
@@ -1108,6 +1140,19 @@ class StorefrontCustomerFlowTest extends TestCase
                 ])->save();
             }
         }
+    }
+
+    private function resetCurrencyCatalogState(): void
+    {
+        $reflection = new \ReflectionClass(CurrencyCatalogService::class);
+
+        $globalSeeded = $reflection->getProperty('globalSeeded');
+        $globalSeeded->setAccessible(true);
+        $globalSeeded->setValue(null, false);
+
+        $tenantEnsured = $reflection->getProperty('tenantEnsured');
+        $tenantEnsured->setAccessible(true);
+        $tenantEnsured->setValue(null, []);
     }
 
     private function preparePaymentPageSettings(Tenant $tenant, string $companyName): Currency
