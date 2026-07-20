@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <div class="db-card">
+        <div class="db-card product-stock-sticky-card products-list-card">
             <div class="db-card-header border-none">
                 <div>
                     <h3 class="db-card-title">{{ $t('menu.products') }}</h3>
@@ -155,10 +155,13 @@
                 </form>
             </div>
 
-            <div class="db-table-responsive">
+            <div class="db-table-responsive hidden md:block">
                 <table class="db-table stripe" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
+                            <th class="db-table-head-th hidden-print">
+                                Image
+                            </th>
                             <th class="db-table-head-th">
                                 {{ $t('label.name') }}
                             </th>
@@ -172,6 +175,9 @@
                                 {{ priceLabel($t('label.selling_price')) }}
                             </th>
                             <th class="db-table-head-th">
+                                {{ $t('label.stock_quantity') }}
+                            </th>
+                            <th class="db-table-head-th">
                                 {{ $t('label.status') }}
                             </th>
                             <th class="db-table-head-th hidden-print"
@@ -182,12 +188,17 @@
                     </thead>
                     <tbody class="db-table-body" v-if="products.length > 0">
                         <tr class="db-table-body-tr" v-for="product in products" :key="product">
+                            <td class="db-table-body-td hidden-print">
+                                <img :src="imageSrc(product)" :alt="product.name"
+                                    class="h-12 w-12 rounded-lg object-cover bg-gray-100" />
+                            </td>
                             <td class="db-table-body-td">
                                 {{ textShortener(product.name, 40) }}
                             </td>
                             <td class="db-table-body-td">{{ product.category_name }}</td>
                             <td class="db-table-body-td">{{ formatBasePrice(product.flat_buying_price) }}</td>
                             <td class="db-table-body-td">{{ formatBasePrice(product.flat_selling_price) }}</td>
+                            <td class="db-table-body-td">{{ productStock(product) }}</td>
                             <td class="db-table-body-td">
                                 <span :class="statusClass(product.status)">
                                     {{ enums.statusEnumArray[product.status] }}
@@ -208,7 +219,7 @@
                     </tbody>
                     <tbody class="db-table-body" v-else>
                         <tr class="db-table-body-tr">
-                            <td class="db-table-body-td text-center" colspan="6">
+                            <td class="db-table-body-td text-center" colspan="8">
                                 <div class="p-4">
                                     <div class="max-w-[300px] mx-auto mt-2">
                                         <img class="w-full h-full" :src="ENV.API_URL+'/images/default/not-found/not_found.png'" alt="Not Found">
@@ -219,6 +230,57 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div v-if="products.length > 0" class="product-mobile-grid md:hidden">
+                <article v-for="product in products" :key="`mobile-${product.id}`" class="product-mobile-card">
+                    <div class="product-mobile-media">
+                        <img :src="imageSrc(product)" :alt="product.name" />
+                    </div>
+                    <div class="product-mobile-content">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h4 class="product-mobile-title">{{ textShortener(product.name, 46) }}</h4>
+                                <p class="product-mobile-meta">{{ product.category_name || '-' }}</p>
+                            </div>
+                            <span :class="statusClass(product.status)" class="flex-shrink-0">
+                                {{ enums.statusEnumArray[product.status] }}
+                            </span>
+                        </div>
+
+                        <div class="product-mobile-stats">
+                            <div>
+                                <span>{{ $t('label.selling_price') }}</span>
+                                <strong>{{ formatBasePrice(product.flat_selling_price) }}</strong>
+                            </div>
+                            <div>
+                                <span>{{ $t('label.buying_price') }}</span>
+                                <strong>{{ formatBasePrice(product.flat_buying_price) }}</strong>
+                            </div>
+                            <div>
+                                <span>{{ $t('label.stock_quantity') }}</span>
+                                <strong>{{ productStock(product) }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="product-mobile-actions hidden-print"
+                            v-if="permissionChecker('products_show') || permissionChecker('products_edit') || permissionChecker('products_delete')">
+                            <SmIconViewComponent :link="'admin.product.show'" :id="product.id"
+                                v-if="permissionChecker('products_show')" />
+                            <SmIconSidebarModalEditComponent @click="edit(product)"
+                                v-if="permissionChecker('products_edit')" />
+                            <SmIconDeleteComponent @click="destroy(product.id)"
+                                v-if="permissionChecker('products_delete')" />
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            <div v-else class="md:hidden p-4">
+                <div class="rounded-xl border border-gray-100 bg-white p-5 text-center">
+                    <img class="mx-auto max-w-[210px]" :src="ENV.API_URL+'/images/default/not-found/not_found.png'" alt="Not Found">
+                    <span class="d-block mt-3 text-base">{{ $t('message.no_data_found') }}</span>
+                </div>
             </div>
 
             <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6" v-if="products.length > 0">
@@ -429,6 +491,13 @@ export default {
                 this.baseCurrencySymbol,
                 this.siteSetting.site_currency_position || 5
             );
+        },
+        imageSrc: function (product) {
+            return product?.cover || `${ENV.API_URL}/images/default/product/cover.png`;
+        },
+        productStock: function (product) {
+            const stock = product?.stock ?? product?.stock_quantity ?? product?.maximum_purchase_quantity ?? 0;
+            return Number.isFinite(Number(stock)) ? Number(stock) : stock;
         },
         search: function () {
             this.list();

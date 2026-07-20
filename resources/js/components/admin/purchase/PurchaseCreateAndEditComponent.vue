@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <form @submit.prevent="save" class="block w-full">
+        <form @submit.prevent="save" class="block w-full purchase-damage-form purchase-form-page">
             <div class="db-card mb-6">
                 <div class="db-card-header">
                     <h3 class="db-card-title">{{ $t("menu.purchase") }}</h3>
@@ -92,7 +92,7 @@
 
                         <div class="form-col-12">
                             <label class="db-field-title">{{ $t('label.products') }}</label>
-                            <div class="db-table-responsive border rounded-md">
+                            <div class="db-table-responsive border rounded-md hidden md:block">
                                 <table class="db-table">
                                     <thead class="db-table-head border-t-0">
                                         <tr class="db-table-head-tr">
@@ -171,6 +171,50 @@
                                         </tr>
                                     </tbody>
                                 </table>
+                            </div>
+
+                            <div v-if="datatable.length > 0" class="purchase-damage-mobile-items md:hidden">
+                                <article v-for="(item, index) of datatable" :key="`purchase-mobile-${index}`"
+                                    class="purchase-damage-mobile-item">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <h4 class="purchase-damage-mobile-title">{{ item.name }}</h4>
+                                            <p v-if="item.variation_names" class="purchase-damage-mobile-meta">
+                                                {{ $t('label.variation') }}: {{ item.variation_names }}
+                                            </p>
+                                        </div>
+                                        <div class="purchase-damage-mobile-actions">
+                                            <SmIconSidebarModalEditComponent @click.prevent="editDatatable(index)" />
+                                            <SmIconDeleteComponent @click.prevent="removeProduct(index)" />
+                                        </div>
+                                    </div>
+
+                                    <div class="purchase-damage-mobile-grid">
+                                        <div>
+                                            <span>{{ $t("label.unit_cost") }}</span>
+                                            <strong>{{ floatFormat(item.price) }}</strong>
+                                        </div>
+                                        <div>
+                                            <span>{{ $t("label.quantity") }}</span>
+                                            <input v-on:keypress="onlyNumber($event)" @keyup="updateQuantity(index)"
+                                                v-model="item.quantity" @click="$event.target.select()" type="number"
+                                                min="1" class="db-field-control">
+                                        </div>
+                                        <div>
+                                            <span>{{ $t("label.taxes") }}</span>
+                                            <strong>{{ floatFormat(item.total_tax) }}</strong>
+                                        </div>
+                                        <div>
+                                            <span>{{ $t("label.sub_total") }}</span>
+                                            <strong>{{ floatFormat(item.total) }}</strong>
+                                        </div>
+                                    </div>
+                                </article>
+
+                                <div class="purchase-damage-mobile-total">
+                                    <span>{{ $t('label.total') }}</span>
+                                    <strong>{{ floatFormat(totalPrice) }}</strong>
+                                </div>
                             </div>
                         </div>
 

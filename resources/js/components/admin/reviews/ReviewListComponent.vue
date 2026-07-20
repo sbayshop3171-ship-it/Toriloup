@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <div class="db-card">
+        <div class="db-card product-stock-sticky-card reviews-list-card">
             <div class="db-card-header border-none">
                 <h3 class="db-card-title">{{ $t('menu.reviews') }}</h3>
                 <div class="db-card-filter">
@@ -54,7 +54,7 @@
                 </form>
             </div>
 
-            <div class="db-table-responsive">
+            <div class="db-table-responsive hidden md:block">
                 <table class="db-table stripe" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
@@ -99,6 +99,34 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div v-if="reviews.length > 0" class="review-mobile-grid md:hidden">
+                <article v-for="(review, index) of reviews" :key="`mobile-review-${index}`" class="review-mobile-card">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h4 class="review-mobile-title">{{ review.product_name }}</h4>
+                            <p class="review-mobile-customer">{{ review.user_name }}</p>
+                        </div>
+                        <SmIconViewComponent :link="'admin.review.show'" :id="review.id"
+                            v-if="permissionChecker('reviews')" />
+                    </div>
+                    <div class="mt-3">
+                        <starRating border-color="#FFBC1F" inactive-color="#FFFFFF" active-color="#FFBC1F"
+                            :rounded-corners="true" :padding="2.5" :border-width="2.5" :star-size="13"
+                            :round-start-rating="false" :show-rating="false" :read-only="true"
+                            :max-rating="5" :rating="review.star" />
+                    </div>
+                    <p class="review-mobile-text" v-html="textShortener(review.review, 120)"></p>
+                </article>
+            </div>
+
+            <div v-else class="md:hidden p-4">
+                <div class="rounded-xl border border-gray-100 bg-white p-5 text-center">
+                    <img class="mx-auto max-w-[210px]" :src="ENV.API_URL + '/images/default/not-found/not_found.png'"
+                        alt="Not Found">
+                    <span class="d-block mt-3 text-base">{{ $t('message.no_data_found') }}</span>
+                </div>
             </div>
             <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6"
                 v-if="reviews.length > 0">

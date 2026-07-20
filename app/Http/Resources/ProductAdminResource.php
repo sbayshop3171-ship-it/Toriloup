@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\Ask;
+use App\Enums\Activity;
 use Carbon\Carbon;
 use App\Libraries\AppLibrary;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -35,6 +36,7 @@ class ProductAdminResource extends JsonResource
             "show_stock_out"             => $this->show_stock_out,
             "maximum_purchase_quantity"  => $this->maximum_purchase_quantity,
             "low_stock_quantity_warning" => $this->low_stock_quantity_warning,
+            "stock"                      => $this->show_stock_out == Activity::DISABLE ? ($this->can_purchasable == Ask::NO ? (int) $this->maximum_purchase_quantity : (int) $this->stock_items_sum_quantity) : 0,
             "weight"                     => $this->weight,
             "warranty"                   => $this->warranty,
             "refundable"                 => $this->refundable,

@@ -1,8 +1,8 @@
 <template>
   <LoadingComponent :props="loading" />
   <PoscustomerComponent v-on:onCustomverCreate="onCustomverCreate" />
-  <div class="pb-16 md:pb-0 md:w-[calc(100%-340px)] lg:w-[calc(100%-320px)] xl:w-[calc(100%-377px)]">
-    <form class="w-full mb-4" @submit.prevent="search">
+  <div class="pos-workspace pb-20 md:pb-0 md:w-[calc(100%-340px)] lg:w-[calc(100%-320px)] xl:w-[calc(100%-377px)]">
+    <form class="pos-search-panel w-full mb-4" @submit.prevent="search">
       <div class="form-row">
         <div class="form-col-12 sm:form-col-6"
           :class="checkoutProps.form.category || checkoutProps.form.brand ? 'xl:form-col-4' : 'xl:form-col-4'">
@@ -50,9 +50,21 @@
   </div>
 
   <div id="pos-cart"
-    class="db-pos-cartDiv fixed top-0 ltr:right-0 rtl:left-0 w-full h-dvh rounded-none z-50 md:z-10 md:top-[85px] ltr:md:right-5 rtl:md:left-5 md:w-[322px] lg:w-[305px] xl:w-[360px] md:h-[calc(100vh-85px)] md:rounded-lg overflow-y-auto thin-scrolling bg-white">
+    class="db-pos-cartDiv pos-cart-sheet fixed top-0 ltr:right-0 rtl:left-0 w-full h-dvh rounded-none z-50 md:z-10 md:top-[85px] ltr:md:right-5 rtl:md:left-5 md:w-[322px] lg:w-[305px] xl:w-[360px] md:h-[calc(100vh-85px)] md:rounded-lg overflow-y-auto thin-scrolling bg-white">
     <div class="p-4">
-      <div class="md:hidden text-right mb-3">
+      <div class="pos-cart-mobile-header md:hidden">
+        <span class="pos-cart-handle"></span>
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold text-heading">{{ $t('menu.pos') }}</h3>
+            <p class="text-xs text-paragraph">{{ totalProducts() || 0 }} {{ $t('label.products') }}</p>
+          </div>
+          <button class="db-pos-cartCls" @click="closeCanvas('pos-cart')">
+            <i class="lab-line-circle-cross text-lg text-[#E93C3C]"></i>
+          </button>
+        </div>
+      </div>
+      <div class="hidden md:block text-right mb-3">
         <button class="db-pos-cartCls" @click="closeCanvas('pos-cart')">
           <i class="lab-line-circle-cross text-lg text-[#E93C3C]"></i>
         </button>
@@ -79,7 +91,7 @@
       <img class="w-52" :src="setting.image_cart" alt="empty">
     </div>
 
-    <ul v-if="carts.length > 0" class="p-4">
+    <ul v-if="carts.length > 0" class="pos-cart-items p-4">
       <li v-for="(cart, index) in carts"
         class="flex items-start gap-3 pb-4 mb-4 border-b last:mb-0 last:pb-0 last:border-none border-gray-100">
         <img :src="cart.image" alt="products" class="w-28 rounded-lg flex-shrink-0" />
@@ -105,7 +117,7 @@
             </del>
           </div>
           <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-1 w-20 p-1 rounded-full bg-[#F7F7FC]">
+            <div class="pos-quantity-stepper flex items-center gap-1 w-20 p-1 rounded-full bg-[#F7F7FC]">
               <button @click.prevent="quantityDecrement(index, cart)" type="button"
                 :class="cart.quantity === 1 ? 'cursor-not-allowed' : ''"
                 class="lab-fill-circle-minus text-lg leading-none transition-all duration-300 hover:text-primary"></button>
@@ -125,7 +137,7 @@
       </li>
     </ul>
 
-    <div class="p-4">
+    <div class="pos-cart-summary p-4">
       <div class="flex h-[38px]" v-if="carts.length > 0">
         <div class="db-field-down-arrow">
           <select v-model="discountType"
@@ -204,7 +216,7 @@
   </div>
 
   <button @click="openCanvas('pos-cart')" type="button"
-    class="db-pos-cartBtn fixed md:hidden bottom-0 left-0 z-10 w-full h-14 py-4 text-center flex items-center justify-center shadow-xl-top gap-3 bg-primary text-white">
+    class="db-pos-cartBtn pos-cart-mobile-button fixed md:hidden bottom-0 left-0 z-10 w-full h-14 py-4 text-center flex items-center justify-center shadow-xl-top gap-3 bg-primary text-white">
     <i class="lab-fill-bag text-xl"></i>
     <span class="text-base font-medium"> {{ totalProducts() }} {{ $t('label.products') }} - {{
       currencyFormat((subtotal + totalTax) - posDiscount,

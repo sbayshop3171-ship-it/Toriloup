@@ -1,16 +1,16 @@
 <template>
     <div
-        class="grid gap-3 sm:gap-[18px] grid-cols-[repeat(auto-fill,_minmax(140px,_1fr))] sm:grid-cols-[repeat(auto-fill,_minmax(185px,_1fr))] mb-8 md:mb-0">
+        class="pos-product-grid grid gap-3 sm:gap-[18px] grid-cols-2 sm:grid-cols-[repeat(auto-fill,_minmax(185px,_1fr))] mb-8 md:mb-0">
         <div v-if="products.length > 0" v-for="product in products" @click.prevent="handleProductModal(product)"
             data-modal="#modal"
-            class="sm:p-2 rounded-2xl sm:shadow-card transition-all duration-300 sm:hover:shadow-hover group bg-white cursor-pointer">
+            class="pos-product-card sm:p-2 rounded-2xl sm:shadow-card transition-all duration-300 sm:hover:shadow-hover group bg-white cursor-pointer">
             <div class="relative overflow-hidden rounded-xl isolate">
                 <label
                     class="capitalize text-xs font-semibold rounded-xl py-1 px-2 shadow-badge absolute top-3 left-3 z-10 bg-secondary text-white"
                     v-if="product.is_offer && product.flash_sale">{{ $t('label.flash_sale') }}</label>
 
                 <img :src="product.cover" alt="product"
-                    class="w-full rounded-xl transition-all duration-300 group-hover:scale-105 group-hover:rotate-3">
+                    class="pos-product-image w-full rounded-xl transition-all duration-300 group-hover:scale-105 group-hover:rotate-3">
             </div>
 
             <div class="px-1 sm:px-0 pt-4 pb-2">

@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <div class="db-card">
+        <div class="db-card product-stock-sticky-card">
             <div class="db-card-header border-none">
                 <h3 class="db-card-title">{{ $t('menu.damages') }}</h3>
                 <div class="db-card-filter">

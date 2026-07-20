@@ -1,6 +1,6 @@
 <template>
     <div id="orderPayment" class="modal">
-        <div class="modal-dialog max-w-[428px] w-full">
+        <div class="modal-dialog pos-payment-dialog max-w-[428px] w-full">
             <div class="modal-header pb-3 border-b border-[#D9DBE9]">
                 <h3 class="capitalize font-medium">{{ $t("label.order_payment") }}</h3>
                 <button @click="closeModal" class="modal-close fa-regular fa-circle-xmark"></button>
@@ -15,7 +15,7 @@
                 </div>
                 <div class="mb-4">
                     <h3 class="capitalize font-medium mb-2">{{ $t("label.select_payment_method") }}</h3>
-                    <nav class="flex flex-wrap gap-4 active-group">
+                    <nav class="pos-payment-method-grid flex flex-wrap gap-4 active-group">
                         <button @click.prevent="updatePaymentMethod(posPaymentMethodEnum.CASH)" data-tab="#cash"
                             type="button" :class="pos_payment_method === posPaymentMethodEnum.CASH ? 'active' : ''"
                             class="db-tab-btn w-fit flex flex-col items-center gap-2 rounded-lg py-3 px-7 border bg-[#F7F7FC] border-[#F7F7FC]">
@@ -76,7 +76,7 @@
                         <input ref="pos_received_amount" v-model="pos_received_amount" id="cashInput" type="float"
                             class="h-12 w-full rounded-lg border py-1.5 px-4 placeholder:text-xs border-[#D9DBE9] text-black">
                     </div>
-                    <div class="grid grid-cols-4 gap-x-4 gap-y-3.5 mb-6">
+                    <div class="pos-keypad-grid grid grid-cols-4 gap-x-4 gap-y-3.5 mb-6">
                         <button @click="solve('1', 'cashInput')" value="1"
                             class="num bg-[#F7F7FC] rounded-lg p-2.5 flex items-center justify-center text-base font-medium text-[#1F1F39]">1</button>
                         <button @click="solve('2', 'cashInput')" value="2"
@@ -124,7 +124,7 @@
                             class="h-12 w-full rounded-lg border py-1.5 px-4 placeholder:text-xs border-[#D9DBE9] text-black"
                             required>
                     </div>
-                    <div class="grid grid-cols-4 gap-x-4 gap-y-3.5 mb-6">
+                    <div class="pos-keypad-grid grid grid-cols-4 gap-x-4 gap-y-3.5 mb-6">
                         <button @click="solve('1', 'cardInput')"
                             class="num bg-[#F7F7FC] rounded-lg p-2.5 flex items-center justify-center text-base font-medium text-[#1F1F39]">1</button>
                         <button @click="solve('2', 'cardInput')" value="2"
@@ -186,7 +186,7 @@
                 <button
                     @click.prevent="$emit('orderSubmit', { pos_payment_note: pos_payment_note, pos_payment_method: pos_payment_method, pos_received_amount: pos_received_amount });reset()"
                     data-modal="#receipt"
-                    class="rounded-3xl text-base py-2 px-3 font-medium w-full text-white bg-primary">{{
+                    class="pos-payment-confirm rounded-3xl text-base py-2 px-3 font-medium w-full text-white bg-primary">{{
                         $t("button.confirm_and_print_receipt") }}</button>
             </div>
         </div>

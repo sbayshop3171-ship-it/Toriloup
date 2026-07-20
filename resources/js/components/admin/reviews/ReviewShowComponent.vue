@@ -21,7 +21,7 @@
                     <div class="col-12">
                         <h3 class="text-lg font-semibold capitalize mb-2">{{ $t('label.product_information') }}</h3>
                         <div class="row py-2">
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.name")
                                         }}</span>
@@ -30,7 +30,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.sku")
                                         }}</span>
@@ -39,7 +39,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.brand")
                                         }}</span>
@@ -48,7 +48,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.buying_price")
                                         }}</span>
@@ -56,7 +56,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{
                                         $t("label.selling_price")
@@ -66,7 +66,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.warranty")
                                         }}</span>
@@ -74,7 +74,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.weight")
                                         }}</span>
@@ -82,7 +82,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-4 !py-1.5">
+                            <div class="col-12 sm:col-6 lg:col-4 !py-1.5">
                                 <div class="db-list-item p-0">
                                     <span class="db-list-item-title w-full sm:w-1/2">{{ $t("label.unit")
                                         }}</span>
