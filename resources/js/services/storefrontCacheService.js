@@ -108,9 +108,16 @@ function cacheUrlFromKey(key) {
 function isPersistentUrl(url) {
     const normalizedUrl = String(url || "").replace(/^\//, "");
 
-    return /^frontend\/(product-category|promotion|product-section|product-brand|benefit|payment-gateway|order-area|outlet)(\/|\?|$)/.test(normalizedUrl) ||
-        /^frontend\/product(\/|\?|$)/.test(normalizedUrl) ||
+    return /^frontend\/(product-category|promotion|product-brand|benefit|payment-gateway|order-area|outlet)(\/|\?|$)/.test(normalizedUrl) ||
         /^frontend\/page\/show(\/|\?|$)/.test(normalizedUrl);
+}
+
+function isLiveProductUrl(url) {
+    const normalizedUrl = String(url || "").replace(/^\//, "");
+
+    return /^frontend\/product(\/|\?|$)/.test(normalizedUrl) ||
+        /^frontend\/product-section(\/|\?|$)/.test(normalizedUrl) ||
+        /^frontend\/promotion\/products(\/|\?|$)/.test(normalizedUrl);
 }
 
 function shouldPersist(key, config = null) {
@@ -289,6 +296,10 @@ function isCacheable(config) {
     const url = requestUrl(config).replace(/^\//, "");
 
     if (!url.startsWith("frontend/")) {
+        return false;
+    }
+
+    if (isLiveProductUrl(url)) {
         return false;
     }
 
