@@ -37,6 +37,7 @@ use App\Models\TenantPaymentMethod;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\Currency\CurrencyCatalogService;
+use App\Services\IpLocationService;
 use App\Services\PaymentAttemptService;
 use App\Services\Saas\MerchantWalletService;
 use App\Services\Saas\TenantSettingsService;
@@ -169,6 +170,28 @@ class StorefrontCustomerFlowTest extends TestCase
 
         $response = $this
             ->withHeaders($this->jsonHeaders() + ['CF-IPCountry' => 'BD'])
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/product");
+
+        $response->assertOk();
+        $this->assertSame('USD', $response->json('data.0.base_currency_code'));
+        $this->assertSame('BDT', $response->json('data.0.display_currency_code'));
+        $this->assertEquals(14400.0, (float) $response->json('data.0.price'));
+    }
+
+    public function test_storefront_currency_uses_ip_location_when_country_header_is_missing(): void
+    {
+        $tenant = $this->createTenant('ip-location-currency-store');
+        $this->configureTenantCurrency($tenant, 'USD');
+        $this->createProductForTenant($tenant, 'IP Location Product', 'ip-location-product', '1000204');
+
+        $this->mock(IpLocationService::class, function ($mock): void {
+            $mock->shouldReceive('detect')
+                ->once()
+                ->andReturn(['country_code' => 'BD']);
+        });
+
+        $response = $this
+            ->withHeaders($this->jsonHeaders())
             ->getJson("http://{$tenant->slug}.company.com/api/frontend/product");
 
         $response->assertOk();

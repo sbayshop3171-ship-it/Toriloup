@@ -7,6 +7,7 @@ use App\Models\Address;
 use App\Models\Currency;
 use App\Models\Tenant;
 use App\Services\CountryMetadataService;
+use App\Services\IpLocationService;
 use App\Services\Saas\TenantSettingsService;
 use Illuminate\Http\Request;
 
@@ -19,6 +20,7 @@ class VisitorCurrencyResolver
         private readonly CountryMetadataService $countryMetadataService,
         private readonly CurrencyCatalogService $currencyCatalogService,
         private readonly TenantSettingsService $tenantSettingsService,
+        private readonly IpLocationService $ipLocationService,
     ) {
     }
 
@@ -36,6 +38,7 @@ class VisitorCurrencyResolver
         if ($this->autoVisitorCurrencyEnabled($settings)) {
             $candidates[] = ['source' => 'checkout_shipping', 'currency_code' => $this->checkoutShippingCurrencyCode($request), 'country_code' => null];
             $candidates[] = ['source' => 'country_header', 'currency_code' => null, 'country_code' => $this->headerCountryCode($request)];
+            $candidates[] = ['source' => 'ip_location', 'currency_code' => null, 'country_code' => null, 'ip_lookup' => true];
             $candidates[] = ['source' => 'browser_locale', 'currency_code' => null, 'country_code' => $this->browserCountryCode($request)];
         }
 
@@ -44,6 +47,10 @@ class VisitorCurrencyResolver
         foreach ($candidates as $candidate) {
             $currencyCode = $candidate['currency_code'];
             $countryCode = $candidate['country_code'];
+
+            if (blank($currencyCode) && blank($countryCode) && ($candidate['ip_lookup'] ?? false)) {
+                $countryCode = $this->ipLocationCountryCode($request);
+            }
 
             if (blank($currencyCode) && filled($countryCode)) {
                 $currencyCode = $this->countryMetadataService->byCountryCode($countryCode)['currency_code'] ?? null;
@@ -160,6 +167,23 @@ class VisitorCurrencyResolver
         }
 
         return null;
+    }
+
+    private function ipLocationCountryCode(Request $request): ?string
+    {
+        $attributeKey = 'currency.ip_location_country_code';
+
+        if ($request->attributes->has($attributeKey)) {
+            return $request->attributes->get($attributeKey);
+        }
+
+        $location = $this->ipLocationService->detect($request);
+        $countryCode = strtoupper((string) ($location['country_code'] ?? ''));
+
+        $countryCode = preg_match('/^[A-Z]{2}$/', $countryCode) ? $countryCode : null;
+        $request->attributes->set($attributeKey, $countryCode);
+
+        return $countryCode;
     }
 
     /**
