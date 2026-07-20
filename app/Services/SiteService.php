@@ -8,6 +8,7 @@ use App\Http\Requests\SiteRequest;
 use App\Libraries\QueryExceptionLibrary;
 use App\Models\Currency;
 use App\Models\Tenant;
+use App\Services\Currency\CurrencyCatalogService;
 use App\Services\Saas\TenantSettingsService;
 use App\Services\Tenancy\TenantContext;
 use Dipokhalder\EnvEditor\EnvEditor;
@@ -24,6 +25,7 @@ class SiteService
         EnvEditor $envEditor,
         private readonly TenantContext $tenantContext,
         private readonly TenantSettingsService $tenantSettingsService,
+        private readonly CurrencyCatalogService $currencyCatalogService,
     )
     {
         $this->envService = $envEditor;
@@ -63,10 +65,28 @@ class SiteService
             $data['site_auto_visitor_currency'] = $data['site_auto_visitor_currency'] ?? Activity::ENABLE;
 
             if ($tenant = $this->merchantTenant()) {
+                $merchantSettings = [
+                    'site_auto_visitor_currency' => $data['site_auto_visitor_currency'],
+                ];
+
+                if ($currency instanceof Currency) {
+                    $tenantCurrencyId = $this->currencyCatalogService->currencyIdForCode($currency->code, $tenant);
+
+                    if ($tenantCurrencyId !== null) {
+                        $merchantSettings['site_default_currency'] = $tenantCurrencyId;
+                        $merchantSettings['site_default_currency_code'] = strtoupper($currency->code);
+                        $merchantSettings['site_default_currency_symbol'] = $currency->symbol;
+
+                        $tenant->forceFill([
+                            'primary_currency_code' => strtoupper($currency->code),
+                        ])->save();
+                    }
+                }
+
                 return $this->tenantSettingsService->syncGroupForTenant(
                     $tenant,
                     'site',
-                    ['site_auto_visitor_currency' => $data['site_auto_visitor_currency']],
+                    $merchantSettings,
                     request()->user()
                 );
             }

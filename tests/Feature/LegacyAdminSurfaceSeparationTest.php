@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Activity;
+use App\Enums\Ask;
 use App\Enums\Role as LegacyRole;
 use App\Models\Benefit;
 use App\Models\Barcode;
@@ -432,9 +433,20 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_merchant_site_settings_update_only_auto_visitor_currency(): void
+    public function test_merchant_site_settings_update_only_base_currency_and_auto_visitor_currency(): void
     {
         $context = $this->createMerchantContext('legacy-site-currency-only-store', ['settings']);
+        $bdt = Currency::withoutGlobalScopes()->create([
+            'tenant_id' => $context['tenant']->id,
+            'name' => 'Bangladeshi Taka',
+            'symbol' => 'Tk',
+            'code' => 'BDT',
+            'minor_unit' => 2,
+            'is_cryptocurrency' => Ask::NO,
+            'exchange_rate' => 120,
+            'is_auto_managed' => false,
+            'is_enabled' => true,
+        ]);
 
         Sanctum::actingAs($context['user'], ['surface:merchant']);
 
@@ -447,7 +459,7 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
         $payload = array_merge($initial, [
             'site_date_format' => 'd/m/Y',
             'site_default_timezone' => 'Asia/Dhaka',
-            'site_default_currency' => 999999,
+            'site_default_currency' => $bdt->id,
             'site_currency_position' => 10,
             'site_copyright' => 'Merchant Should Not Control Site',
             'site_auto_visitor_currency' => Activity::DISABLE,
@@ -458,11 +470,15 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             ->putJson('http://merchant.company.com/api/admin/setting/site', $payload)
             ->assertOk()
             ->assertJsonPath('data.site_auto_visitor_currency', Activity::DISABLE)
+            ->assertJsonPath('data.site_default_currency', $bdt->id)
+            ->assertJsonPath('data.site_default_currency_code', 'BDT')
+            ->assertJsonPath('data.site_default_currency_symbol', 'Tk')
             ->assertJsonPath('data.site_date_format', $initial['site_date_format'])
             ->assertJsonPath('data.site_default_timezone', $initial['site_default_timezone'])
-            ->assertJsonPath('data.site_default_currency', $initial['site_default_currency'])
             ->assertJsonPath('data.site_currency_position', $initial['site_currency_position'])
             ->assertJsonPath('data.site_copyright', $initial['site_copyright']);
+
+        $this->assertSame('BDT', $context['tenant']->refresh()->primary_currency_code);
 
         $this->assertDatabaseHas('tenant_settings', [
             'tenant_id' => $context['tenant']->id,
@@ -471,11 +487,46 @@ class LegacyAdminSurfaceSeparationTest extends TestCase
             'setting_value' => (string) Activity::DISABLE,
         ]);
 
+        $this->assertDatabaseHas('tenant_settings', [
+            'tenant_id' => $context['tenant']->id,
+            'group_key' => 'site',
+            'setting_key' => 'site_default_currency',
+            'setting_value' => (string) $bdt->id,
+        ]);
+
+        $tamperPayload = array_merge($initial, [
+            'site_date_format' => 'm.d.Y',
+            'site_default_timezone' => 'Europe/London',
+            'site_default_currency' => 999999,
+            'site_currency_position' => 10,
+            'site_copyright' => 'Still Not Merchant Controlled',
+            'site_auto_visitor_currency' => Activity::ENABLE,
+        ]);
+
+        $this
+            ->withHeaders($this->tenantHeaders($context['tenant']->slug))
+            ->putJson('http://merchant.company.com/api/admin/setting/site', $tamperPayload)
+            ->assertOk()
+            ->assertJsonPath('data.site_auto_visitor_currency', Activity::ENABLE)
+            ->assertJsonPath('data.site_default_currency', $bdt->id)
+            ->assertJsonPath('data.site_default_currency_code', 'BDT')
+            ->assertJsonPath('data.site_date_format', $initial['site_date_format'])
+            ->assertJsonPath('data.site_default_timezone', $initial['site_default_timezone'])
+            ->assertJsonPath('data.site_currency_position', $initial['site_currency_position'])
+            ->assertJsonPath('data.site_copyright', $initial['site_copyright']);
+
         $this->assertDatabaseMissing('tenant_settings', [
             'tenant_id' => $context['tenant']->id,
             'group_key' => 'site',
             'setting_key' => 'site_default_timezone',
             'setting_value' => 'Asia/Dhaka',
+        ]);
+
+        $this->assertDatabaseMissing('tenant_settings', [
+            'tenant_id' => $context['tenant']->id,
+            'group_key' => 'site',
+            'setting_key' => 'site_default_timezone',
+            'setting_value' => 'Europe/London',
         ]);
     }
 

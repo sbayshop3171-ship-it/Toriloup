@@ -29,7 +29,7 @@ export default {
             if (isMerchantHost()) {
                 return [
                     { name: "admin.settings.company", icon: "lab lab-line-company", labelKey: "menu.company" },
-                    { name: "admin.settings.site", icon: "lab lab-line-currencies", label: "Visitor Currency" },
+                    { name: "admin.settings.site", icon: "lab lab-line-currencies", label: "Currency Settings" },
                     { name: "admin.settings.locationSetup", icon: "lab lab-line-location-setup", labelKey: "menu.location_setup" },
                     { name: "admin.settings.shippingSetup", icon: "lab lab-line-truck-check", labelKey: "menu.shipping_setup" },
                     { name: "admin.settings.paymentGateway", icon: "lab lab-line-payment-gateway", label: "Payment Methods" },

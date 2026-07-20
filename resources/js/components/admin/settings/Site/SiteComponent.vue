@@ -9,6 +9,21 @@
             <form v-if="merchantCurrencyOnly" @submit.prevent="save">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
+                        <label for="merchant_site_default_currency" class="db-field-title required">
+                            Store Base Currency
+                        </label>
+
+                        <vue-select class="db-field-control f-b-custom-select" id="merchant_site_default_currency"
+                            v-bind:class="errors.site_default_currency ? 'is-invalid' : ''"
+                            v-model="form.site_default_currency" :options="currencies" label-by="name_symbol"
+                            value-by="id" :closeOnSelect="true" :searchable="true" :clearOnClose="true" placeholder="--"
+                            search-placeholder="--" />
+                        <small class="db-field-alert" v-if="errors.site_default_currency">
+                            {{ errors.site_default_currency[0] }}
+                        </small>
+                    </div>
+
+                    <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="site_auto_visitor_currency_enable">
                             Auto Visitor Currency
                         </label>
@@ -549,7 +564,7 @@ export default {
             return isMerchantHost();
         },
         pageTitle: function () {
-            return this.merchantCurrencyOnly ? "Visitor Currency" : this.$t('menu.site');
+            return this.merchantCurrencyOnly ? "Currency Settings" : this.$t('menu.site');
         },
     },
     mounted() {
