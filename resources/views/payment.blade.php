@@ -1,21 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 
+@php
+    $paymentLogoUrl = $logoUrl ?? ($logo?->logo ?? null);
+    $paymentFaviconUrl = $faviconUrl ?? ($faviconLogo?->faviconLogo ?? asset('images/required/theme-favicon-logo.png'));
+@endphp
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $company['company_name'] }}</title>
-    <link rel="icon" href="{{ $faviconLogo->faviconLogo }}">
+    <link rel="icon" href="{{ $paymentFaviconUrl }}">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <link rel="stylesheet" href="{{ asset('themes/default/css/custom.css') }}">
+    <style>
+        .payment-logo-placeholder {
+            align-items: center;
+            background: #fff;
+            border: 1px dashed #d9dbe9;
+            border-radius: 12px;
+            color: #a0a3bd;
+            display: flex;
+            font-size: 12px;
+            font-weight: 700;
+            height: 56px;
+            justify-content: center;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            width: 144px;
+        }
+    </style>
 </head>
 
 <body>
 <div class="py-14 px-4 w-full max-w-3xl mx-auto">
     <a href="{{ route('home') }}" class="block mx-auto w-36 mb-8">
-        <img class="w-full" src="{{ $logo->logo }}" alt="logo">
+        @if ($paymentLogoUrl)
+            <img class="w-full max-h-14 object-contain" src="{{ $paymentLogoUrl }}" alt="logo">
+        @else
+            <span class="payment-logo-placeholder">Logo</span>
+        @endif
     </a>
 
     <div id="loading-show" class="mx-auto w-80 {{ session()->has('error') ? 'hidden' : '' }}">

@@ -23,7 +23,9 @@ use App\Models\ThemeSetting;
 use App\Services\PaymentAttemptService;
 use App\Services\PaymentManagerService;
 use App\Services\Saas\TenantPaymentMethodCatalogService;
+use App\Services\Saas\TenantSettingsService;
 use App\Services\Tenancy\TenantContext;
+use App\Support\StorefrontBranding;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Dipokhalder\Settings\Facades\Settings;
@@ -37,6 +39,8 @@ class PaymentController extends Controller
         private readonly TenantPaymentMethodCatalogService $tenantPaymentMethodCatalogService,
         private readonly TenantContext $tenantContext,
         private readonly PaymentAttemptService $paymentAttemptService,
+        private readonly TenantSettingsService $tenantSettingsService,
+        private readonly StorefrontBranding $storefrontBranding,
     ) {
         $this->paymentManagerService = $paymentManagerService;
     }
@@ -61,10 +65,15 @@ class PaymentController extends Controller
         $credit          = false;
         $cashOnDelivery  = false;
         $paymentGateways = $this->paymentGatewaysForOrder($order);
-        $company         = Settings::group('company')->all();
-        $site            = Settings::group('site')->all();
+        $order->loadMissing('tenant');
+        $tenant          = $order->tenant;
+        $tenantSettings  = $tenant ? $this->tenantSettingsService->mergedForTenant($tenant) : null;
+        $company         = $tenantSettings ?: Settings::group('company')->all();
+        $site            = $tenantSettings ?: Settings::group('site')->all();
         $logo            = ThemeSetting::where(['key' => 'theme_logo'])->first();
         $faviconLogo     = ThemeSetting::where(['key' => 'theme_favicon_logo'])->first();
+        $logoUrl         = $this->storefrontBranding->logoUrl($tenant);
+        $faviconUrl      = $this->storefrontBranding->faviconUrl($tenant);
         $currency        = $this->paymentCurrency($site, $order);
         if ($order?->user?->balance >= $order->total && $this->orderAllowsGateway($order, 'credit')) {
             $credit = true;
@@ -80,8 +89,10 @@ class PaymentController extends Controller
             return view('payment', [
                 'company'         => $company,
                 'logo'            => $logo,
+                'logoUrl'         => $logoUrl,
                 'currency'        => $currency,
                 'faviconLogo'     => $faviconLogo,
+                'faviconUrl'      => $faviconUrl,
                 'paymentGateways' => $paymentGateways,
                 'order'           => $order,
                 'creditAmount'    => AppLibrary::currencyAmountFormat($order->user?->balance),

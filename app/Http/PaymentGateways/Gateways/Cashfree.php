@@ -6,11 +6,12 @@ namespace App\Http\PaymentGateways\Gateways;
 use Exception;
 use App\Enums\Activity;
 use App\Enums\GatewayMode;
-use App\Models\ThemeSetting;
 use Cashfree\Model\OrderMeta;
 use App\Models\PaymentGateway;
 use App\Services\PaymentService;
 use App\Services\PaymentAbstract;
+use App\Services\Saas\TenantSettingsService;
+use App\Support\StorefrontBranding;
 use Illuminate\Support\Facades\DB;
 use Cashfree\Model\CustomerDetails;
 use Illuminate\Support\Facades\Log;
@@ -77,14 +78,16 @@ class Cashfree extends PaymentAbstract
                 $cashfreeCancelLink = route('payment.fail', ['order' => $order, 'paymentGateway' => 'cashfree']);
                 $mode               = $this->mode;
 
-                $company     = Settings::group('company')->all();
-                $logo        = ThemeSetting::where(['key' => 'theme_logo'])->first();
-                $faviconLogo = ThemeSetting::where(['key' => 'theme_favicon_logo'])->first();
+                $order->loadMissing('tenant');
+                $company    = app(TenantSettingsService::class)->mergedForTenant($order->tenant);
+                $branding   = app(StorefrontBranding::class);
+                $logoUrl    = $branding->logoUrl($order->tenant);
+                $faviconUrl = $branding->faviconUrl($order->tenant);
 
 
                 return view(
                     'paymentGateways.cashfree.cashfreeJs',
-                    compact('paymentSessionId', 'cashfreePayLink', 'cashfreeCancelLink', 'mode', 'company', 'logo', 'faviconLogo', 'order')
+                    compact('paymentSessionId', 'cashfreePayLink', 'cashfreeCancelLink', 'mode', 'company', 'logoUrl', 'faviconUrl', 'order')
                 );
             } else {
                 return redirect()->route('payment.index', ['order' => $order, 'paymentGateway' => 'cashfree'])->with(
