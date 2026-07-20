@@ -10,13 +10,14 @@ class Transaction extends Model
     use BelongsToTenant;
 
     protected $table = "transactions";
-    protected $fillable = ['tenant_id', 'order_id', 'transaction_no', 'amount', 'payment_method', 'type', 'sign'];
+    protected $fillable = ['tenant_id', 'order_id', 'transaction_no', 'amount', 'currency_code', 'payment_method', 'type', 'sign'];
     protected $casts = [
         'id'             => 'integer',
         'tenant_id'      => 'integer',
         'order_id'       => 'integer',
         'transaction_no' => 'string',
         'amount'         => 'decimal:6',
+        'currency_code'  => 'string',
         'payment_method' => 'string',
         'type'           => 'string',
         'sign'           => 'string',

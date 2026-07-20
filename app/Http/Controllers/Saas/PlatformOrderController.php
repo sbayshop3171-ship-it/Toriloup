@@ -135,7 +135,7 @@ class PlatformOrderController extends Controller
             return $payload;
         }
 
-        $payload['transaction'] = $order->transaction?->only(['id', 'transaction_no', 'amount', 'payment_method', 'type', 'created_at']);
+        $payload['transaction'] = $order->transaction?->only(['id', 'transaction_no', 'amount', 'currency_code', 'payment_method', 'type', 'created_at']);
         $payload['order_products_count'] = $order->orderProducts->count();
         $payload['order_address_count'] = $order->address->count();
         $payload['items'] = $order->orderProducts

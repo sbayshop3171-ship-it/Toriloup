@@ -22,6 +22,7 @@ class TransactionResource extends JsonResource
             'order_serial_no' => $this->order?->order_serial_no,
             'transaction_no'  => $this->transaction_no,
             'amount'          => AppLibrary::flatAmountFormat($this->amount),
+            'currency_code'   => $this->currency_code,
             'payment_method'  => strtoupper($this->payment_method),
             'type'            => $this->type,
             'sign'            => $this->sign,

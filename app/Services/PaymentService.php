@@ -53,6 +53,7 @@ class PaymentService
                         'order_id'       => $order->id,
                         'transaction_no' => $transactionNo,
                         'amount'         => $order->total,
+                        'currency_code'  => $this->paymentCurrencyForOrder($order),
                         'payment_method' => $gatewaySlug,
                         'sign'           => '+',
                         'type'           => 'payment'
@@ -105,6 +106,7 @@ class PaymentService
                 'order_id'       => $order->id,
                 'transaction_no' => $transactionNo,
                 'amount'         => $order->total,
+                'currency_code'  => $this->paymentCurrencyForOrder($order),
                 'payment_method' => $gatewaySlug,
                 'sign'           => '-',
                 'type'           => 'cash_back'
@@ -120,5 +122,16 @@ class PaymentService
         }
 
         return $transaction;
+    }
+
+    private function paymentCurrencyForOrder(Order $order): string
+    {
+        return strtoupper(substr(trim((string) (
+            $order->charge_currency_code
+            ?: $order->display_currency_code
+            ?: $order->base_currency_code
+            ?: $order->tenant?->primary_currency_code
+            ?: config('currency.base_code', 'USD')
+        )), 0, 10));
     }
 }

@@ -68,6 +68,64 @@ class MerchantWalletSettlementTest extends TestCase
         $this->assertSame(1, MerchantWalletTransaction::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('type', MerchantWalletService::TYPE_ORDER_PAYMENT)->count());
     }
 
+    public function test_foreign_customer_charge_settles_into_merchant_base_wallet_currency(): void
+    {
+        $tenant = $this->createTenant('bdt-wallet-settlement-store');
+        $tenant->forceFill(['primary_currency_code' => 'BDT'])->save();
+        $this->subscribeTenant($tenant, 'percent', 10);
+        $customer = $this->createUser('bdt-wallet-customer@test.com', LegacyRole::CUSTOMER, 'customer');
+
+        $order = $this->createOrder($tenant, $customer, 1, [
+            'base_currency_code' => 'BDT',
+            'display_currency_code' => 'USD',
+            'display_currency_symbol' => '$',
+            'display_currency_minor_unit' => 2,
+            'display_exchange_rate' => 0.00833333,
+            'charge_currency_code' => 'USD',
+            'currency_snapshot_json' => [
+                'base_currency_code' => 'BDT',
+                'display_currency_code' => 'USD',
+                'display_exchange_rate' => 0.00833333,
+            ],
+        ]);
+
+        $paymentTransaction = app(PaymentService::class)->payment($order, 'stripe', 'txn-wallet-fx-1');
+
+        $wallet = MerchantWallet::withoutGlobalScopes()->where('tenant_id', $tenant->id)->firstOrFail();
+        $walletTransaction = MerchantWalletTransaction::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('type', MerchantWalletService::TYPE_ORDER_PAYMENT)
+            ->firstOrFail();
+
+        $this->assertSame('BDT', $wallet->currency_code);
+        $this->assertSame('USD', $paymentTransaction->fresh()->currency_code);
+        $this->assertEqualsWithDelta(108.0, (float) $wallet->available_balance, 0.01);
+        $this->assertEqualsWithDelta(108.0, (float) $wallet->total_earned, 0.01);
+        $this->assertEqualsWithDelta(12.0, (float) $wallet->total_fees, 0.01);
+        $this->assertSame('BDT', $walletTransaction->currency_code);
+        $this->assertEqualsWithDelta(120.0, (float) $walletTransaction->gross_amount, 0.01);
+        $this->assertEqualsWithDelta(12.0, (float) $walletTransaction->fee_amount, 0.01);
+        $this->assertSame('USD', $walletTransaction->metadata_json['charge_currency_code']);
+        $this->assertEqualsWithDelta(1.0, (float) $walletTransaction->metadata_json['charge_amount'], 0.000001);
+        $this->assertEqualsWithDelta(120.0, (float) $walletTransaction->metadata_json['wallet_exchange_rate'], 0.01);
+        $this->assertSame('order_snapshot_inverse_display_rate', $walletTransaction->metadata_json['wallet_settlement_strategy']);
+
+        app(MerchantWalletService::class)->reverseOrderPayment($order->fresh(), 0.25, 'partial_refund', 77);
+
+        $wallet->refresh();
+        $refund = MerchantWalletTransaction::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('type', MerchantWalletService::TYPE_REFUND_ADJUSTMENT)
+            ->firstOrFail();
+
+        $this->assertEqualsWithDelta(78.0, (float) $wallet->available_balance, 0.01);
+        $this->assertEqualsWithDelta(30.0, (float) $wallet->total_refunded, 0.01);
+        $this->assertSame('BDT', $refund->currency_code);
+        $this->assertSame('USD', $refund->metadata_json['charge_currency_code']);
+        $this->assertEqualsWithDelta(0.25, (float) $refund->metadata_json['charge_amount'], 0.000001);
+        $this->assertEqualsWithDelta(30.0, (float) $refund->metadata_json['wallet_refund_amount'], 0.01);
+    }
+
     public function test_holding_period_releases_payment_into_available_balance(): void
     {
         config(['saas.wallet.holding_days' => 2]);
@@ -361,9 +419,9 @@ class MerchantWalletSettlementTest extends TestCase
         ]);
     }
 
-    private function createOrder(Tenant $tenant, User $customer, float $total): Order
+    private function createOrder(Tenant $tenant, User $customer, float $total, array $overrides = []): Order
     {
-        return Order::withoutGlobalScopes()->create([
+        return Order::withoutGlobalScopes()->create(array_merge([
             'tenant_id' => $tenant->id,
             'order_serial_no' => 'ORD-' . Str::upper(Str::random(8)),
             'user_id' => $customer->id,
@@ -377,7 +435,7 @@ class MerchantWalletSettlementTest extends TestCase
             'payment_status' => PaymentStatus::UNPAID,
             'status' => OrderStatus::PENDING,
             'active' => Ask::NO,
-        ]);
+        ], $overrides));
     }
 
     private function createUser(string $email, int $roleId, string $roleName, array $overrides = []): User

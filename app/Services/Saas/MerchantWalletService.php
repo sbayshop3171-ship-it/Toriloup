@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\TenantSubscription;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Currency\CurrencyConversionService;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -35,16 +36,27 @@ class MerchantWalletService
         'cod',
     ];
 
-    public function __construct(private readonly PlatformAuditLogService $auditLogService)
+    public function __construct(
+        private readonly PlatformAuditLogService $auditLogService,
+        private readonly CurrencyConversionService $currencyConversionService,
+    )
     {
     }
 
     public function walletForTenant(Tenant $tenant): MerchantWallet
     {
-        return MerchantWallet::withoutGlobalScopes()->firstOrCreate(
+        $wallet = MerchantWallet::withoutGlobalScopes()->firstOrCreate(
             ['tenant_id' => $tenant->id],
             ['currency_code' => $this->currencyForTenant($tenant)]
         );
+
+        $tenantCurrency = $this->currencyForTenant($tenant);
+
+        if ($wallet->currency_code !== $tenantCurrency && $this->walletHasNoMoney($wallet)) {
+            $wallet->forceFill(['currency_code' => $tenantCurrency])->save();
+        }
+
+        return $wallet;
     }
 
     public function summary(Tenant $tenant): array
@@ -107,7 +119,14 @@ class MerchantWalletService
                 return $existing;
             }
 
-            $grossAmount = $this->roundMoney((float) ($transaction->amount ?: $order->total));
+            $settlement = $this->settlementForOrderAmount(
+                $order,
+                $tenant,
+                $wallet,
+                (float) ($transaction->amount ?: $order->total),
+                $this->paymentCurrencyForOrder($order)
+            );
+            $grossAmount = $settlement['wallet_amount'];
             $feeAmount = $this->calculateOrderFee($tenant, $grossAmount);
             $netAmount = max($this->roundMoney($grossAmount - $feeAmount), 0);
             $holdingDays = $this->holdingDays();
@@ -145,6 +164,15 @@ class MerchantWalletService
                     'gateway_slug' => $gatewaySlug,
                     'order_serial_no' => $order->order_serial_no,
                     'holding_days' => $holdingDays,
+                    'charge_currency_code' => $settlement['source_currency_code'],
+                    'charge_amount' => $settlement['source_amount'],
+                    'wallet_currency_code' => $settlement['wallet_currency_code'],
+                    'wallet_gross_amount' => $settlement['wallet_amount'],
+                    'wallet_exchange_rate' => $settlement['exchange_rate'],
+                    'wallet_settlement_strategy' => $settlement['strategy'],
+                    'order_base_currency_code' => $settlement['base_currency_code'],
+                    'order_display_currency_code' => $settlement['display_currency_code'],
+                    'order_display_exchange_rate' => $settlement['display_exchange_rate'],
                 ],
             ]);
         });
@@ -459,7 +487,14 @@ class MerchantWalletService
                 return $existingAdjustment;
             }
 
-            $refundAmount = $this->roundMoney((float) ($amount ?? $order->total));
+            $settlement = $this->settlementForOrderAmount(
+                $order,
+                $tenant,
+                $wallet,
+                (float) ($amount ?? $order->total),
+                $this->paymentCurrencyForOrder($order)
+            );
+            $refundAmount = $settlement['wallet_amount'];
 
             if ($refundAmount <= 0) {
                 return null;
@@ -492,6 +527,15 @@ class MerchantWalletService
                     'return_and_refund_id' => $returnAndRefundId,
                     'holding_debit' => $holdingDebit,
                     'available_debit' => $remaining,
+                    'charge_currency_code' => $settlement['source_currency_code'],
+                    'charge_amount' => $settlement['source_amount'],
+                    'wallet_currency_code' => $settlement['wallet_currency_code'],
+                    'wallet_refund_amount' => $settlement['wallet_amount'],
+                    'wallet_exchange_rate' => $settlement['exchange_rate'],
+                    'wallet_settlement_strategy' => $settlement['strategy'],
+                    'order_base_currency_code' => $settlement['base_currency_code'],
+                    'order_display_currency_code' => $settlement['display_currency_code'],
+                    'order_display_exchange_rate' => $settlement['display_exchange_rate'],
                 ],
             ]);
         });
@@ -896,9 +940,90 @@ class MerchantWalletService
         return $requestNo;
     }
 
+    /**
+     * @return array{source_amount: float, source_currency_code: string, wallet_amount: float, wallet_currency_code: string, exchange_rate: float, strategy: string, base_currency_code: string, display_currency_code: string, display_exchange_rate: float}
+     */
+    private function settlementForOrderAmount(
+        Order $order,
+        Tenant $tenant,
+        MerchantWallet $wallet,
+        float $sourceAmount,
+        ?string $sourceCurrencyCode = null
+    ): array {
+        $sourceAmount = $this->roundMoney($sourceAmount);
+        $walletCurrencyCode = $this->normalizeCurrencyCode($wallet->currency_code ?: $this->currencyForTenant($tenant));
+        $sourceCurrencyCode = $this->normalizeCurrencyCode($sourceCurrencyCode ?: $this->paymentCurrencyForOrder($order));
+        $baseCurrencyCode = $this->normalizeCurrencyCode($order->base_currency_code ?: $tenant->primary_currency_code ?: $walletCurrencyCode);
+        $displayCurrencyCode = $this->normalizeCurrencyCode($order->display_currency_code ?: $order->charge_currency_code ?: $sourceCurrencyCode);
+        $displayExchangeRate = (float) ($order->display_exchange_rate ?: 0);
+
+        if ($sourceCurrencyCode === '') {
+            $sourceCurrencyCode = $walletCurrencyCode;
+        }
+
+        if ($walletCurrencyCode === '') {
+            $walletCurrencyCode = $sourceCurrencyCode;
+        }
+
+        $exchangeRate = 1.0;
+        $strategy = 'same_currency';
+
+        if ($sourceCurrencyCode !== $walletCurrencyCode) {
+            if ($displayExchangeRate > 0 && $sourceCurrencyCode === $displayCurrencyCode && $walletCurrencyCode === $baseCurrencyCode) {
+                $exchangeRate = round(1 / $displayExchangeRate, 8);
+                $strategy = 'order_snapshot_inverse_display_rate';
+            } elseif ($displayExchangeRate > 0 && $sourceCurrencyCode === $baseCurrencyCode && $walletCurrencyCode === $displayCurrencyCode) {
+                $exchangeRate = round($displayExchangeRate, 8);
+                $strategy = 'order_snapshot_display_rate';
+            } else {
+                $exchangeRate = $this->currencyConversionService->exchangeRateBetween($sourceCurrencyCode, $walletCurrencyCode, $tenant);
+                $strategy = 'latest_catalog_rate';
+            }
+        }
+
+        return [
+            'source_amount' => $sourceAmount,
+            'source_currency_code' => $sourceCurrencyCode,
+            'wallet_amount' => $this->roundMoney($sourceAmount * $exchangeRate),
+            'wallet_currency_code' => $walletCurrencyCode,
+            'exchange_rate' => $exchangeRate,
+            'strategy' => $strategy,
+            'base_currency_code' => $baseCurrencyCode,
+            'display_currency_code' => $displayCurrencyCode,
+            'display_exchange_rate' => $displayExchangeRate,
+        ];
+    }
+
+    private function paymentCurrencyForOrder(Order $order): string
+    {
+        return $this->normalizeCurrencyCode(
+            $order->charge_currency_code
+            ?: $order->display_currency_code
+            ?: $order->base_currency_code
+            ?: $order->tenant?->primary_currency_code
+            ?: config('currency.base_code', 'USD')
+        );
+    }
+
     private function currencyForTenant(Tenant $tenant): string
     {
-        return $tenant->primary_currency_code ?: 'USD';
+        return $this->normalizeCurrencyCode($tenant->primary_currency_code ?: config('currency.base_code', 'USD'));
+    }
+
+    private function normalizeCurrencyCode(?string $code): string
+    {
+        return strtoupper(substr(trim((string) $code), 0, 10));
+    }
+
+    private function walletHasNoMoney(MerchantWallet $wallet): bool
+    {
+        return (float) $wallet->available_balance === 0.0
+            && (float) $wallet->holding_balance === 0.0
+            && (float) $wallet->pending_withdrawal_balance === 0.0
+            && (float) $wallet->total_earned === 0.0
+            && (float) $wallet->total_withdrawn === 0.0
+            && (float) $wallet->total_fees === 0.0
+            && (float) $wallet->total_refunded === 0.0;
     }
 
     private function holdingDays(): int
