@@ -1,39 +1,67 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12">
-        <div class="db-card p-4">
-            <div class="flex flex-wrap gap-y-5 items-end justify-between">
-                <div>
-                    <div class="flex flex-wrap items-start gap-y-2 gap-x-3 mb-5">
-                        <p class="text-2xl font-medium">{{ $t('label.order_id') }}:
+    <div class="col-12 orders-module order-detail-page">
+        <div class="db-card p-4 order-detail-summary">
+            <div class="flex flex-wrap gap-y-5 items-end justify-between order-detail-summary-grid">
+                <div class="order-detail-heading">
+                    <div class="flex flex-wrap items-start gap-y-2 gap-x-3 mb-5 order-detail-title-row">
+                        <p class="text-2xl font-medium order-detail-title">{{ $t('label.order_id') }}:
                             <span class="text-heading">
                                 #{{ order.order_serial_no }}
                             </span>
                         </p>
-                        <div class="flex items-center gap-2 mt-1.5">
-                            <span :class="'text-sm capitalize px-2 rounded-3xl ' + orderStatusClass(order.status)">
+                        <div class="flex items-center gap-2 mt-1.5 order-detail-badges">
+                            <span :class="'order-detail-status-badge text-sm capitalize px-2 rounded-3xl ' + orderStatusClass(order.status)">
                                 {{ enums.returnStatusEnumArray[order.status] }}
                             </span>
                         </div>
                     </div>
-                    <ul class="flex flex-col gap-2">
+                    <ul class="flex flex-col gap-2 order-detail-meta">
                         <li class="flex items-center gap-2">
                             <i class="lab lab-line-calendar lab-font-size-16"></i>
                             <span class="text-xs">{{ order.order_datetime }}</span>
                         </li>
-
+                        <li class="text-xs">
+                            <i class="lab lab-line-user lab-font-size-16"></i>
+                            {{ $t('label.customer') }}:
+                            <span class="text-heading">
+                                {{ returnOrderUser.name }}
+                            </span>
+                        </li>
+                        <li class="text-xs">
+                            <i class="lab lab-line-account lab-font-size-16"></i>
+                            {{ $t('label.total') }}:
+                            <span class="text-heading">
+                                {{ order.return_total_currency_price }}
+                            </span>
+                        </li>
                     </ul>
                 </div>
 
-                <div class="flex flex-wrap gap-3" v-if="order.status === enums.returnStatusEnum.PENDING">
+                <div class="flex flex-wrap gap-3 order-detail-actions" v-if="order.status === enums.returnStatusEnum.PENDING">
                     <ReturnAndRefundReasonComponent />
                     <button type="button" @click="changeStatus(enums.returnStatusEnum.ACCEPT)"
-                        class="flex items-center justify-center text-white gap-2 px-4 h-[38px] rounded shadow-db-card bg-[#2AC769]">
+                        class="flex items-center justify-center text-white gap-2 px-4 h-[38px] rounded shadow-db-card bg-[#2AC769] order-action-button order-action-accept">
                         <i class="lab lab-fill-save"></i>
                         <span class="text-sm capitalize text-white">{{ $t('button.accept') }}</span>
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="col-12 order-detail-timeline-col">
+        <div class="db-card order-status-timeline-card">
+            <ul class="order-status-timeline return-status-timeline">
+                <li v-for="track in returnTimelineTracks" :key="track.step"
+                    class="order-status-timeline-item"
+                    :class="{ 'is-complete': isReturnTimelineStepComplete(track), 'is-current': Number(order.status) === Number(track.step), 'is-rejected': track.isRejected && Number(order.status) === Number(track.step) }">
+                    <span class="order-status-timeline-icon">
+                        <i :class="track.isRejected ? 'lab lab-fill-close-circle' : 'lab lab-fill-save'"></i>
+                    </span>
+                    <span class="order-status-timeline-title">{{ track.title }}</span>
+                </li>
+            </ul>
         </div>
     </div>
 
@@ -208,6 +236,13 @@ export default {
         returnOrderUser: function () {
             return this.$store.getters['returnAndRefund/returnOrderUser'];
         },
+        returnTimelineTracks: function () {
+            return [
+                { step: returnStatusEnum.PENDING, title: this.$t("label.pending") },
+                { step: returnStatusEnum.ACCEPT, title: this.$t("label.accept") },
+                { step: returnStatusEnum.REJECTED, title: this.$t("label.rejected"), isRejected: true },
+            ];
+        },
     },
     mounted() {
         this.loading.isActive = true;
@@ -228,6 +263,13 @@ export default {
         },
         textShortener: function (text, number = 30) {
             return appService.textShortener(text, number);
+        },
+        isReturnTimelineStepComplete: function (track) {
+            if (Number(this.order.status) === Number(returnStatusEnum.REJECTED)) {
+                return Number(track.step) === Number(returnStatusEnum.PENDING) || Number(track.step) === Number(returnStatusEnum.REJECTED);
+            }
+
+            return !track.isRejected && Number(track.step) <= Number(this.order.status);
         },
         previewImage: function (img) {
             this.previewImg = img;

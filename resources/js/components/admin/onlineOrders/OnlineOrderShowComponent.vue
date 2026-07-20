@@ -1,37 +1,39 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12">
-        <div class="db-card p-4">
-            <div class="flex flex-wrap gap-y-5 items-end justify-between">
-                <div>
-                    <div class="flex flex-wrap items-start gap-y-2 gap-x-6 mb-5">
-                        <p class="text-2xl font-medium">{{ $t('label.order_id') }}:
+    <div class="col-12 orders-module order-detail-page">
+        <div class="db-card p-4 order-detail-summary">
+            <div class="flex flex-wrap gap-y-5 items-end justify-between order-detail-summary-grid">
+                <div class="order-detail-heading">
+                    <div class="flex flex-wrap items-start gap-y-2 gap-x-6 mb-5 order-detail-title-row">
+                        <p class="text-2xl font-medium order-detail-title">{{ $t('label.order_id') }}:
                             <span class="text-heading">
                                 #{{ order.order_serial_no }}
                             </span>
                         </p>
-                        <div class="flex items-center gap-2 mt-1.5">
+                        <div class="flex items-center gap-2 mt-1.5 order-detail-badges">
                             <span
-                                :class="'text-sm capitalize h-5 leading-5 px-2 rounded-3xl text-[#FB4E4E] bg-[#FFDADA]' + statusClass(order.payment_status)">
+                                :class="'order-detail-status-badge order-detail-payment-badge text-sm capitalize h-5 leading-5 px-2 rounded-3xl text-[#FB4E4E] bg-[#FFDADA] ' + statusClass(order.payment_status)">
                                 {{ paymentStatusEnumArray[order.payment_status] }}
                             </span>
-                            <span :class="'text-sm capitalize px-2 rounded-3xl ' + orderStatusClass(order.status)">
+                            <span :class="'order-detail-status-badge text-sm capitalize px-2 rounded-3xl ' + orderStatusClass(order.status)">
                                 {{ orderStatusEnumArray[order.status] }}
                             </span>
                         </div>
                     </div>
-                    <ul class="flex flex-col gap-2">
+                    <ul class="flex flex-col gap-2 order-detail-meta">
                         <li class="flex items-center gap-2">
                             <i class="lab lab-line-calendar lab-font-size-16"></i>
                             <span class="text-xs">{{ order.order_datetime }}</span>
                         </li>
                         <li class="text-xs">
+                            <i class="lab lab-line-card lab-font-size-16"></i>
                             {{ $t('label.payment_type') }}:
                             <span class="text-heading">
                                 {{ order.payment_method_name }}
                             </span>
                         </li>
                         <li class="text-xs">
+                            <i class="lab lab-line-online-orders lab-font-size-16"></i>
                             {{ $t('label.order_type') }}:
                             <span class="text-heading">
                                 {{ orderTypeEnumArray[order.order_type] }}
@@ -40,20 +42,20 @@
                     </ul>
                 </div>
 
-                <div class="flex flex-wrap gap-3" v-if="order.status === enums.orderStatusEnum.PENDING">
+                <div class="flex flex-wrap gap-3 order-detail-actions" v-if="order.status === enums.orderStatusEnum.PENDING">
                     <OnlineOrderReasonComponent />
                     <button type="button" @click="changeStatus(enums.orderStatusEnum.CONFIRMED)"
-                        class="flex items-center justify-center text-white gap-2 px-4 h-[38px] rounded shadow-db-card bg-[#2AC769]">
+                        class="flex items-center justify-center text-white gap-2 px-4 h-[38px] rounded shadow-db-card bg-[#2AC769] order-action-button order-action-accept">
                         <i class="lab lab-fill-save"></i>
                         <span class="text-sm capitalize text-white">{{ $t('button.accept') }}</span>
                     </button>
                 </div>
 
-                <div class="flex flex-wrap gap-3"
+                <div class="flex flex-wrap gap-3 order-detail-actions"
                     v-else-if="order.status !== enums.orderStatusEnum.REJECTED && order.status !== enums.orderStatusEnum.CANCELED">
-                    <div class="relative">
+                    <div class="relative order-status-select">
                         <select v-model="payment_status" @change="changePaymentStatus($event)"
-                            class="text-sm capitalize appearance-none pl-4 pr-10 h-[38px] rounded border border-primary bg-white text-primary">
+                            class="text-sm capitalize appearance-none pl-4 pr-10 h-[38px] rounded border border-primary bg-white text-primary order-status-select-control">
                             <option v-for="paymentStatus in paymentStatusObject" :value="paymentStatus.value">
                                 {{ paymentStatus.name }}
                             </option>
@@ -62,9 +64,9 @@
                             class="lab lab-line-chevron-down lab-font-size-16 absolute top-1/2 right-3.5 -translate-y-1/2 text-primary"></i>
                     </div>
 
-                    <div class="relative" v-if="order.order_type === enums.orderTypeEnum.DELIVERY">
+                    <div class="relative order-status-select" v-if="order.order_type === enums.orderTypeEnum.DELIVERY">
                         <select v-model="order_status" @change="orderStatus($event)"
-                            class="text-sm capitalize appearance-none pl-4 pr-10 h-[38px] rounded border border-primary bg-white text-primary">
+                            class="text-sm capitalize appearance-none pl-4 pr-10 h-[38px] rounded border border-primary bg-white text-primary order-status-select-control">
                             <option v-for="orderStatus in orderStatusObject" :value="orderStatus.value">
                                 {{ orderStatus.name }}
                             </option>
@@ -73,9 +75,9 @@
                             class="lab lab-line-chevron-down lab-font-size-16 absolute top-1/2 right-3.5 -translate-y-1/2 text-primary"></i>
                     </div>
 
-                    <div class="relative" v-if="order.order_type === enums.orderTypeEnum.PICK_UP">
+                    <div class="relative order-status-select" v-if="order.order_type === enums.orderTypeEnum.PICK_UP">
                         <select v-model="order_status" @change="orderStatus($event)"
-                            class="text-sm capitalize appearance-none pl-4 pr-10 h-[38px] rounded border border-primary bg-white text-primary">
+                            class="text-sm capitalize appearance-none pl-4 pr-10 h-[38px] rounded border border-primary bg-white text-primary order-status-select-control">
                             <option v-for="orderStatus in orderStatusPickupObject" :value="orderStatus.value">
                                 {{ orderStatus.name }}
                             </option>
@@ -88,6 +90,22 @@
                         :orderAddress="orderAddress" />
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="col-12 order-detail-timeline-col"
+        v-if="order.status !== enums.orderStatusEnum.REJECTED && order.status !== enums.orderStatusEnum.CANCELED">
+        <div class="db-card order-status-timeline-card">
+            <ul class="order-status-timeline">
+                <li v-for="track in orderTimelineTracks" :key="track.step"
+                    class="order-status-timeline-item"
+                    :class="{ 'is-complete': isTimelineStepComplete(track), 'is-current': Number(order.status) === Number(track.step) }">
+                    <span class="order-status-timeline-icon">
+                        <i class="lab lab-fill-save"></i>
+                    </span>
+                    <span class="order-status-timeline-title">{{ track.title }}</span>
+                </li>
+            </ul>
         </div>
     </div>
 
@@ -372,6 +390,22 @@ export default {
                     [orderTypeEnum.DELIVERY]: this.$t("label.delivery"),
                     [orderTypeEnum.PICK_UP]: this.$t("label.pick_up")
                 }
+        },
+        orderTimelineTracks: function () {
+            const pending = { step: orderStatusEnum.PENDING, title: this.$t("label.order_pending") };
+            const confirmed = { step: orderStatusEnum.CONFIRMED, title: this.$t("label.order_confirmed") };
+            const delivered = { step: orderStatusEnum.DELIVERED, title: this.$t("label.order_delivered") };
+
+            if (this.order.order_type === orderTypeEnum.PICK_UP) {
+                return [pending, confirmed, delivered];
+            }
+
+            return [
+                pending,
+                confirmed,
+                { step: orderStatusEnum.ON_THE_WAY, title: this.$t("label.order_on_the_way") },
+                delivered,
+            ];
         }
     },
     mounted() {
@@ -393,6 +427,9 @@ export default {
         },
         textShortener: function (text, number = 30) {
             return appService.textShortener(text, number);
+        },
+        isTimelineStepComplete: function (track) {
+            return Number(track.step) <= Number(this.order.status);
         },
         changeStatus: function (status) {
             appService.acceptOrder().then((res) => {

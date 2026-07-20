@@ -1,9 +1,9 @@
 <template>
   <LoadingComponent :props="loading"/>
-  <div class="col-12" id="print">
-    <div class="db-card p-4 mb-8">
+  <div class="col-12 orders-module return-order-detail-page" id="print">
+    <div class="db-card p-4 mb-8 order-detail-summary return-order-summary">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="p-4 rounded-xl border border-gray-100">
+        <div class="p-4 rounded-xl border border-gray-100 order-info-panel">
           <i class="lab-fill-shop text-2xl text-shopperz-blue mb-2 lab-font-size-24"></i>
           <h4 class="text-sm capitalize font-semibold text-secondary mb-1.5">
             {{ $t("label.customer") }}
@@ -29,7 +29,7 @@
             </li>
           </ul>
         </div>
-        <div class="p-4 rounded-xl border border-gray-100">
+        <div class="p-4 rounded-xl border border-gray-100 order-info-panel">
           <i class="lab-fill-file text-2xl text-success mb-2 lab-font-size-24"></i>
           <h4 class="text-sm capitalize font-semibold text-secondary mb-1.5">
             {{ $t("label.reference") }}:
@@ -46,7 +46,7 @@
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-1 gap-6 pt-4" v-if="returnOrderDetails.reason">
-        <div class="p-4 rounded-xl border border-gray-100">
+        <div class="p-4 rounded-xl border border-gray-100 order-info-panel">
           <h4 class="text-sm capitalize font-semibold text-secondary mb-1.5">
             {{ $t('label.reason') }}:
           </h4>
@@ -54,9 +54,9 @@
         </div>
       </div>
     </div>
-    <div class="db-card overflow-hidden">
-      <div class="db-table-responsive">
-        <table class="db-table stripe">
+    <div class="db-card overflow-hidden order-list-card">
+      <div class="db-table-responsive order-table-responsive">
+        <table class="db-table stripe order-mobile-table return-order-detail-table">
           <thead class="db-table-head">
           <tr class="db-table-head-tr">
             <th class="db-table-head-th">
@@ -106,8 +106,8 @@
         </table>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start py-6 px-4">
-        <div class="p-4 rounded-xl flex flex-col gap-2.5 bg-gray-100">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start py-6 px-4 order-detail-total-grid">
+        <div class="p-4 rounded-xl flex flex-col gap-2.5 bg-gray-100 order-info-panel">
           <dl v-if="returnOrderDetails.creator && returnOrderDetails.creator.name" class="flex items-start gap-1.5">
             <dt class="text-base font-medium text-secondary">
               {{ $t('label.created_by') }}:
@@ -126,7 +126,7 @@
           </dl>
         </div>
 
-        <ul class="w-full flex flex-col gap-3.5 p-4 rounded-xl border border-gray-100">
+        <ul class="w-full flex flex-col gap-3.5 p-4 rounded-xl border border-gray-100 order-total-panel">
           <li class="w-full flex items-center justify-between">
             <span class="text-base font-semibold text-secondary">{{ $t('label.subtotal') }}</span>
             <span class="text-base font-semibold text-secondary">{{ returnOrderDetails.subtotal_currency }}</span>
@@ -148,8 +148,8 @@
       </div>
     </div>
   </div>
-  <div class="form-col-12 hidden-print">
-    <div class="flex items-center justify-end gap-6">
+  <div class="form-col-12 hidden-print orders-module">
+    <div class="flex items-center justify-end gap-6 order-detail-actions return-order-show-actions">
       <button v-if="returnOrderDetails.file" @click="download()" type="button" class="flex items-center justify-center gap-1.5 h-10 px-6 rounded-3xl text-white bg-primary">
         <i class="lab lab-fill-download"></i>
         <span class="capitalize text-sm font-medium">{{ $t('label.download') }}</span>

@@ -887,7 +887,275 @@
         @apply border border-primary/30 bg-primary/5 ring-1 ring-primary/10;
     }
 
+    .order-list-card {
+        @apply overflow-hidden border border-gray-100;
+    }
+
+    .order-list-header {
+        @apply gap-3;
+    }
+
+    .order-mobile-table .db-table-badge {
+        @apply inline-flex min-h-7 items-center justify-center rounded-full px-3 py-1 text-xs font-semibold leading-none;
+    }
+
+    .order-detail-summary {
+        @apply border border-gray-100 shadow-sm;
+    }
+
+    .order-detail-title {
+        @apply break-words leading-tight;
+    }
+
+    .order-detail-badges {
+        @apply flex-wrap;
+    }
+
+    .order-detail-status-badge {
+        @apply inline-flex min-h-7 items-center justify-center rounded-full px-3 py-1 text-xs font-semibold leading-none;
+    }
+
+    .order-detail-meta li {
+        @apply flex items-center gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-heading;
+    }
+
+    .order-detail-meta i {
+        @apply flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-white text-primary;
+    }
+
+    .order-detail-actions {
+        @apply items-center;
+    }
+
+    .order-status-select-control {
+        min-width: 154px;
+    }
+
+    .order-action-button {
+        @apply min-h-[38px] rounded-lg font-medium;
+    }
+
+    .order-info-panel,
+    .order-total-panel {
+        @apply bg-white shadow-sm;
+    }
+
+    .order-status-timeline-card {
+        @apply p-4;
+    }
+
+    .order-status-timeline {
+        @apply flex items-start justify-between gap-2;
+    }
+
+    .order-status-timeline-item {
+        @apply relative flex flex-1 flex-col items-center gap-2 text-center;
+    }
+
+    .order-status-timeline-item::after {
+        content: "";
+        position: absolute;
+        top: 18px;
+        left: calc(50% + 20px);
+        right: calc(-50% + 20px);
+        z-index: 0;
+        height: 2px;
+        border-radius: 999px;
+        background: #E5E7EB;
+    }
+
+    .order-status-timeline-item:last-child::after,
+    .legacy-order-status-timeline .order-status-timeline-item::after {
+        display: none;
+    }
+
+    .order-status-timeline-item.is-complete::after {
+        background: #2AC769;
+    }
+
+    .order-status-timeline-icon {
+        @apply relative z-[1] flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 ring-4 ring-white;
+    }
+
+    .order-status-timeline-icon i {
+        @apply text-sm;
+    }
+
+    .order-status-timeline-item.is-complete .order-status-timeline-icon {
+        @apply bg-success text-white;
+    }
+
+    .order-status-timeline-item.is-current .order-status-timeline-icon {
+        @apply ring-success/20;
+    }
+
+    .order-status-timeline-item.is-rejected .order-status-timeline-icon {
+        @apply bg-[#FB4E4E] text-white ring-[#FFDADA];
+    }
+
+    .order-status-timeline-title {
+        @apply max-w-[120px] text-xs font-semibold capitalize leading-5 text-heading;
+    }
+
     @media (max-width: 767px) {
+        .orders-list-page .order-list-card,
+        .order-detail-summary,
+        .order-status-timeline-card,
+        .return-order-detail-page .order-list-card,
+        .return-order-form-page .order-form-card {
+            @apply rounded-xl;
+        }
+
+        .order-list-header {
+            @apply flex-col items-stretch;
+        }
+
+        .order-list-filter {
+            @apply w-full;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .db-table-body-tr {
+            @apply rounded-xl border border-gray-200 bg-white p-3 shadow-sm;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .db-table-body-td {
+            @apply border-b-0 px-1 py-2 text-right;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-id {
+            @apply text-base font-bold text-heading;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-amount {
+            @apply text-base font-bold text-heading;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-customer,
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-payment,
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-date {
+            @apply font-medium text-heading;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-status {
+            @apply items-center;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-status .db-table-badge {
+            @apply min-h-8 px-3 text-sm;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-actions {
+            @apply mt-1 border-t border-gray-100 pt-3;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-actions::before {
+            display: none;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-actions > div {
+            @apply justify-end;
+        }
+
+        .backend-mobile-enhanced .order-mobile-table[data-mobile-card-ready="true"] .order-card-actions .db-table-action i {
+            @apply min-h-10 min-w-10 rounded-lg text-center leading-8;
+        }
+
+        .order-detail-summary {
+            @apply p-3;
+        }
+
+        .order-detail-summary-grid {
+            @apply flex-col items-stretch gap-4;
+        }
+
+        .order-detail-heading {
+            @apply w-full;
+        }
+
+        .order-detail-title-row {
+            @apply mb-3 flex-col gap-2;
+        }
+
+        .order-detail-title {
+            @apply text-xl leading-7;
+        }
+
+        .order-detail-status-badge {
+            @apply min-h-8 px-3 text-sm;
+        }
+
+        .order-detail-meta {
+            @apply gap-2;
+        }
+
+        .order-detail-meta li {
+            @apply w-full;
+        }
+
+        .order-detail-actions {
+            @apply w-full flex-col items-stretch gap-2;
+        }
+
+        .order-detail-actions > *,
+        .order-detail-actions .order-status-select {
+            width: 100%;
+        }
+
+        .order-detail-actions button,
+        .order-status-select-control {
+            width: 100%;
+            min-height: 44px;
+        }
+
+        .order-status-timeline-card {
+            @apply p-3;
+        }
+
+        .order-status-timeline {
+            @apply flex-col items-stretch gap-0;
+        }
+
+        .legacy-order-status-timeline {
+            @apply flex-row items-center gap-1;
+        }
+
+        .order-status-timeline:not(.legacy-order-status-timeline) .order-status-timeline-item {
+            @apply flex-row items-start justify-start gap-3 pb-4 text-left;
+        }
+
+        .order-status-timeline:not(.legacy-order-status-timeline) .order-status-timeline-item::after {
+            top: 36px;
+            bottom: 0;
+            left: 18px;
+            right: auto;
+            width: 2px;
+            height: auto;
+        }
+
+        .order-status-timeline:not(.legacy-order-status-timeline) .order-status-timeline-title {
+            @apply mt-2 max-w-none text-sm;
+        }
+
+        .return-order-detail-page .order-info-panel,
+        .return-order-detail-page .order-total-panel {
+            @apply rounded-xl p-3;
+        }
+
+        .order-detail-total-grid {
+            @apply gap-3 px-3 py-4;
+        }
+
+        .return-order-show-actions,
+        .return-order-form-actions {
+            @apply flex-col items-stretch gap-2;
+        }
+
+        .return-order-show-actions > *,
+        .return-order-form-actions > * {
+            width: 100%;
+            min-height: 44px;
+        }
+
         .dashboard-welcome h3 {
             @apply text-xl leading-7;
         }

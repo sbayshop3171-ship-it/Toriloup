@@ -1,10 +1,10 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12">
-        <div class="db-card">
-            <div class="db-card-header border-none">
+    <div class="col-12 orders-module orders-list-page">
+        <div class="db-card order-list-card">
+            <div class="db-card-header border-none order-list-header">
                 <h3 class="db-card-title">{{ $t('menu.return_orders') }}</h3>
-                <div class="db-card-filter">
+                <div class="db-card-filter order-list-filter">
                     <TableLimitComponent :method="list" :search="props.search" :page="paginationPage" />
                     <FilterComponent @click.prevent="handleSlide('return-filter')" />
                     <div class="dropdown-group">
@@ -68,8 +68,8 @@
                 </form>
             </div>
 
-            <div class="db-table-responsive">
-                <table class="db-table stripe" id="print">
+            <div class="db-table-responsive order-table-responsive">
+                <table class="db-table stripe order-mobile-table return-order-mobile-table" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
                             <th class="db-table-head-th">{{ $t('label.customer') }}</th>
@@ -83,12 +83,12 @@
                     </thead>
                     <tbody class="db-table-body border-b border-gray-200" v-if="returnOrders.length > 0">
                         <tr class="db-table-body-tr" v-for="(returnOrder, index) of returnOrders" :key="index">
-                            <td class="db-table-body-td font-medium">{{ returnOrder.user.name }}</td>
-                            <td class="db-table-body-td">{{ returnOrder.converted_date }}</td>
-                            <td class="db-table-body-td">{{ returnOrder.reference_no }}</td>
-                            <td class="db-table-body-td">{{ returnOrder.total_float_price }}</td>
-                            <td class="db-table-body-td"><span v-html="textShortener(returnOrder.reason)"></span></td>
-                            <td class="db-table-body-td hidden-print"
+                            <td class="db-table-body-td font-medium order-card-customer">{{ returnOrder.user.name }}</td>
+                            <td class="db-table-body-td order-card-date">{{ returnOrder.converted_date }}</td>
+                            <td class="db-table-body-td order-card-id">{{ returnOrder.reference_no }}</td>
+                            <td class="db-table-body-td order-card-amount">{{ returnOrder.total_float_price }}</td>
+                            <td class="db-table-body-td order-card-note"><span v-html="textShortener(returnOrder.reason)"></span></td>
+                            <td class="db-table-body-td hidden-print order-card-actions"
                                 v-if="permissionChecker('return_order_show') || permissionChecker('return_order_edit') || permissionChecker('return_order_delete')">
                                 <SmIconViewComponent :link="'admin.return-order.show'" :id="returnOrder.id"
                                     v-if="permissionChecker('return_order_show')" />
@@ -114,7 +114,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6" v-if="returnOrders.length > 0">
+            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6 order-list-footer" v-if="returnOrders.length > 0">
                 <PaginationSMBox :pagination="pagination" :method="list" />
                 <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                     <PaginationTextComponent :props="{ page: paginationPage }" />

@@ -1,30 +1,32 @@
 <template>
     <ul v-if="order.status !== enums.orderStatusEnum.CANCELED && order.status !== enums.orderStatusEnum.REJECTED && order.order_type !== enums.orderTypeEnum.PICK_UP"
-        class="w-full flex items-center justify-center pb-12 mt-8 mb-5">
-        <li v-for="track in tracks" class="w-full flex items-center justify-center gap-1 relative">
+        class="w-full flex items-center justify-center pb-12 mt-8 mb-5 order-status-timeline legacy-order-status-timeline">
+        <li v-for="track in tracks" :key="track.step" class="w-full flex items-center justify-center gap-1 relative order-status-timeline-item"
+            :class="{ 'is-complete': track.step <= order.status, 'is-current': Number(track.step) === Number(order.status) }">
             <hr :class="{ '!bg-success': track.step <= order.status }"
                 class="block border-none w-full h-1 rounded-xl bg-gray-200" />
             <i :class="{ 'lab-fill-save !bg-success text-white': track.step <= order.status }"
-                class="flex-shrink-0 w-7 h-7 leading-7 text-center rounded-full bg-gray-200 lab-font-size-16" />
+                class="flex-shrink-0 w-7 h-7 leading-7 text-center rounded-full bg-gray-200 lab-font-size-16 order-status-timeline-icon" />
             <hr :class="{ '!bg-success': track.step <= order.status }"
                 class="block border-none w-full h-1 rounded-xl bg-gray-200" />
             <span
-                class="absolute top-10 left-1/2 -translate-x-1/2 w-14 sm:w-20 text-xs sm:text-sm leading-[18px] text-center capitalize">
+                class="absolute top-10 left-1/2 -translate-x-1/2 w-14 sm:w-20 text-xs sm:text-sm leading-[18px] text-center capitalize order-status-timeline-title">
                 {{ track.title }}</span>
         </li>
     </ul>
 
     <ul v-if="order.status !== enums.orderStatusEnum.CANCELED && order.status !== enums.orderStatusEnum.REJECTED && order.order_type === enums.orderTypeEnum.PICK_UP"
-        class="w-full flex items-center justify-center pb-12 mt-8 mb-5">
-        <li v-for="track in pickupTracks" class="w-full flex items-center justify-center gap-1 relative">
+        class="w-full flex items-center justify-center pb-12 mt-8 mb-5 order-status-timeline legacy-order-status-timeline">
+        <li v-for="track in pickupTracks" :key="track.step" class="w-full flex items-center justify-center gap-1 relative order-status-timeline-item"
+            :class="{ 'is-complete': track.step <= order.status, 'is-current': Number(track.step) === Number(order.status) }">
             <hr :class="{ '!bg-success': track.step <= order.status }"
                 class="block border-none w-full h-1 rounded-xl bg-gray-200" />
             <i :class="{ 'lab-fill-save !bg-success text-white': track.step <= order.status }"
-                class="flex-shrink-0 w-7 h-7 leading-7 text-center rounded-full bg-gray-200 lab-font-size-16" />
+                class="flex-shrink-0 w-7 h-7 leading-7 text-center rounded-full bg-gray-200 lab-font-size-16 order-status-timeline-icon" />
             <hr :class="{ '!bg-success': track.step <= order.status }"
                 class="block border-none w-full h-1 rounded-xl bg-gray-200" />
             <span
-                class="absolute top-10 left-1/2 -translate-x-1/2 w-14 sm:w-20 text-xs sm:text-sm leading-[18px] text-center capitalize">
+                class="absolute top-10 left-1/2 -translate-x-1/2 w-14 sm:w-20 text-xs sm:text-sm leading-[18px] text-center capitalize order-status-timeline-title">
                 {{ track.title }}</span>
         </li>
     </ul>

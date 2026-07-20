@@ -1,6 +1,6 @@
 <template>
     <button type="button" v-print="printObj"
-        class="flex items-center justify-center gap-2 px-4 h-[38px] rounded shadow-db-card bg-primary">
+        class="flex items-center justify-center gap-2 px-4 h-[38px] rounded shadow-db-card bg-primary order-action-button order-action-print">
         <i class="lab lab-line-printer lab-font-size-16 text-white"></i>
         <span class="text-sm capitalize text-white"> {{ $t('button.print_invoice') }}</span>
     </button>

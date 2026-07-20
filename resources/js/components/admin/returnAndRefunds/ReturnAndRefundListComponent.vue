@@ -1,10 +1,10 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12">
-        <div class="db-card">
-            <div class="db-card-header border-none">
+    <div class="col-12 orders-module orders-list-page">
+        <div class="db-card order-list-card">
+            <div class="db-card-header border-none order-list-header">
                 <h3 class="db-card-title">{{ $t('menu.return_and_refunds') }}</h3>
-                <div class="db-card-filter">
+                <div class="db-card-filter order-list-filter">
                     <TableLimitComponent :method="list" :search="props.search" :page="paginationPage" />
                     <FilterComponent @click.prevent="handleSlide('returnandrefund-filter')" />
                     <div class="dropdown-group">
@@ -74,8 +74,8 @@
                 </form>
             </div>
 
-            <div class="db-table-responsive">
-                <table class="db-table stripe" id="print">
+            <div class="db-table-responsive order-table-responsive">
+                <table class="db-table stripe order-mobile-table" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
                             <th class="db-table-head-th">{{ $t('label.order_id') }}</th>
@@ -90,23 +90,23 @@
                     </thead>
                     <tbody class="db-table-body" v-if="returnOrders.length > 0">
                         <tr class="db-table-body-tr" v-for="order in returnOrders" :key="order">
-                            <td class="db-table-body-td">
+                            <td class="db-table-body-td order-card-id">
                                 {{ order.order_serial_no }}
 
                             </td>
-                            <td class="db-table-body-td">
+                            <td class="db-table-body-td order-card-customer">
                                 {{ textShortener(order.user_name, 20) }}
                             </td>
-                            <td class="db-table-body-td">{{ order.return_total_price }}</td>
-                            <td class="db-table-body-td">
+                            <td class="db-table-body-td order-card-amount">{{ order.return_total_price }}</td>
+                            <td class="db-table-body-td order-card-date">
                                 {{ order.return_datetime }}
                             </td>
-                            <td class="db-table-body-td">
+                            <td class="db-table-body-td order-card-status">
                                 <span class="db-table-badge" :class="orderStatusClass(order.status)">
                                     {{ enums.returnStatusEnumArray[order.status] }}
                                 </span>
                             </td>
-                            <td class="db-table-body-td hidden-print" v-if="permissionChecker('return-and-refunds')">
+                            <td class="db-table-body-td hidden-print order-card-actions" v-if="permissionChecker('return-and-refunds')">
                                 <div class="flex justify-start items-center sm:items-start sm:justify-start gap-1.5">
                                     <SmIconViewComponent :link="'admin.returnAndRefund.show'" :id="order.id"
                                         v-if="permissionChecker('return-and-refunds')" />
@@ -129,7 +129,7 @@
                 </table>
             </div>
 
-            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6" v-if="returnOrders.length > 0">
+            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6 order-list-footer" v-if="returnOrders.length > 0">
                 <PaginationSMBox :pagination="pagination" :method="list" />
                 <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                     <PaginationTextComponent :props="{ page: paginationPage }" />

@@ -1,10 +1,10 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12">
-        <div class="db-card">
-            <div class="db-card-header border-none">
+    <div class="col-12 orders-module orders-list-page">
+        <div class="db-card order-list-card">
+            <div class="db-card-header border-none order-list-header">
                 <h3 class="db-card-title">{{ $t('menu.pos_orders') }}</h3>
-                <div class="db-card-filter">
+                <div class="db-card-filter order-list-filter">
                     <TableLimitComponent :method="list" :search="props.search" :page="paginationPage" />
                     <FilterComponent @click.prevent="handleSlide('posorderlist-filter')" />
                     <div class="dropdown-group">
@@ -73,14 +73,15 @@
                 </form>
             </div>
 
-            <div class="db-table-responsive">
-                <table class="db-table stripe" id="print">
+            <div class="db-table-responsive order-table-responsive">
+                <table class="db-table stripe order-mobile-table" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
                             <th class="db-table-head-th">{{ $t('label.order_id') }}</th>
                             <th class="db-table-head-th">{{ $t('label.customer') }}</th>
                             <th class="db-table-head-th">{{ $t('label.amount') }}</th>
                             <th class="db-table-head-th">{{ $t('label.date') }}</th>
+                            <th class="db-table-head-th">{{ $t('label.payment_type') }}</th>
                             <th class="db-table-head-th">{{ $t('label.status') }}</th>
                             <th class="db-table-head-th hidden-print" v-if="permissionChecker('pos-orders')">{{
                                 $t('label.action') }}</th>
@@ -88,20 +89,23 @@
                     </thead>
                     <tbody class="db-table-body" v-if="orders.length > 0">
                         <tr class="db-table-body-tr" v-for="order in orders" :key="order">
-                            <td class="db-table-body-td">
+                            <td class="db-table-body-td order-card-id">
                                 {{ order.order_serial_no }}
                             </td>
-                            <td class="db-table-body-td">
+                            <td class="db-table-body-td order-card-customer">
                                 {{ textShortener(order.user.name, 20) }}
                             </td>
-                            <td class="db-table-body-td">{{ order.total_amount_price }}</td>
-                            <td class="db-table-body-td">{{ order.order_datetime }}</td>
-                            <td class="db-table-body-td">
+                            <td class="db-table-body-td order-card-amount">{{ order.total_amount_price }}</td>
+                            <td class="db-table-body-td order-card-date">{{ order.order_datetime }}</td>
+                            <td class="db-table-body-td order-card-payment">
+                                {{ order.pos_payment_method_name || order.payment_method_name || '-' }}
+                            </td>
+                            <td class="db-table-body-td order-card-status">
                                 <span class="db-table-badge" :class="orderStatusClass(order.status)">
                                     {{ enums.orderStatusEnumArray[order.status] }}
                                 </span>
                             </td>
-                            <td class="db-table-body-td hidden-print" v-if="permissionChecker('pos-orders')">
+                            <td class="db-table-body-td hidden-print order-card-actions" v-if="permissionChecker('pos-orders')">
                                 <div class="flex justify-start items-center sm:items-start sm:justify-start gap-1.5">
                                     <SmIconViewComponent :link="'admin.pos.orders.show'" :id="order.id"
                                         v-if="permissionChecker('pos-orders')" />
@@ -113,7 +117,7 @@
                     </tbody>
                     <tbody class="db-table-body" v-else>
                         <tr class="db-table-body-tr">
-                            <td class="db-table-body-td text-center" colspan="6">
+                            <td class="db-table-body-td text-center" colspan="7">
                                 <div class="p-4">
                                     <div class="max-w-[300px] mx-auto mt-2">
                                         <img class="w-full h-full" :src="ENV.API_URL+'/images/default/not-found/not_found.png'" alt="Not Found">
@@ -126,7 +130,7 @@
                 </table>
             </div>
 
-            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6" v-if="orders.length > 0">
+            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-6 order-list-footer" v-if="orders.length > 0">
                 <PaginationSMBox :pagination="pagination" :method="list" />
                 <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                     <PaginationTextComponent :props="{ page: paginationPage }" />

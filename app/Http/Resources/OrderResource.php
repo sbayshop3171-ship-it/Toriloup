@@ -18,20 +18,22 @@ class OrderResource extends JsonResource
     public function toArray($request): array
     {
         return [
-            'id'                   => $this->id,
-            'order_serial_no'      => $this->order_serial_no,
-            'user_id'              => $this->user_id,
-            "total_amount_price"   => AppLibrary::flatAmountFormat($this->total),
-            "total_currency_price" => $this->orderCurrencyAmount($this->total),
-            'base_currency_code'   => $this->base_currency_code,
-            'display_currency_code'=> $this->display_currency_code,
+            'id'                      => $this->id,
+            'order_serial_no'         => $this->order_serial_no,
+            'user_id'                 => $this->user_id,
+            "total_amount_price"      => AppLibrary::flatAmountFormat($this->total),
+            "total_currency_price"    => $this->orderCurrencyAmount($this->total),
+            'base_currency_code'      => $this->base_currency_code,
+            'display_currency_code'   => $this->display_currency_code,
             'display_currency_symbol' => $this->display_currency_symbol,
-            'payment_status'       => $this->payment_status,
-            'status'               => $this->status,
-            'status_name'          => trans('orderStatus.' . $this->status),
-            'order_items'          => optional($this->orderProducts)->count(),
-            'order_datetime'       => AppLibrary::datetime($this->order_datetime),
-            'user'                 => new UserResource($this->user),
+            'payment_status'          => $this->payment_status,
+            'payment_method_name'      => $this->paymentMethod?->name,
+            'pos_payment_method_name' => trans("posPaymentMethod." . $this->pos_payment_method),
+            'status'                  => $this->status,
+            'status_name'             => trans('orderStatus.' . $this->status),
+            'order_items'             => optional($this->orderProducts)->count(),
+            'order_datetime'          => AppLibrary::datetime($this->order_datetime),
+            'user'                    => new UserResource($this->user),
         ];
     }
 

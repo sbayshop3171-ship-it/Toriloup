@@ -1,8 +1,8 @@
 <template>
     <LoadingComponent :props="loading" />
-    <div class="col-12">
+    <div class="col-12 orders-module return-order-form-page">
         <form @submit.prevent="save" class="block w-full">
-            <div class="db-card mb-6">
+            <div class="db-card mb-6 order-form-card">
                 <div class="db-card-header">
                     <h3 class="db-card-title">{{ $t("menu.return_orders") }}</h3>
                 </div>
@@ -82,8 +82,8 @@
                             <label class="db-field-title">{{
                                 $t("label.products")
                             }}</label>
-                            <div class="db-table-responsive border rounded-md">
-                                <table class="db-table">
+                            <div class="db-table-responsive border rounded-md order-table-responsive">
+                                <table class="db-table order-mobile-table return-order-form-table">
                                     <thead class="db-table-head border-t-0">
                                         <tr class="db-table-head-tr">
                                             <th class="db-table-head-th">
@@ -210,7 +210,7 @@
                             </div>
                         </div>
                         <div class="form-col-12">
-                            <div class="flex flex-wrap gap-3">
+                            <div class="flex flex-wrap gap-3 order-detail-actions return-order-form-actions">
                                 <button v-if="permissionChecker('return_order_create')" type="submit"
                                     class="db-btn text-white bg-primary">
                                     <i class="fa-solid fa-circle-check"></i>
