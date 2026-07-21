@@ -86,6 +86,11 @@ class IpLocationService
                     return [
                         'country_code' => $payload['country_code'] ?? null,
                         'country_name' => $payload['country_name'] ?? null,
+                        'state' => $payload['region'] ?? null,
+                        'city' => $payload['city'] ?? null,
+                        'zip_code' => $payload['postal'] ?? null,
+                        'latitude' => $payload['latitude'] ?? null,
+                        'longitude' => $payload['longitude'] ?? null,
                     ];
                 },
             ],
@@ -100,6 +105,11 @@ class IpLocationService
                     return [
                         'country_code' => $payload['country_code'] ?? null,
                         'country_name' => $payload['country'] ?? null,
+                        'state' => $payload['region'] ?? null,
+                        'city' => $payload['city'] ?? null,
+                        'zip_code' => $payload['postal'] ?? null,
+                        'latitude' => $payload['latitude'] ?? null,
+                        'longitude' => $payload['longitude'] ?? null,
                     ];
                 },
             ],
@@ -126,6 +136,11 @@ class IpLocationService
             'country_name' => $country?->name ?: ($location['country_name'] ?? data_get($packageCountry, 'admin')),
             'calling_code' => $callingCode,
             'flag_emoji' => data_get($packageCountry, 'extra.emoji'),
+            'state' => $location['state'] ?? null,
+            'city' => $location['city'] ?? null,
+            'zip_code' => $location['zip_code'] ?? null,
+            'latitude' => is_numeric($location['latitude'] ?? null) ? (float) $location['latitude'] : null,
+            'longitude' => is_numeric($location['longitude'] ?? null) ? (float) $location['longitude'] : null,
             'source' => $source,
         ];
     }

@@ -27,6 +27,30 @@ function findCountryCode(countryCodes, countryCode = null, callingCode = null) {
     }) || null;
 }
 
+function isBlank(value) {
+    return value === null || value === undefined || String(value).trim() === "";
+}
+
+function setIfBlank(target, key, value) {
+    if (isBlank(target?.[key]) && !isBlank(value)) {
+        target[key] = value;
+    }
+}
+
+function composeAddressLine(location = {}) {
+    const parts = [
+        location.streetAddress || location.address,
+        location.city,
+        location.state,
+        location.countryName || location.country?.name,
+        location.zipCode,
+    ].filter((part, index, items) => {
+        return !isBlank(part) && items.findIndex((item) => normalize(item) === normalize(part)) === index;
+    });
+
+    return parts.join(", ");
+}
+
 const addressLocationDefaultService = {
     async resolve(countries, countryCodes) {
         try {
@@ -44,6 +68,17 @@ const addressLocationDefaultService = {
                 countryCode: detected.country_code || country?.code || null,
                 callingCode: countryCode?.calling_code || detected.calling_code || null,
                 flagEmoji: countryCode?.flag_emoji || detected.flag_emoji || null,
+                state: detected.state || null,
+                city: detected.city || null,
+                zipCode: detected.zip_code || null,
+                address: composeAddressLine({
+                    city: detected.city || null,
+                    state: detected.state || null,
+                    countryName: country?.name || detected.country_name || null,
+                    zipCode: detected.zip_code || null,
+                }),
+                latitude: detected.latitude || null,
+                longitude: detected.longitude || null,
                 source: detected.source || "ip",
             };
         } catch (error) {
@@ -51,6 +86,39 @@ const addressLocationDefaultService = {
         }
     },
 
+    applyProfileDefaults(form, profile = {}) {
+        if (!form || !profile) {
+            return;
+        }
+
+        setIfBlank(form, "full_name", profile.name);
+        setIfBlank(form, "email", profile.email);
+        setIfBlank(form, "phone", profile.phone);
+        setIfBlank(form, "country_code", profile.country_code);
+    },
+
+    applyLocationDefaults(form, location = {}, options = {}) {
+        if (!form || !location) {
+            return;
+        }
+
+        const forceAddress = options.forceAddress === true;
+        setIfBlank(form, "zip_code", location.zipCode);
+
+        if ((forceAddress || isBlank(form.address)) && !isBlank(location.address)) {
+            form.address = location.address;
+        }
+
+        if (!isBlank(location.latitude)) {
+            form.latitude = location.latitude;
+        }
+
+        if (!isBlank(location.longitude)) {
+            form.longitude = location.longitude;
+        }
+    },
+
+    composeAddressLine,
     findCountry,
     findCountryCode,
 };

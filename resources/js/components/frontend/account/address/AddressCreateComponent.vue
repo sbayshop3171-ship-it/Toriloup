@@ -233,6 +233,7 @@ export default {
             this.$store.dispatch('frontendCountryCode/lists'),
             this.$store.dispatch('frontendSetting/lists'),
         ]).then(async (results) => {
+            await this.applyCurrentProfileDefaults();
             const companyCountryCode = results[2]?.value?.data?.data?.company_country_code || null;
             await this.applyCompanyCountryCodeDefault(companyCountryCode);
             await this.applyIpLocationDefault();
@@ -257,6 +258,9 @@ export default {
         },
         selectedCountryCurrencySymbol: function () {
             return this.selectedCountry?.currency_symbol ?? null;
+        },
+        authInfo: function () {
+            return this.$store.getters.authInfo || {};
         }
     },
     methods: {
@@ -284,14 +288,36 @@ export default {
                 return;
             }
 
-            this.applyPhoneCode(defaults.callingCode, defaults.flagEmoji, true);
+            this.applyPhoneCode(defaults.callingCode, defaults.flagEmoji, !this.props.form.country_code);
 
             if (defaults.country?.name && !this.props.form.country) {
                 this.props.form.country = defaults.country.name;
-                await this.callStates(defaults.country.name);
+                await this.callStates(defaults.country.name, defaults.state, defaults.city);
+            } else if (this.props.form.country && (!this.props.form.state || !this.props.form.city)) {
+                await this.callStates(this.props.form.country, defaults.state, defaults.city);
             }
 
+            addressLocationDefaultService.applyLocationDefaults(this.props.form, defaults);
+            this.autoDetectedLocationApplied = !!(defaults.country?.name || defaults.state || defaults.city || defaults.zipCode);
             this.rememberDefaultLocation(defaults.country?.name || null, defaults.callingCode, defaults.flagEmoji);
+        },
+        applyCurrentProfileDefaults: async function () {
+            const profile = this.authInfo;
+            addressLocationDefaultService.applyProfileDefaults(this.props.form, profile);
+
+            if (!profile?.country_code) {
+                return;
+            }
+
+            const countryCode = addressLocationDefaultService.findCountryCode(this.countryCodes, null, profile.country_code);
+            if (countryCode) {
+                this.applyPhoneCode(countryCode.calling_code, countryCode.flag_emoji, true);
+                return;
+            }
+
+            await this.$store.dispatch('frontendCountryCode/callingCode', profile.country_code).then(res => {
+                this.applyPhoneCode(res.data.data.calling_code, res.data.data.flag_emoji, true);
+            }).catch(() => {});
         },
         applyPhoneCode: function (callingCode, flagEmoji = "", force = true) {
             if (!callingCode || (!force && this.props.form.country_code)) {
@@ -321,8 +347,11 @@ export default {
                 this.defaultCountryFlag = flagEmoji;
             }
         },
-        showTarget: function () {
+        showTarget: async function () {
             targetService.showTarget(this.targetID, this.addClass);
+            if (!this.$store.getters["frontendAddress/temp"].isEditing) {
+                await this.prepareSmartAddressDefaults(true);
+            }
         },
         changeCountry: function (e) {
             this.props.flag = e.flag_emoji;
@@ -375,7 +404,7 @@ export default {
                     }
                 })
         },
-        autofillLocationByCountry: async function (countryName) {
+        autofillLocationByCountry: async function (countryName, options = {}) {
             if (!countryName || !this.mapboxAccessToken) {
                 return;
             }
@@ -403,13 +432,22 @@ export default {
                     return;
                 }
 
-                this.props.form.address = detectedLocation.street_address || this.props.form.address;
-                this.props.form.zip_code = detectedLocation.zip_code || this.props.form.zip_code;
+                const shouldPreserve = options.preserveExisting === true;
+                const detectedAddress = detectedLocation.street_address || detectedLocation.label || "";
+
+                if (!shouldPreserve || !this.props.form.address) {
+                    this.props.form.address = detectedAddress || this.props.form.address;
+                }
+
+                if (!shouldPreserve || !this.props.form.zip_code) {
+                    this.props.form.zip_code = detectedLocation.zip_code || this.props.form.zip_code;
+                }
+
                 this.props.form.latitude = detectedLocation.latitude || null;
                 this.props.form.longitude = detectedLocation.longitude || null;
 
-                const preferredState = detectedLocation.state || null;
-                const preferredCity = detectedLocation.city || null;
+                const preferredState = detectedLocation.state || this.props.form.state || null;
+                const preferredCity = detectedLocation.city || this.props.form.city || null;
                 await this.callStates(countryName, preferredState, preferredCity);
                 this.autoDetectedLocationApplied = true;
             } catch (error) {
@@ -417,6 +455,29 @@ export default {
             } finally {
                 this.isAutoDetectingLocation = false;
             }
+        },
+        prepareSmartAddressDefaults: async function (useBrowserLocation = false) {
+            await this.applyCurrentProfileDefaults();
+            await this.applyIpLocationDefault();
+
+            if (useBrowserLocation && this.props.form.country) {
+                await this.autofillLocationByCountry(this.props.form.country, { preserveExisting: true });
+            }
+        },
+        blankAddressForm: function () {
+            return {
+                full_name: "",
+                email: "",
+                country_code: this.defaultCountryCallingCode || this.calling_code,
+                phone: "",
+                country: this.defaultCountryName,
+                state: null,
+                city: null,
+                zip_code: "",
+                address: "",
+                latitude: null,
+                longitude: null,
+            };
         },
         callCities: async function (stateName, preferredCity = null) {
             this.props.form.city = null;
@@ -527,19 +588,8 @@ export default {
             targetService.hideTarget(this.targetID, this.addClass);
             this.$store.dispatch("frontendAddress/reset").then().catch();
             this.errors = {};
-            this.$props.props.form = {
-                full_name: "",
-                email: "",
-                country_code: this.defaultCountryCallingCode || this.calling_code,
-                phone: "",
-                country: this.defaultCountryName,
-                state: null,
-                city: null,
-                zip_code: "",
-                address: "",
-                latitude: null,
-                longitude: null,
-            };
+            this.$props.props.form = this.blankAddressForm();
+            this.applyCurrentProfileDefaults().then().catch();
             this.$props.props.flag = this.defaultCountryFlag || this.flag;
             this.$props.props.states = [];
             this.$props.props.cities = [];
@@ -558,19 +608,8 @@ export default {
                     targetService.hideTarget(this.targetID, this.addClass);
                     this.loading.isActive = false;
                     alertService.successFlip(tempId === null ? 0 : 1, this.$t("label.address"));
-                    this.props.form = {
-                        full_name: "",
-                        email: "",
-                        country_code: this.defaultCountryCallingCode || this.calling_code,
-                        phone: "",
-                        country: this.defaultCountryName,
-                        state: null,
-                        city: null,
-                        zip_code: "",
-                        address: "",
-                        latitude: null,
-                        longitude: null,
-                    };
+                    this.props.form = this.blankAddressForm();
+                    this.applyCurrentProfileDefaults().then().catch();
                     this.$props.props.flag = this.defaultCountryFlag || this.flag;
                     this.$props.props.states = [];
                     this.$props.props.cities = [];

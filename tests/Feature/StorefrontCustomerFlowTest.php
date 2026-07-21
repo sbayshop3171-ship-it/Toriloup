@@ -333,6 +333,11 @@ class StorefrontCustomerFlowTest extends TestCase
             'ipapi.co/*' => Http::response([
                 'country_code' => 'BD',
                 'country_name' => 'Bangladesh',
+                'region' => 'Dhaka',
+                'city' => 'Dhaka',
+                'postal' => '1216',
+                'latitude' => 23.8103,
+                'longitude' => 90.4125,
             ]),
         ]);
 
@@ -344,7 +349,12 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertJsonPath('data.country_code', 'BD')
             ->assertJsonPath('data.country_name', 'Bangladesh')
             ->assertJsonPath('data.calling_code', '+880')
-            ->assertJsonPath('data.flag_emoji', '🇧🇩');
+            ->assertJsonPath('data.flag_emoji', '🇧🇩')
+            ->assertJsonPath('data.state', 'Dhaka')
+            ->assertJsonPath('data.city', 'Dhaka')
+            ->assertJsonPath('data.zip_code', '1216')
+            ->assertJsonPath('data.latitude', 23.8103)
+            ->assertJsonPath('data.longitude', 90.4125);
     }
 
     public function test_profile_resource_falls_back_when_profile_media_file_is_missing(): void
