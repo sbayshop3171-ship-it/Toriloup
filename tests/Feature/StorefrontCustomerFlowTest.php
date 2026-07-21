@@ -20,6 +20,7 @@ use App\Events\SendOrderPush;
 use App\Events\SendOrderSms;
 use App\Http\Resources\UserResource;
 use App\Models\Barcode;
+use App\Models\City;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Customer;
@@ -31,6 +32,7 @@ use App\Models\PaymentGateway;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Slider;
+use App\Models\State;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantPaymentMethod;
@@ -360,6 +362,28 @@ class StorefrontCustomerFlowTest extends TestCase
     public function test_storefront_reverse_location_uses_server_side_geocoding_fallback(): void
     {
         $tenant = $this->createTenant('reverse-location-store');
+        $country = Country::query()->create([
+            'name' => 'Bangladesh',
+            'code' => 'BD',
+            'currency_code' => 'BDT',
+            'currency_symbol' => 'Tk',
+            'status' => Status::ACTIVE,
+        ]);
+        State::query()->create([
+            'name' => 'Chittagong Division',
+            'country_id' => $country->id,
+            'status' => Status::ACTIVE,
+        ]);
+        $storedState = State::query()->create([
+            'name' => 'Chattagam',
+            'country_id' => $country->id,
+            'status' => Status::ACTIVE,
+        ]);
+        City::query()->create([
+            'name' => 'Chattagam',
+            'state_id' => $storedState->id,
+            'status' => Status::ACTIVE,
+        ]);
 
         config(['services.mapbox.access_token' => null]);
 
@@ -389,6 +413,8 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertJsonPath('data.country', 'Bangladesh')
             ->assertJsonPath('data.state', 'Chattogram Division')
             ->assertJsonPath('data.city', 'Chattogram')
+            ->assertJsonPath('data.stored_state', 'Chattagam')
+            ->assertJsonPath('data.stored_city', 'Chattagam')
             ->assertJsonPath('data.zip_code', '4216')
             ->assertJsonPath('data.source', 'nominatim');
 

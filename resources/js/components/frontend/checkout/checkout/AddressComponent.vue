@@ -418,6 +418,7 @@ export default {
             }
 
             const force = options.force === true;
+            const applyRegionalFields = options.applyRegionalFields === true;
             this.applyPhoneCode(defaults.callingCode, defaults.flagEmoji, force || !this.address.form.country_code);
 
             if (defaults.country?.name && (force || !this.address.form.country)) {
@@ -428,16 +429,19 @@ export default {
             if (countryName && (force || !this.address.form.state || !this.address.form.city)) {
                 await this.callStates(
                     countryName,
-                    defaults.state || this.address.form.state,
-                    defaults.city || this.address.form.city
+                    applyRegionalFields ? (defaults.state || this.address.form.state) : null,
+                    applyRegionalFields ? (defaults.city || this.address.form.city) : null
                 );
             }
 
-            addressLocationDefaultService.applyLocationDefaults(this.address.form, defaults, {
-                forceAddress: force,
-                applyPostalCode: force,
-                allowApproximateAddress: true,
-            });
+            if (applyRegionalFields) {
+                addressLocationDefaultService.applyLocationDefaults(this.address.form, defaults, {
+                    forceAddress: force,
+                    applyPostalCode: force,
+                    allowApproximateAddress: true,
+                });
+            }
+
             this.autoDetectedLocationApplied = false;
             this.rememberDefaultLocation(defaults.country?.name || null, defaults.callingCode, defaults.flagEmoji);
             return true;
@@ -589,13 +593,8 @@ export default {
             });
 
             if (!applied) {
-                const fallbackApplied = await this.applyIpLocationDefault({
-                    force: true,
-                });
-
-                if (!fallbackApplied) {
-                    alertService.error(this.$t("message.current_location_detection_failed"));
-                }
+                await this.applyIpLocationDefault();
+                alertService.error(this.$t("message.current_location_detection_failed"));
             }
         },
         autofillLocationByCountry: async function (countryName, options = {}) {
@@ -671,8 +670,8 @@ export default {
                 this.address.form.latitude = detectedLocation.latitude || null;
                 this.address.form.longitude = detectedLocation.longitude || null;
 
-                const preferredState = detectedLocation.state || this.address.form.state || null;
-                const preferredCity = detectedLocation.city || this.address.form.city || null;
+                const preferredState = detectedLocation.stored_state || detectedLocation.state || this.address.form.state || null;
+                const preferredCity = detectedLocation.stored_city || detectedLocation.city || this.address.form.city || null;
                 await this.callStates(countryName, preferredState, preferredCity);
                 this.autoDetectedLocationApplied = true;
                 return true;
