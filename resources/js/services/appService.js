@@ -393,11 +393,40 @@ export default {
             filterSheet.style.visibility = "hidden";
         });
 
-        if (!document?.querySelector(".db-sidebar.active")) {
-            document?.querySelector(".backdrop")?.classList?.remove("active");
-            document?.body?.classList?.remove("overflow-hidden");
-            document.body.style.overflowY = "auto";
+        document?.body?.classList?.remove("merchant-mobile-filter-open");
+        this.syncMobileBackdropState();
+    },
+    emitMobileLayerEvent: function (eventName, detail = {}) {
+        if (typeof window === "undefined") {
+            return;
         }
+
+        window.dispatchEvent(new CustomEvent(eventName, { detail }));
+    },
+    syncMobileBackdropState: function () {
+        const body = document?.body;
+        const backdrop = document?.querySelector(".backdrop");
+
+        if (!body || !backdrop) {
+            return;
+        }
+
+        const shouldLock = !!document?.querySelector(".db-sidebar.active, .table-filter-div.active") ||
+            body.classList.contains("merchant-mobile-settings-open");
+
+        backdrop.classList.toggle("active", shouldLock);
+        body.classList.toggle("overflow-hidden", shouldLock);
+        body.style.overflowY = shouldLock ? "hidden" : "auto";
+    },
+    openMobileSettingsHub: function () {
+        document?.body?.classList?.add("merchant-mobile-settings-open");
+        this.syncMobileBackdropState();
+        this.emitMobileLayerEvent("merchant-mobile-settings-hub-change", { open: true });
+    },
+    closeMobileSettingsHub: function () {
+        document?.body?.classList?.remove("merchant-mobile-settings-open");
+        this.syncMobileBackdropState();
+        this.emitMobileLayerEvent("merchant-mobile-settings-hub-change", { open: false });
     },
     handleSlide: function (id) {
         const targetElement = document.querySelector(`#${id}`);
@@ -408,6 +437,11 @@ export default {
 
         if (targetElement.classList.contains("table-filter-div") && this.isMobileSidebarBreakpoint()) {
             const willOpen = !targetElement.classList.contains("active");
+
+            if (willOpen) {
+                this.closeSidebar();
+                this.closeMobileSettingsHub();
+            }
 
             document?.querySelectorAll(".table-filter-div.active").forEach((filterSheet) => {
                 if (filterSheet !== targetElement) {
@@ -424,9 +458,8 @@ export default {
             targetElement.style.overflow = willOpen ? "auto" : "hidden";
             targetElement.style.opacity = willOpen ? "1" : "0";
             targetElement.style.visibility = willOpen ? "visible" : "hidden";
-            document?.querySelector(".backdrop")?.classList?.toggle("active", willOpen);
-            document?.body?.classList?.toggle("overflow-hidden", willOpen);
-            document.body.style.overflowY = willOpen ? "hidden" : "auto";
+            document?.body?.classList?.toggle("merchant-mobile-filter-open", willOpen);
+            this.syncMobileBackdropState();
             return;
         }
 
@@ -533,37 +566,39 @@ export default {
 
         const willOpen = !sidebar.classList.contains("active");
 
+        if (willOpen) {
+            this.closeMobileSettingsHub();
+            this.closeMobileFilterSheets();
+        }
+
         main?.classList?.toggle("expand", willOpen);
         sidebar.classList.toggle("active", willOpen);
 
         if (this.isMobileSidebarBreakpoint()) {
-            document?.querySelector(".backdrop")?.classList?.toggle("active", willOpen);
-            document?.body?.classList?.toggle("overflow-hidden", willOpen);
-            document.body.style.overflowY = willOpen ? "hidden" : "auto";
+            document?.body?.classList?.toggle("merchant-mobile-sidebar-open", willOpen);
+            this.syncMobileBackdropState();
         } else {
-            document?.querySelector(".backdrop")?.classList?.remove("active");
-            document?.body?.classList?.remove("overflow-hidden");
-            document.body.style.overflowY = "auto";
+            document?.body?.classList?.remove("merchant-mobile-sidebar-open");
+            this.syncMobileBackdropState();
         }
+
+        this.emitMobileLayerEvent("merchant-mobile-sidebar-change", { open: willOpen });
     },
 
     closeSidebar: function () {
         const main = document?.querySelector(".db-main");
         const sidebar = document?.querySelector(".db-sidebar");
-        const wasActive = sidebar?.classList?.contains("active");
 
         main?.classList?.remove("expand");
         sidebar?.classList?.remove("active");
-
-        if (wasActive) {
-            document?.querySelector(".backdrop")?.classList?.remove("active");
-            document?.body?.classList?.remove("overflow-hidden");
-            document.body.style.overflowY = "auto";
-        }
+        document?.body?.classList?.remove("merchant-mobile-sidebar-open");
+        this.syncMobileBackdropState();
+        this.emitMobileLayerEvent("merchant-mobile-sidebar-change", { open: false });
     },
     closeMobilePanels: function () {
         this.closeMobileFilterSheets();
         this.closeSidebar();
+        this.closeMobileSettingsHub();
     },
 
     normalizeSidebarForViewport: function () {
@@ -571,16 +606,16 @@ export default {
 
         if (!this.isMobileSidebarBreakpoint()) {
             this.closeMobileFilterSheets();
+            this.closeMobileSettingsHub();
             const backdrop = document?.querySelector(".backdrop");
+            document?.body?.classList?.remove("merchant-mobile-sidebar-open");
 
             if (backdrop?.classList?.contains("active")) {
                 this.closeSidebar();
                 return;
             }
 
-            backdrop?.classList?.remove("active");
-            document?.body?.classList?.remove("overflow-hidden");
-            document.body.style.overflowY = "auto";
+            this.syncMobileBackdropState();
         }
     },
 

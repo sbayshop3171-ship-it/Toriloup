@@ -709,6 +709,8 @@
         min-height: 64px;
         border-radius: 24px;
         padding: 0.4rem 0.45rem;
+        transition: transform 180ms ease, opacity 180ms ease;
+        will-change: transform, opacity;
     }
 
     .backend-mobile-nav-item {
@@ -764,14 +766,13 @@
         @apply flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-none text-white;
     }
 
-    .backend-mobile-nav-overlay {
-        @apply fixed inset-0 z-[60] bg-black/40;
-    }
-
     .backend-mobile-more-sheet {
-        @apply fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl border-t border-gray-200 bg-white pt-3 shadow-[0_-14px_36px_rgba(15,23,42,0.18)];
-        max-height: 82dvh;
-        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+        @apply fixed z-[70] rounded-[28px] border border-gray-200 bg-white pt-3 shadow-[0_-14px_36px_rgba(15,23,42,0.18)];
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: calc(5.4rem + env(safe-area-inset-bottom));
+        max-height: 72dvh;
+        padding-bottom: 0.75rem;
     }
 
     .backend-mobile-more-handle {
@@ -784,7 +785,8 @@
 
     .backend-mobile-more-scroll {
         @apply overflow-y-auto px-4;
-        max-height: calc(82dvh - 92px);
+        max-height: calc(72dvh - 92px);
+        overscroll-behavior: contain;
     }
 
     .backend-mobile-more-group {
@@ -800,7 +802,7 @@
     }
 
     .backend-mobile-more-item {
-        @apply flex min-h-[48px] items-center gap-3 rounded-xl border border-gray-100 bg-white px-3 py-2 text-paragraph shadow-sm transition;
+        @apply flex min-h-[52px] items-center gap-3 rounded-xl border border-gray-100 bg-white px-3 py-2 text-paragraph shadow-sm transition;
     }
 
     .backend-mobile-more-item.active {
@@ -825,11 +827,18 @@
 
     @media (max-width: 1023px) {
         .db-main {
-            padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+            padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
         }
 
         .merchant-mobile-shell {
-            padding-bottom: calc(7.75rem + env(safe-area-inset-bottom));
+            padding-bottom: calc(8.75rem + env(safe-area-inset-bottom));
+        }
+
+        body.merchant-mobile-sidebar-open .backend-mobile-bottom-nav,
+        body.merchant-mobile-filter-open .backend-mobile-bottom-nav {
+            transform: translateY(calc(140% + env(safe-area-inset-bottom)));
+            opacity: 0;
+            pointer-events: none;
         }
 
         .table-filter-div.active {
@@ -1357,6 +1366,7 @@
 
         .product-mobile-grid {
             @apply grid gap-3 p-4 pt-0;
+            padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
         }
 
         .product-mobile-card {
@@ -1413,6 +1423,7 @@
 
         .review-mobile-grid {
             @apply grid gap-3 p-4 pt-0;
+            padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
         }
 
         .review-mobile-card {
@@ -1445,6 +1456,7 @@
 
         .purchase-damage-mobile-items {
             @apply grid gap-3;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
         }
 
         .purchase-damage-mobile-item {

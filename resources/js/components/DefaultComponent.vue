@@ -167,7 +167,11 @@ export default {
             return this.logged || this.$route?.meta?.auth === true;
         },
         showMerchantMobileNav: function () {
-            return this.showBackendShell && isMerchantHost() && !this.isAuthRoute() && this.$route?.name !== "admin.pos";
+            return this.showBackendShell &&
+                isMerchantHost() &&
+                !this.isAuthRoute() &&
+                this.$route?.name !== "admin.pos" &&
+                this.$route?.path !== "/admin/pos";
         },
         lockedSubscriptionFeature: function () {
             const featureCode = this.$route?.meta?.subscriptionFeature;
