@@ -858,6 +858,7 @@
         }
 
         body.merchant-mobile-sidebar-open .backend-mobile-bottom-nav,
+        body.merchant-mobile-canvas-open .backend-mobile-bottom-nav,
         body.merchant-mobile-filter-open .backend-mobile-bottom-nav {
             transform: translate(-50%, calc(140% + env(safe-area-inset-bottom)));
             opacity: 0;
