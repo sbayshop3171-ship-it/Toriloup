@@ -10,6 +10,8 @@ import taxTypeEnum from "../enums/modules/taxTypeEnum";
 import store from "../store";
 
 export default {
+    mobileModalBodyClass: "merchant-mobile-modal-open",
+
     phoneNumber: function (e) {
         let char = String.fromCharCode(e.keyCode);
         if (/^[+]?[0-9]*$/.test(char)) return true;
@@ -104,12 +106,20 @@ export default {
             modalTarget?.classList?.add("active");
             document.body.style.overflowY = "hidden";
         });
+
+        if (this.isMobileSidebarBreakpoint()) {
+            document?.body?.classList?.add(this.mobileModalBodyClass);
+        }
     },
 
     modalHide: function (id = ".modal") {
         let modalDivs = document?.querySelectorAll(id);
         document.body.style.overflowY = "auto";
         modalDivs?.forEach((modalDiv) => modalDiv?.classList?.remove("active"));
+
+        if (!document?.querySelector(".modal.active")) {
+            document?.body?.classList?.remove(this.mobileModalBodyClass);
+        }
     },
 
     recursiveRouter: function (routes, permission) {

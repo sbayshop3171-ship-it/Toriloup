@@ -1,8 +1,8 @@
 <template>
     <LoadingComponent :props="loading" />
 
-    <div v-if="isMerchantWorkspace" id="payment" class="db-tab-div active">
-        <div class="db-card">
+    <div v-if="isMerchantWorkspace" id="payment" class="db-tab-div active settings-payment-page">
+        <div class="db-card mobile-workspace-card settings-payment-card">
             <div class="db-card-header">
                 <div>
                     <h3 class="db-card-title">Payment Methods</h3>
@@ -16,8 +16,8 @@
                     </div>
 
                     <div v-for="method in formMethods" :key="method.id" class="form-col-12">
-                        <div class="p-4 rounded-lg border border-gray-200 bg-white">
-                            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div class="settings-payment-method-card p-4 rounded-lg border border-gray-200 bg-white">
+                            <div class="settings-payment-method-top flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <h4 class="text-base font-semibold capitalize text-gray-900">{{ method.display_name || method.provider_code }}</h4>
@@ -64,7 +64,7 @@
         </div>
     </div>
 
-    <div v-else id="payment" class="db-tab-div active">
+    <div v-else id="payment" class="db-tab-div active settings-payment-page">
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5 settings-mobile-subnav">
             <button @click="selectActive(index)"
                 class="db-tab-sub-btn w-full flex items-center gap-3 h-10 px-4 rounded-lg transition bg-white hover:text-primary hover:bg-primary/5"
@@ -92,7 +92,7 @@
                 </div>
             </div>
         </div>
-        <div :id="paymentGateway.slug" class="db-card db-tab-sub-div" v-for="(paymentGateway, index) in paymentGateways"
+        <div :id="paymentGateway.slug" class="db-card db-tab-sub-div mobile-workspace-card settings-payment-card" v-for="(paymentGateway, index) in paymentGateways"
             :key="paymentGateway" :class="index === selectIndex ? 'active' : ''">
             <div class="db-card-header">
                 <h3 class="db-card-title">{{ paymentGateway.name }}</h3>

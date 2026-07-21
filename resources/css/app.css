@@ -913,6 +913,7 @@
 
         body.merchant-mobile-sidebar-open .backend-mobile-bottom-nav,
         body.merchant-mobile-canvas-open .backend-mobile-bottom-nav,
+        body.merchant-mobile-modal-open .backend-mobile-bottom-nav,
         body.merchant-mobile-filter-open .backend-mobile-bottom-nav {
             transform: translate(-50%, calc(140% + env(safe-area-inset-bottom)));
             opacity: 0;
@@ -2351,6 +2352,37 @@
             @apply p-4;
         }
 
+        body.merchant-mobile-modal-open .settings-shell-breadcrumb,
+        body.merchant-mobile-modal-open .settings-menu-column {
+            z-index: 0;
+        }
+
+        body.merchant-mobile-modal-open .settings-content-column {
+            z-index: 80;
+        }
+
+        body.merchant-mobile-modal-open .settings-content-column .modal {
+            padding-top: calc(var(--db-header-height, 0px) + 0.75rem);
+            padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+        }
+
+        body.merchant-mobile-modal-open .settings-content-column .modal.active .modal-dialog:not(.pos-payment-dialog) {
+            margin-top: 0;
+            margin-bottom: 0;
+            max-height: calc(100dvh - var(--db-header-height, 0px) - 1rem);
+        }
+
+        body.merchant-mobile-modal-open .settings-content-column .modal-header {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            background: #ffffff;
+        }
+
+        body.merchant-mobile-modal-open .settings-content-column .modal-body {
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+
         .settings-content-column .db-card-header .db-card-filter {
             @apply grid w-full grid-cols-2 gap-2;
         }
@@ -2446,6 +2478,39 @@
             @apply rounded-xl border border-gray-100 bg-white px-4 shadow-sm;
             min-height: 2.875rem;
             white-space: nowrap;
+        }
+
+        .settings-payment-page .db-card-header {
+            @apply flex-col items-start gap-3;
+        }
+
+        .settings-payment-page .db-card-header .db-card-filter {
+            @apply grid w-full grid-cols-2 gap-2;
+        }
+
+        .settings-payment-page .db-card-header .db-card-filter > *,
+        .settings-payment-page .db-card-header .db-card-filter .dropdown-group {
+            @apply min-w-0;
+            flex: none;
+        }
+
+        .settings-payment-page .db-card-header .db-card-filter .db-btn,
+        .settings-payment-page .db-card-header .db-card-filter .db-card-filter-btn,
+        .settings-payment-page .db-card-header .db-card-filter .db-card-filter-select,
+        .settings-payment-page .db-card-header .db-card-filter .dropdown-group {
+            @apply w-full justify-center;
+        }
+
+        .settings-payment-page .settings-mobile-subnav > * {
+            min-width: min(78vw, 15rem);
+        }
+
+        .settings-payment-page .settings-payment-method-card {
+            @apply rounded-xl p-3.5;
+        }
+
+        .settings-payment-page .settings-payment-method-top > label {
+            align-self: flex-start;
         }
 
         .settings-content-column .db-table-responsive[data-mobile-card-ready="true"] {
