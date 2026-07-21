@@ -411,24 +411,36 @@ export default {
                 this.applyPhoneCode(res.data.data.calling_code, res.data.data.flag_emoji, false);
             }).catch(() => {});
         },
-        applyIpLocationDefault: async function () {
+        applyIpLocationDefault: async function (options = {}) {
             const defaults = await addressLocationDefaultService.resolve(this.countries, this.countryCodes);
             if (!defaults) {
-                return;
+                return false;
             }
 
-            this.applyPhoneCode(defaults.callingCode, defaults.flagEmoji, !this.address.form.country_code);
+            const force = options.force === true;
+            this.applyPhoneCode(defaults.callingCode, defaults.flagEmoji, force || !this.address.form.country_code);
 
-            if (defaults.country?.name && !this.address.form.country) {
+            if (defaults.country?.name && (force || !this.address.form.country)) {
                 this.address.form.country = defaults.country.name;
-                await this.callStates(defaults.country.name);
-            } else if (this.address.form.country && (!this.address.form.state || !this.address.form.city)) {
-                await this.callStates(this.address.form.country);
             }
 
-            addressLocationDefaultService.applyLocationDefaults(this.address.form, defaults);
+            const countryName = this.address.form.country || defaults.country?.name;
+            if (countryName && (force || !this.address.form.state || !this.address.form.city)) {
+                await this.callStates(
+                    countryName,
+                    defaults.state || this.address.form.state,
+                    defaults.city || this.address.form.city
+                );
+            }
+
+            addressLocationDefaultService.applyLocationDefaults(this.address.form, defaults, {
+                forceAddress: force,
+                applyPostalCode: force,
+                allowApproximateAddress: true,
+            });
             this.autoDetectedLocationApplied = false;
             this.rememberDefaultLocation(defaults.country?.name || null, defaults.callingCode, defaults.flagEmoji);
+            return true;
         },
         applyCurrentProfileDefaults: async function () {
             const profile = this.authInfo;
@@ -560,11 +572,12 @@ export default {
             await this.$store.dispatch('frontendCountryStateCity/statesByCountry', countryName)
                 .then(async (res) => {
                     this.address.states = res.data.data;
-                    if (preferredState) {
-                        const matchedState = this.matchLocationOption(this.address.states, preferredState);
+                    if (preferredState || preferredCity) {
+                        const matchedState = this.matchLocationOption(this.address.states, preferredState)
+                            || this.matchLocationOption(this.address.states, preferredCity);
                         if (matchedState) {
                             this.address.form.state = matchedState.name;
-                            await this.callCities(matchedState.name, preferredCity);
+                            await this.callCities(matchedState.name, preferredCity || preferredState);
                         }
                     }
                 })
@@ -576,7 +589,13 @@ export default {
             });
 
             if (!applied) {
-                alertService.error(this.$t("message.current_location_detection_failed"));
+                const fallbackApplied = await this.applyIpLocationDefault({
+                    force: true,
+                });
+
+                if (!fallbackApplied) {
+                    alertService.error(this.$t("message.current_location_detection_failed"));
+                }
             }
         },
         autofillLocationByCountry: async function (countryName, options = {}) {
@@ -706,7 +725,9 @@ export default {
                 .then((res) => {
                     this.address.cities = res.data.data;
                     if (preferredCity) {
-                        const matchedCity = this.matchLocationOption(this.address.cities, preferredCity);
+                        const matchedCity = this.matchLocationOption(this.address.cities, preferredCity)
+                            || this.matchLocationOption(this.address.cities, stateName)
+                            || (this.address.cities.length === 1 ? this.address.cities[0] : null);
                         if (matchedCity) {
                             this.address.form.city = matchedCity.name;
                         }
