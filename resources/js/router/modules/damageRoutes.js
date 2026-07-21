@@ -9,7 +9,7 @@ export default [
         path:'/admin/damages',
         component: DamageComponent,
         name: 'admin.damage',
-        redirect: {name: 'admin.damage'},
+        redirect: {name: 'admin.damage.list'},
         meta: {
             isFrontend:false,
             auth:true,

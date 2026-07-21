@@ -121,6 +121,10 @@ const merchantCorePrefetchLoaders = [
     () => import("./admin/reviews/ReviewComponent.vue"),
     () => import("./admin/reviews/ReviewListComponent.vue"),
     () => import("./admin/reviews/ReviewShowComponent.vue"),
+    () => import("./admin/pos/PosComponent.vue"),
+    () => import("./admin/posOrders/PosOrderComponent.vue"),
+    () => import("./admin/posOrders/PosOrderListComponent.vue"),
+    () => import("./admin/posOrders/PosOrderShowComponent.vue"),
 ];
 
 const merchantExtendedPrefetchLoaders = [
@@ -136,6 +140,10 @@ const merchantExtendedPrefetchLoaders = [
     () => import("./admin/productSections/ProductSectionListComponent.vue"),
     () => import("./admin/productSections/ProductSectionShowComponent.vue"),
     () => import("./admin/productSections/ProductSectionCreateComponent.vue"),
+    () => import("./admin/pushNotification/PushNotificationComponent.vue"),
+    () => import("./admin/pushNotification/PushNotificationListComponent.vue"),
+    () => import("./admin/pushNotification/PushNotificationShowComponent.vue"),
+    () => import("./admin/pushNotification/PushNotificationCreateComponent.vue"),
     () => import("./admin/subscribers/SubscriberComponent.vue"),
     () => import("./admin/subscribers/SubscriberListComponent.vue"),
     () => import("./admin/administrators/AdministratorComponent.vue"),

@@ -53,6 +53,25 @@ class TenantDemoContentProvisioningTest extends TestCase
             ->with('tenant_demo_content_seeds')
             ->once()
             ->andReturn(false);
+        Schema::shouldReceive('hasTable')
+            ->with('currencies')
+            ->andReturn(true);
+        Schema::shouldReceive('getColumnListing')
+            ->with('currencies')
+            ->andReturn([
+                'tenant_id',
+                'name',
+                'symbol',
+                'code',
+                'minor_unit',
+                'is_cryptocurrency',
+                'exchange_rate',
+                'is_auto_managed',
+                'is_enabled',
+                'rate_source',
+                'rate_synced_at',
+                'rate_metadata_json',
+            ]);
 
         $this->createOwnerDemoCatalog();
 

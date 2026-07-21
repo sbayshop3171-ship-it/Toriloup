@@ -10,7 +10,7 @@ export default [
         path: "/admin/reviews",
         component: ReviewComponent,
         name: "admin.review",
-        redirect: { name: "admin.review" },
+        redirect: { name: "admin.review.list" },
         meta: {
             isFrontend: false,
             auth: true,

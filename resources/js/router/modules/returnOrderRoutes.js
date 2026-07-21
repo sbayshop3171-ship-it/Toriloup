@@ -9,7 +9,7 @@ export default [
         path:'/admin/return-orders',
         component: ReturnOrderComponent,
         name: 'admin.return-order',
-        redirect: {name: 'admin.return-order'},
+        redirect: {name: 'admin.return-order.list'},
         meta: {
             isFrontend:false,
             auth:true,

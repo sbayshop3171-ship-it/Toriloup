@@ -2,6 +2,7 @@ const DEFAULT_TTL = 120000;
 const LONG_TTL = 600000;
 const USER_TTL = 30000;
 const PRODUCT_TTL = 180000;
+const ADMIN_TTL = 15000;
 
 const cache = new Map();
 const inflight = new Map();
@@ -287,8 +288,29 @@ function requestUrl(config) {
     }
 }
 
-function isFrontendRequest(config) {
-    return requestUrl(config).replace(/^\//, "").startsWith("frontend/");
+function isWorkspaceRequest(config) {
+    if (!config) {
+        return false;
+    }
+
+    const url = requestUrl(config).replace(/^\//, "");
+
+    return url.startsWith("frontend/") || url.startsWith("admin/") || url.startsWith("merchant/");
+}
+
+function isWorkspaceAdminReadUrl(url) {
+    return url.startsWith("admin/") ||
+        url.startsWith("merchant/dashboard/setup") ||
+        url.startsWith("merchant/settings/") ||
+        url.startsWith("merchant/wallet/");
+}
+
+function isUnsafeWorkspaceAdminCacheUrl(url, config) {
+    if (config?.responseType && config.responseType !== "json") {
+        return true;
+    }
+
+    return /(^|\/)(checkout|download|export)(\/|\?|$)/.test(url);
 }
 
 function isCacheable(config) {
@@ -299,27 +321,36 @@ function isCacheable(config) {
     const method = String(config.method || "get").toLowerCase();
     const url = requestUrl(config).replace(/^\//, "");
 
-    if (!url.startsWith("frontend/")) {
-        return false;
+    if (isWorkspaceAdminReadUrl(url)) {
+        return method === "get" && !isUnsafeWorkspaceAdminCacheUrl(url, config);
     }
 
-    if (isLiveProductUrl(url)) {
-        return false;
+    if (url.startsWith("frontend/")) {
+        if (isLiveProductUrl(url)) {
+            return false;
+        }
+
+        if (url.startsWith("frontend/setting") || url.startsWith("frontend/slider")) {
+            return false;
+        }
+
+        if (method === "get") {
+            return true;
+        }
+
+        return method === "post" && url.startsWith("frontend/product/category-wise-products");
     }
 
-    if (url.startsWith("frontend/setting") || url.startsWith("frontend/slider")) {
-        return false;
-    }
-
-    if (method === "get") {
-        return true;
-    }
-
-    return method === "post" && url.startsWith("frontend/product/category-wise-products");
+    return false;
 }
 
 function ttlFor(config) {
     const url = requestUrl(config);
+    const normalizedUrl = url.replace(/^\//, "");
+
+    if (isWorkspaceAdminReadUrl(normalizedUrl)) {
+        return ADMIN_TTL;
+    }
 
     if (/frontend\/(slider|benefit|product-category|product-brand|product-section|promotion|page|outlet|order-area|payment-gateway)/.test(url)) {
         return LONG_TTL;
@@ -440,7 +471,7 @@ function clearCurrentScope() {
 }
 
 function shouldInvalidate(config) {
-    if (!isFrontendRequest(config)) {
+    if (!isWorkspaceRequest(config)) {
         return false;
     }
 

@@ -4,16 +4,22 @@ import cacheService from "./storefrontCacheService";
 import statusEnum from "../enums/modules/statusEnum";
 import askEnum from "../enums/modules/askEnum";
 import promotionTypeEnum from "../enums/modules/promotionTypeEnum";
+import orderTypeEnum from "../enums/modules/orderTypeEnum";
+import roleEnum from "../enums/modules/roleEnum";
+import { isMerchantHost } from "./workspaceService";
 
 const prefetchedRoutes = new Set();
+const prefetchedAdminDataAt = new Map();
 const prefetchedImages = new Set();
 const preloadedImageLinks = new Set();
 const loadedRouteComponents = new WeakSet();
 let installed = false;
 let imageInterceptorInstalled = false;
+let merchantAdminWarmupStarted = false;
 let observer = null;
 let mutationObserver = null;
 let scanTimer = null;
+const ADMIN_DATA_PREFETCH_RETRY_MS = 12000;
 
 const HOME_PREFETCHES = [
     () => axios.get("frontend/slider" + appService.requestHandler({
@@ -66,6 +72,60 @@ const HOME_PREFETCHES = [
     })),
 ];
 
+const MERCHANT_ADMIN_ROUTE_NAMES = {
+    "/dashboard": "merchant.dashboard",
+    "/admin/dashboard": "admin.dashboard",
+    "/admin/products": "admin.products.list",
+    "/admin/purchase": "admin.purchase.list",
+    "/admin/damages": "admin.damage.list",
+    "/admin/stock": "admin.stock.list",
+    "/admin/reviews": "admin.review.list",
+    "/admin/pos": "admin.pos",
+    "/admin/pos-orders": "admin.pos.orders.list",
+    "/admin/online-orders": "admin.order.list",
+    "/admin/return-orders": "admin.return-order.list",
+    "/admin/return-and-refunds": "admin.returnAndRefund.list",
+    "/admin/coupons": "admin.coupons.list",
+    "/admin/promotions": "admin.promotions.list",
+    "/admin/product-sections": "admin.product-sections.list",
+    "/admin/push-notifications": "admin.push-notification.list",
+    "/admin/subscribers": "admin.subscribers.list",
+    "/admin/wallet": "merchant.wallet",
+    "/admin/transactions": "admin.transactions.list",
+    "/admin/sales-report": "admin.sales-report.list",
+    "/admin/products-report": "admin.products-report.list",
+    "/admin/settings": "admin.settings.company",
+    "/admin/settings/company": "admin.settings.company",
+};
+
+const MERCHANT_ADMIN_PREFETCH_PATHS = [
+    "/dashboard",
+    "/admin/dashboard",
+    "/admin/products",
+    "/admin/purchase",
+    "/admin/damages",
+    "/admin/stock",
+    "/admin/reviews",
+    "/admin/pos",
+    "/admin/pos-orders",
+    "/admin/online-orders",
+    "/admin/return-orders",
+    "/admin/return-and-refunds",
+    "/admin/coupons",
+    "/admin/promotions",
+    "/admin/product-sections",
+    "/admin/push-notifications",
+    "/admin/subscribers",
+    "/admin/wallet",
+    "/admin/transactions",
+    "/admin/sales-report",
+    "/admin/products-report",
+    "/admin/settings/company",
+];
+
+const MERCHANT_ADMIN_PREFIXES = Object.keys(MERCHANT_ADMIN_ROUTE_NAMES)
+    .sort((a, b) => b.length - a.length);
+
 function idle(callback) {
     if (typeof window.requestIdleCallback === "function") {
         window.requestIdleCallback(callback, { timeout: 1500 });
@@ -99,6 +159,44 @@ function resolveHref(router, href) {
 
 function isStorefrontRoute(route) {
     return route?.matched?.some((record) => record?.meta?.isFrontend === true);
+}
+
+function normalizedPath(route) {
+    const path = String(route?.path || route?.fullPath || "").split("?")[0].replace(/\/+$/, "");
+
+    return path || "/";
+}
+
+function merchantAdminBasePath(route) {
+    if (!isMerchantHost()) {
+        return null;
+    }
+
+    const path = normalizedPath(route);
+
+    return MERCHANT_ADMIN_PREFIXES.find((prefix) => {
+        return path === prefix || path.startsWith(`${prefix}/`);
+    }) || null;
+}
+
+function isMerchantAdminRoute(route) {
+    return Boolean(merchantAdminBasePath(route));
+}
+
+function isInstantRoute(route) {
+    return isStorefrontRoute(route) || isMerchantAdminRoute(route);
+}
+
+function routesForComponentPrefetch(router, route) {
+    const routes = [route];
+    const adminPath = merchantAdminBasePath(route);
+    const routeName = adminPath ? MERCHANT_ADMIN_ROUTE_NAMES[adminPath] : null;
+
+    if (routeName && route.name !== routeName) {
+        routes.push(router.resolve({ name: routeName }));
+    }
+
+    return routes;
 }
 
 function componentLoadersFromRoute(route) {
@@ -184,6 +282,325 @@ function pagedPayload(page = 1, perPage = 32) {
     };
 }
 
+function adminIdDescSearch(overrides = {}) {
+    return {
+        paginate: 1,
+        page: 1,
+        per_page: 10,
+        order_column: "id",
+        order_type: "desc",
+        ...overrides,
+    };
+}
+
+function adminOrderIdDescSearch(overrides = {}) {
+    return {
+        paginate: 1,
+        page: 1,
+        per_page: 10,
+        order_column: "id",
+        order_by: "desc",
+        ...overrides,
+    };
+}
+
+function adminIdAscPayload(overrides = {}) {
+    return {
+        order_column: "id",
+        order_type: "asc",
+        ...overrides,
+    };
+}
+
+function activeUsersPayload(overrides = {}) {
+    return adminIdAscPayload({
+        status: statusEnum.ACTIVE,
+        ...overrides,
+    });
+}
+
+function dispatchTask(store, action, payload = undefined) {
+    return () => {
+        if (!store?.dispatch) {
+            return Promise.resolve(null);
+        }
+
+        return typeof payload === "undefined"
+            ? store.dispatch(action)
+            : store.dispatch(action, payload);
+    };
+}
+
+function merchantDashboardSetupTask(store) {
+    return () => {
+        if (!store?.dispatch || store.getters?.["merchantDashboard/setup"]) {
+            return Promise.resolve(null);
+        }
+
+        return store.dispatch("merchantDashboard/setup");
+    };
+}
+
+function merchantAdminRoutePrefetchTasks(route, store) {
+    if (store?.getters?.authStatus !== true) {
+        return [];
+    }
+
+    const adminPath = merchantAdminBasePath(route);
+    const supportIdAscPayload = {
+        paginate: 0,
+        order_column: "id",
+        order_type: "asc",
+    };
+    const productSearch = adminIdDescSearch({
+        name: "",
+        sku: "",
+        buying_price: "",
+        selling_price: "",
+        product_category_id: null,
+        product_brand_id: null,
+        barcode_id: null,
+        tax_id: null,
+        unit_id: null,
+        status: null,
+        refundable: null,
+    });
+    const purchaseSearch = adminIdDescSearch({
+        supplier_id: null,
+        date: "",
+        reference_no: "",
+        status: null,
+        total: null,
+        note: "",
+    });
+    const damageSearch = adminIdDescSearch({
+        date: "",
+        reference_no: "",
+        total: null,
+        note: "",
+    });
+    const stockSearch = adminIdDescSearch({
+        product_name: "",
+        status: null,
+    });
+    const reviewSearch = adminIdDescSearch({
+        user_id: null,
+        product_id: null,
+    });
+    const activeUserList = activeUsersPayload();
+    const onlineOrderSearch = adminOrderIdDescSearch({
+        order_serial_no: "",
+        user_id: null,
+        excepts: orderTypeEnum.POS,
+        status: null,
+        active: statusEnum.ACTIVE,
+        from_date: "",
+        to_date: "",
+    });
+    const posOrderSearch = adminOrderIdDescSearch({
+        order_serial_no: "",
+        order_type: orderTypeEnum.POS,
+        excepts: `${orderTypeEnum.DELIVERY}|${orderTypeEnum.PICK_UP}`,
+        user_id: null,
+        status: null,
+        from_date: "",
+        to_date: "",
+    });
+    const returnOrderSearch = adminIdDescSearch({
+        user_id: null,
+        date: "",
+        reference_no: "",
+        total: null,
+        reason: "",
+    });
+    const returnAndRefundSearch = adminOrderIdDescSearch({
+        order_serial_no: "",
+        user_id: null,
+        status: null,
+        from_date: "",
+        to_date: "",
+    });
+    const couponSearch = adminIdDescSearch({
+        name: "",
+        code: "",
+        discount: "",
+        discount_type: null,
+        start_date: "",
+        end_date: "",
+    });
+    const promotionSearch = adminIdDescSearch({
+        name: "",
+        type: null,
+        status: null,
+    });
+    const productSectionSearch = adminIdDescSearch({
+        name: "",
+        status: null,
+    });
+    const pushNotificationSearch = adminIdDescSearch({
+        title: "",
+        role_id: null,
+        user_id: null,
+    });
+    const subscriberSearch = adminIdDescSearch({
+        email: "",
+        from_date: "",
+        to_date: "",
+    });
+    const transactionSearch = adminOrderIdDescSearch({
+        order_serial_no: "",
+        transaction_no: "",
+        payment_method: null,
+        from_date: "",
+        to_date: "",
+    });
+    const paymentGatewaySearch = activeUsersPayload();
+    const salesReportSearch = {
+        paginate: 1,
+        page: 1,
+        per_page: 10,
+        order_column: "id",
+        payment_status: null,
+        payment_method: null,
+        order_serial_no: "",
+        status: null,
+        from_date: "",
+        to_date: "",
+        source: null,
+    };
+    const productsReportSearch = {
+        paginate: 1,
+        page: 1,
+        per_page: 10,
+        order_column: "id",
+        name: null,
+        product_category_id: null,
+        from_date: "",
+        to_date: "",
+    };
+    const posProductSearch = {
+        paginate: 0,
+        order_column: "id",
+        order_type: "asc",
+        name: "",
+        product_category_id: "",
+        product_brand_id: "",
+        status: statusEnum.ACTIVE,
+    };
+
+    const tasksByPath = {
+        "/dashboard": [
+            merchantDashboardSetupTask(store),
+        ],
+        "/admin/dashboard": [
+            merchantDashboardSetupTask(store),
+        ],
+        "/admin/products": [
+            dispatchTask(store, "site/lists"),
+            dispatchTask(store, "productCategory/depthTrees"),
+            dispatchTask(store, "productBrand/lists", supportIdAscPayload),
+            dispatchTask(store, "tax/lists", supportIdAscPayload),
+            dispatchTask(store, "unit/lists", supportIdAscPayload),
+            dispatchTask(store, "barcode/lists", supportIdAscPayload),
+            dispatchTask(store, "product/lists", productSearch),
+        ],
+        "/admin/purchase": [
+            dispatchTask(store, "supplier/lists", { page: 1 }),
+            dispatchTask(store, "purchase/lists", purchaseSearch),
+        ],
+        "/admin/damages": [
+            dispatchTask(store, "damage/lists", damageSearch),
+        ],
+        "/admin/stock": [
+            dispatchTask(store, "stock/lists", stockSearch),
+        ],
+        "/admin/reviews": [
+            dispatchTask(store, "product/getSimpleProduct", {
+                paginate: 0,
+                page: 1,
+                order_column: "id",
+            }),
+            dispatchTask(store, "user/lists", activeUserList),
+            dispatchTask(store, "review/lists", reviewSearch),
+        ],
+        "/admin/pos": [
+            dispatchTask(store, "productCategory/depthTrees"),
+            dispatchTask(store, "productBrand/lists", activeUsersPayload({ paginate: 0 })),
+            dispatchTask(store, "user/lists", activeUsersPayload({ role_id: roleEnum.CUSTOMER })),
+            dispatchTask(store, "company/lists"),
+            dispatchTask(store, "product/lists", posProductSearch),
+        ],
+        "/admin/pos-orders": [
+            dispatchTask(store, "user/lists", activeUserList),
+            dispatchTask(store, "posOrder/lists", posOrderSearch),
+        ],
+        "/admin/online-orders": [
+            dispatchTask(store, "user/lists", activeUserList),
+            dispatchTask(store, "onlineOrder/lists", onlineOrderSearch),
+        ],
+        "/admin/return-orders": [
+            dispatchTask(store, "user/lists", { vuex: true, order_type: "asc" }),
+            dispatchTask(store, "returnOrder/lists", returnOrderSearch),
+        ],
+        "/admin/return-and-refunds": [
+            dispatchTask(store, "user/lists", activeUserList),
+            dispatchTask(store, "returnAndRefund/lists", returnAndRefundSearch),
+        ],
+        "/admin/coupons": [
+            dispatchTask(store, "coupon/lists", couponSearch),
+        ],
+        "/admin/promotions": [
+            dispatchTask(store, "promotion/lists", promotionSearch),
+        ],
+        "/admin/product-sections": [
+            dispatchTask(store, "productSection/lists", productSectionSearch),
+        ],
+        "/admin/push-notifications": [
+            dispatchTask(store, "role/lists", adminIdAscPayload()),
+            dispatchTask(store, "user/lists", activeUserList),
+            dispatchTask(store, "pushNotification/lists", pushNotificationSearch),
+        ],
+        "/admin/subscribers": [
+            dispatchTask(store, "subscriber/lists", subscriberSearch),
+        ],
+        "/admin/wallet": [
+            () => axios.get("merchant/wallet/summary"),
+            () => axios.get("merchant/wallet/transactions", { params: { per_page: 12 } }),
+            () => axios.get("merchant/wallet/withdrawals", { params: { per_page: 12 } }),
+            () => axios.get("merchant/wallet/payout-methods"),
+        ],
+        "/admin/transactions": [
+            dispatchTask(store, "paymentGateway/lists", activeUsersPayload({ excepts: 1 })),
+            dispatchTask(store, "transaction/lists", transactionSearch),
+        ],
+        "/admin/sales-report": [
+            dispatchTask(store, "paymentGateway/lists", paymentGatewaySearch),
+            dispatchTask(store, "salesReport/lists", salesReportSearch),
+            dispatchTask(store, "salesReport/salesReportOverview", salesReportSearch),
+        ],
+        "/admin/products-report": [
+            dispatchTask(store, "product/getSimpleProduct", {
+                paginate: 0,
+                page: 1,
+                order_column: "id",
+            }),
+            dispatchTask(store, "productCategory/depthTrees"),
+            dispatchTask(store, "productsReport/lists", productsReportSearch),
+            dispatchTask(store, "productsReport/productsReportOverview", productsReportSearch),
+        ],
+        "/admin/settings": [
+            dispatchTask(store, "countryCode/lists"),
+            dispatchTask(store, "company/lists"),
+        ],
+        "/admin/settings/company": [
+            dispatchTask(store, "countryCode/lists"),
+            dispatchTask(store, "company/lists"),
+        ],
+    };
+
+    return tasksByPath[adminPath] || [];
+}
+
 function prefetchProductDetails(slug) {
     const payload = { slug, review_limit: 3 };
     const query = appService.requestHandler(payload);
@@ -217,6 +634,10 @@ function routePrefetchTasks(route, store) {
     const params = route.params || {};
     const query = route.query || {};
     const loggedIn = store?.getters?.authStatus === true;
+
+    if (isMerchantAdminRoute(route)) {
+        return merchantAdminRoutePrefetchTasks(route, store);
+    }
 
     if (name === "frontend.home") {
         return HOME_PREFETCHES;
@@ -333,22 +754,59 @@ function routePrefetchTasks(route, store) {
 function prefetchRoute(router, store, to) {
     const route = typeof to === "string" ? router.resolve(to) : router.resolve(to);
 
-    if (!isStorefrontRoute(route)) {
+    if (!isInstantRoute(route)) {
         return Promise.resolve();
     }
 
     const key = routeKey(route);
+    const merchantAdminRoute = isMerchantAdminRoute(route);
 
-    if (prefetchedRoutes.has(key)) {
+    if (!merchantAdminRoute && prefetchedRoutes.has(key)) {
         return Promise.resolve();
     }
 
-    prefetchedRoutes.add(key);
+    if (!merchantAdminRoute) {
+        prefetchedRoutes.add(key);
+    }
 
-    const componentTasks = componentLoadersFromRoute(route).map((loader) => () => loader());
-    const dataTasks = routePrefetchTasks(route, store);
+    const componentKey = `${key}|components`;
+    const componentTasks = prefetchedRoutes.has(componentKey)
+        ? []
+        : routesForComponentPrefetch(router, route)
+            .flatMap((prefetchRoute) => componentLoadersFromRoute(prefetchRoute))
+            .map((loader) => () => loader());
+
+    prefetchedRoutes.add(componentKey);
+
+    let dataTasks = routePrefetchTasks(route, store);
+
+    if (merchantAdminRoute) {
+        const dataKey = `${key}|data`;
+        const lastPrefetchAt = prefetchedAdminDataAt.get(dataKey) || 0;
+        const now = Date.now();
+
+        if (now - lastPrefetchAt < ADMIN_DATA_PREFETCH_RETRY_MS) {
+            dataTasks = [];
+        } else {
+            prefetchedAdminDataAt.set(dataKey, now);
+        }
+    }
 
     return prefetchRequests([...componentTasks, ...dataTasks], 4);
+}
+
+function scheduleMerchantAdminWarmup(router, store) {
+    if (merchantAdminWarmupStarted || !isMerchantHost() || store?.getters?.authStatus !== true) {
+        return;
+    }
+
+    merchantAdminWarmupStarted = true;
+
+    idle(() => {
+        prefetchRequests(MERCHANT_ADMIN_PREFETCH_PATHS.map((path) => {
+            return () => prefetchRoute(router, store, path);
+        }), 2);
+    });
 }
 
 function looksLikeImageUrl(value, key = "") {
@@ -490,7 +948,7 @@ function scanLinks(router, store) {
     document.querySelectorAll("a[href]").forEach((link) => {
         const route = resolveHref(router, link.getAttribute("href"));
 
-        if (route && isStorefrontRoute(route)) {
+        if (route && isInstantRoute(route)) {
             observer.observe(link);
         }
     });
@@ -572,11 +1030,13 @@ function install(router, store) {
     router.afterEach((to) => {
         scheduleScan(router, store);
         prefetchRoute(router, store, to);
+        scheduleMerchantAdminWarmup(router, store);
     });
 
     router.isReady().then(() => {
         scheduleScan(router, store);
         prefetchRoute(router, store, router.currentRoute.value);
+        scheduleMerchantAdminWarmup(router, store);
     });
 }
 
