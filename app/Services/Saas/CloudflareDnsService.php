@@ -97,7 +97,7 @@ class CloudflareDnsService
     {
         $hostname = $this->normalizeHostname($domain->hostname);
         $expectedTarget = $this->normalizeHostname($target);
-        $records = dns_get_record($hostname, DNS_CNAME) ?: [];
+        $records = $this->lookupCnameRecords($hostname);
 
         $matchedRecord = collect($records)->first(function (array $record) use ($expectedTarget): bool {
             return $this->normalizeHostname((string) ($record['target'] ?? '')) === $expectedTarget;
@@ -122,6 +122,28 @@ class CloudflareDnsService
             ];
         }
 
+        $cloudflareRecord = $this->findMatchingCloudflareRecord($domain, $expectedTarget);
+
+        if ($cloudflareRecord !== null) {
+            return [
+                'verified' => true,
+                'check_type' => 'cloudflare_api',
+                'message' => 'Cloudflare DNS record matches the storefront target.',
+                'payload_json' => [
+                    'hostname' => $hostname,
+                    'expected_target' => $expectedTarget,
+                    'observed_targets' => $observedTargets,
+                    'cloudflare_record' => [
+                        'id' => $cloudflareRecord['id'] ?? null,
+                        'name' => $cloudflareRecord['name'] ?? $domain->hostname,
+                        'type' => $cloudflareRecord['type'] ?? 'CNAME',
+                        'target' => $cloudflareRecord['content'] ?? null,
+                        'proxied' => (bool) ($cloudflareRecord['proxied'] ?? false),
+                    ],
+                ],
+            ];
+        }
+
         return [
             'verified' => false,
             'check_type' => 'dns',
@@ -132,6 +154,28 @@ class CloudflareDnsService
                 'observed_targets' => $observedTargets,
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findMatchingCloudflareRecord(TenantDomain $domain, string $expectedTarget): ?array
+    {
+        if (!$this->isConfigured()) {
+            return null;
+        }
+
+        $zoneId = $this->resolveZoneId($domain);
+
+        if ($zoneId === null) {
+            return null;
+        }
+
+        return collect($this->listDnsRecords($zoneId, $domain->hostname))->first(function (array $record) use ($domain, $expectedTarget): bool {
+            return $this->normalizeHostname((string) ($record['name'] ?? '')) === $this->normalizeHostname($domain->hostname)
+                && strtoupper((string) ($record['type'] ?? '')) === 'CNAME'
+                && $this->normalizeHostname((string) ($record['content'] ?? '')) === $expectedTarget;
+        });
     }
 
     /**
@@ -184,6 +228,19 @@ class CloudflareDnsService
         return array_values($response['result'] ?? []);
     }
 
+    private function resolveZoneId(TenantDomain $domain): ?string
+    {
+        $configuredZoneId = trim((string) ($domain->cloudflare_zone_id ?? ''));
+
+        if ($configuredZoneId !== '') {
+            return $configuredZoneId;
+        }
+
+        $zone = $this->findZoneForHostname($domain->hostname);
+
+        return $zone !== null ? (string) ($zone['id'] ?? '') : null;
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -226,6 +283,14 @@ class CloudflareDnsService
     private function proxyCustomDomains(): bool
     {
         return (bool) config('cloudflare.proxy_custom_domains', false);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function lookupCnameRecords(string $hostname): array
+    {
+        return dns_get_record($hostname, DNS_CNAME) ?: [];
     }
 
     private function normalizeHostname(string $value): string

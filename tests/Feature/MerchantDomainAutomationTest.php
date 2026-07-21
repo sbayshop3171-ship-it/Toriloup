@@ -165,6 +165,53 @@ class MerchantDomainAutomationTest extends TestCase
             ->assertJsonPath('meta.verified', true);
     }
 
+    public function test_verify_uses_cloudflare_api_when_public_cname_is_flattened_or_missing(): void
+    {
+        config([
+            'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
+            'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.proxy_custom_domains' => false,
+        ]);
+
+        $tenant = $this->createTenant('flattened-check-store');
+        $domain = TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'flattened-check.invalid',
+            'domain_type' => 'custom',
+            'is_primary' => false,
+            'is_fallback' => false,
+            'ssl_status' => 'pending',
+            'verification_status' => 'pending',
+            'dns_provider' => 'cloudflare',
+            'cloudflare_zone_id' => 'zone_123',
+            'verification_token' => Str::upper(Str::random(32)),
+        ]);
+
+        Http::fake([
+            'https://api.cloudflare.com/client/v4/zones/zone_123/dns_records?*' => Http::response([
+                'success' => true,
+                'result' => [
+                    [
+                        'id' => 'record_123',
+                        'name' => 'flattened-check.invalid',
+                        'type' => 'CNAME',
+                        'content' => 'flattened-check-store.company.com',
+                        'proxied' => true,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $result = app(CloudflareDnsService::class)->verifyTenantDomain($domain, 'flattened-check-store.company.com');
+
+        $this->assertTrue($result['verified']);
+        $this->assertSame('cloudflare_api', $result['check_type']);
+        $this->assertSame('Cloudflare DNS record matches the storefront target.', $result['message']);
+        $this->assertSame('flattened-check-store.company.com', data_get($result, 'payload_json.cloudflare_record.target'));
+
+        Http::assertSentCount(1);
+    }
+
     /**
      * @return array{user: User, tenant: Tenant}
      */
