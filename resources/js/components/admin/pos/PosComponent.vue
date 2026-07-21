@@ -46,7 +46,9 @@
       </div>
 
     </form>
-    <ProductListComponent v-if="products.length > 0" :products="products" />
+    <div class="pos-product-scroll-area">
+      <ProductListComponent v-if="products.length > 0" :products="products" />
+    </div>
   </div>
 
   <div id="pos-cart"

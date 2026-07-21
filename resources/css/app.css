@@ -1348,10 +1348,10 @@
 
     @media (max-width: 767px) {
         .product-stock-sticky-card .db-card-header {
-            position: sticky;
-            top: var(--db-header-height, 0px);
-            z-index: 18;
-            @apply rounded-t-lg border-b border-gray-100 bg-white shadow-sm;
+            position: relative;
+            top: auto;
+            z-index: 1;
+            @apply rounded-t-lg border-b border-gray-100 bg-white shadow-none;
         }
 
         .product-stock-sticky-card .db-card-title {
@@ -1484,23 +1484,34 @@
         }
 
         .pos-workspace {
-            min-height: calc(100dvh - var(--db-header-height, 0px));
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100dvh - var(--db-header-height, 0px) - 4.5rem - env(safe-area-inset-bottom));
+            overflow: hidden;
         }
 
         .pos-search-panel {
-            position: sticky;
-            top: calc(var(--db-header-height, 0px) + 0.5rem);
-            z-index: 16;
-            @apply -mx-1 rounded-xl border border-gray-100 bg-white p-2 shadow-sm;
+            position: relative;
+            top: auto;
+            z-index: 4;
+            @apply -mx-1 mb-3 rounded-xl border border-gray-100 bg-white p-2 shadow-sm;
         }
 
         .pos-search-panel .form-row {
             @apply gap-y-2;
         }
 
+        .pos-product-scroll-area {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        }
+
         .pos-product-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             @apply gap-2;
+            margin-bottom: 0;
         }
 
         .pos-product-card {
