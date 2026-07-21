@@ -511,14 +511,68 @@
     .db-list.multiple .db-list-item-text { @apply w-full sm:w-1/2 }
 
     @media (max-width: 767px) {
+        .db-header {
+            align-items: flex-start;
+            flex-wrap: wrap;
+            row-gap: 0.75rem;
+        }
+
         .db-header > a {
             width: 72px;
             height: 40px;
         }
 
-        .sub-header {
+        .db-header-actions {
+            flex: 1 1 calc(100% - 84px);
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .db-header-subrow {
+            order: 3;
+            width: 100%;
+            flex: 1 1 100%;
+            justify-content: space-between;
+            position: static !important;
+            left: auto !important;
+            top: auto !important;
+            padding: 0 !important;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
             gap: 0.5rem;
             overflow-x: auto;
+        }
+
+        .db-header-subrow > div {
+            width: 100%;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .db-header-subrow .dropdown-btn,
+        .db-header-subrow .router-link-active,
+        .db-header-subrow a {
+            flex-shrink: 0;
+        }
+
+        .db-main {
+            padding-top: calc(var(--db-header-height, 0px) + 0.75rem);
+        }
+
+        .db-breadcrumb {
+            padding-top: 0;
+            gap: 0.35rem 0.75rem;
+        }
+
+        .db-breadcrumb-list {
+            gap: 0.125rem 0.375rem;
+        }
+
+        .db-breadcrumb-item {
+            font-size: 1rem;
+            line-height: 1.35rem;
         }
 
         .db-sidebar-nav-menu {

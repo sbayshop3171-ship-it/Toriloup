@@ -8,9 +8,9 @@
                 <i class="fa-regular fa-image"></i>
             </span>
         </router-link>
-        <div class="flex min-w-0 items-center justify-end w-full gap-2 sm:gap-3 md:gap-4">
+        <div class="db-header-actions flex min-w-0 items-center justify-end w-full gap-2 sm:gap-3 md:gap-4">
             <div
-                class="sub-header flex items-center gap-4 transition xh:justify-between xh:fixed xh:left-0 xh:w-full xh:p-4 xh:border-y xh:border-[#EFF0F6] xh:bg-white">
+                class="db-header-subrow sub-header flex items-center gap-4 transition">
                 <div class="flex items-center justify-between md:justify-center gap-4">
                     <div v-if="setting.site_language_switch === enums.activityEnum.ENABLE"
                         class="dropdown-group relative">
