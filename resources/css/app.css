@@ -713,9 +713,22 @@
         will-change: transform, opacity;
     }
 
+    .backend-mobile-bottom-nav.backend-mobile-bottom-nav-compact {
+        grid-template-columns: 1fr 92px 1fr;
+        align-items: end;
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+    }
+
     .backend-mobile-nav-item {
         @apply relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 text-[11px] font-semibold leading-none text-paragraph transition;
         min-height: 52px;
+    }
+
+    .backend-mobile-bottom-nav-compact .backend-mobile-nav-item {
+        min-height: 56px;
+        padding-left: 0.4rem;
+        padding-right: 0.4rem;
     }
 
     .backend-mobile-nav-item i {
@@ -735,6 +748,10 @@
         @apply relative flex min-w-0 flex-col items-center justify-start gap-1 text-[11px] font-bold leading-none text-primary transition;
         min-height: 52px;
         transform: translateY(-26px);
+    }
+
+    .backend-mobile-bottom-nav-compact .backend-mobile-nav-fab {
+        min-width: 92px;
     }
 
     .backend-mobile-fab-button {

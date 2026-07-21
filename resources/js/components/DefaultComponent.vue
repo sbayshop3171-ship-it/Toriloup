@@ -91,6 +91,91 @@ import { isAdminSurfaceHost, isMerchantHost, resolveGuestHomeRoute } from "../se
 import appService from "../services/appService";
 import backendMobileService from "../services/backendMobileService";
 
+let merchantRoutePrefetched = false;
+
+const merchantCorePrefetchLoaders = [
+    () => import("./admin/onlineOrders/OnlineOrderComponent.vue"),
+    () => import("./admin/onlineOrders/OnlineOrderListComponent.vue"),
+    () => import("./admin/onlineOrders/OnlineOrderShowComponent.vue"),
+    () => import("./admin/returnOrders/ReturnOrderComponent.vue"),
+    () => import("./admin/returnOrders/ReturnOrderListComponent.vue"),
+    () => import("./admin/returnOrders/ReturnOrderShowComponent.vue"),
+    () => import("./admin/returnOrders/ReturnOrderCreateAndEditComponent.vue"),
+    () => import("./admin/returnAndRefunds/ReturnAndRefundComponent.vue"),
+    () => import("./admin/returnAndRefunds/ReturnAndRefundListComponent.vue"),
+    () => import("./admin/returnAndRefunds/ReturnAndRefundShowComponent.vue"),
+    () => import("./admin/products/ProductComponent.vue"),
+    () => import("./admin/products/ProductListComponent.vue"),
+    () => import("./admin/products/ProductShowComponent.vue"),
+    () => import("./admin/products/ProductCreateComponent.vue"),
+    () => import("./admin/purchase/PurchaseComponent.vue"),
+    () => import("./admin/purchase/PurchaseListComponent.vue"),
+    () => import("./admin/purchase/PurchaseShowComponent.vue"),
+    () => import("./admin/purchase/PurchaseCreateAndEditComponent.vue"),
+    () => import("./admin/damages/DamageComponent.vue"),
+    () => import("./admin/damages/DamageListComponent.vue"),
+    () => import("./admin/damages/DamageShowComponent.vue"),
+    () => import("./admin/damages/DamageCreateAndEditComponent.vue"),
+    () => import("./admin/stock/StockComponent.vue"),
+    () => import("./admin/stock/StockListComponent.vue"),
+    () => import("./admin/reviews/ReviewComponent.vue"),
+    () => import("./admin/reviews/ReviewListComponent.vue"),
+    () => import("./admin/reviews/ReviewShowComponent.vue"),
+];
+
+const merchantExtendedPrefetchLoaders = [
+    () => import("./admin/coupons/CouponComponent.vue"),
+    () => import("./admin/coupons/CouponListComponent.vue"),
+    () => import("./admin/coupons/CouponShowComponent.vue"),
+    () => import("./admin/coupons/CouponCreateComponent.vue"),
+    () => import("./admin/promotions/PromotionComponent.vue"),
+    () => import("./admin/promotions/PromotionListComponent.vue"),
+    () => import("./admin/promotions/PromotionShowComponent.vue"),
+    () => import("./admin/promotions/PromotionCreateComponent.vue"),
+    () => import("./admin/productSections/ProductSectionComponent.vue"),
+    () => import("./admin/productSections/ProductSectionListComponent.vue"),
+    () => import("./admin/productSections/ProductSectionShowComponent.vue"),
+    () => import("./admin/productSections/ProductSectionCreateComponent.vue"),
+    () => import("./admin/subscribers/SubscriberComponent.vue"),
+    () => import("./admin/subscribers/SubscriberListComponent.vue"),
+    () => import("./admin/administrators/AdministratorComponent.vue"),
+    () => import("./admin/administrators/AdministratorListComponent.vue"),
+    () => import("./admin/administrators/AdministratorShowComponent.vue"),
+    () => import("./admin/administrators/AdministratorCreateComponent.vue"),
+    () => import("./admin/customers/CustomerComponent.vue"),
+    () => import("./admin/customers/CustomerListComponent.vue"),
+    () => import("./admin/customers/CustomerShowComponent.vue"),
+    () => import("./admin/customers/CustomerCreateComponent.vue"),
+    () => import("./admin/wallet/MerchantWalletComponent.vue"),
+    () => import("./admin/transactions/TransactionListComponent.vue"),
+    () => import("./admin/salesReport/SalesReportComponent.vue"),
+    () => import("./admin/salesReport/SalesReportListComponent.vue"),
+    () => import("./admin/productsReport/ProductsReportComponent.vue"),
+    () => import("./admin/productsReport/ProductsReportListComponent.vue"),
+    () => import("./admin/settings/SettingsComponent.vue"),
+    () => import("./admin/settings/Company/CompanyComponent.vue"),
+    () => import("./admin/settings/Site/SiteComponent.vue"),
+    () => import("./admin/settings/LocationSetup/LocationSetupComponent.vue"),
+    () => import("./admin/settings/ShippingSetup/ShippingSetupComponent.vue"),
+    () => import("./admin/settings/PaymentGateway/PaymentGatewayComponent.vue"),
+    () => import("./admin/settings/SocialMedia/SocialMediaComponent.vue"),
+    () => import("./admin/settings/Theme/ThemeComponent.vue"),
+    () => import("./admin/settings/Domains/DomainSettingsComponent.vue"),
+    () => import("./admin/settings/Billing/BillingSummaryComponent.vue"),
+    () => import("./admin/settings/ProductCategory/ProductCateogryListComponent.vue"),
+    () => import("./admin/settings/ProductAttribute/ProductAttributeListComponent.vue"),
+    () => import("./admin/settings/ProductBrand/ProductBrandListComponent.vue"),
+    () => import("./admin/settings/Supplier/SupplierListComponent.vue"),
+    () => import("./admin/settings/Unit/UnitListComponent.vue"),
+    () => import("./admin/settings/Tax/TaxListComponent.vue"),
+    () => import("./admin/settings/Outlet/OutletListComponent.vue"),
+    () => import("./admin/settings/ReturnReason/ReturnReasonListComponent.vue"),
+    () => import("./admin/settings/Role/RoleListComponent.vue"),
+    () => import("./admin/settings/Currency/CurrencyListComponent.vue"),
+    () => import("./admin/settings/Page/PageListComponent.vue"),
+    () => import("./admin/settings/Benefit/BenefitListComponent.vue"),
+];
+
 export default {
     name: "DefaultComponent",
     components: {
@@ -111,6 +196,8 @@ export default {
         return {
             theme: "loading",
             backendMobileEnhancementStopper: null,
+            merchantPrefetchTimer: null,
+            merchantPrefetchIdleHandle: null,
         }
     },
     beforeMount() {
@@ -145,10 +232,21 @@ export default {
     },
     mounted() {
         this.backendMobileEnhancementStopper = backendMobileService.startBackendMobileEnhancements();
+        this.scheduleMerchantRoutePrefetch();
     },
     beforeUnmount() {
         if (typeof this.backendMobileEnhancementStopper === "function") {
             this.backendMobileEnhancementStopper();
+        }
+
+        if (this.merchantPrefetchTimer) {
+            window.clearTimeout(this.merchantPrefetchTimer);
+            this.merchantPrefetchTimer = null;
+        }
+
+        if (typeof window !== "undefined" && typeof window.cancelIdleCallback === "function" && this.merchantPrefetchIdleHandle) {
+            window.cancelIdleCallback(this.merchantPrefetchIdleHandle);
+            this.merchantPrefetchIdleHandle = null;
         }
     },
     computed: {
@@ -219,6 +317,29 @@ export default {
             return String(value || "")
                 .replace(/_/g, " ")
                 .replace(/\b\w/g, (letter) => letter.toUpperCase());
+        },
+        runMerchantPrefetchLoaders: function (loaders = []) {
+            return Promise.allSettled((loaders || []).map((loader) => loader()));
+        },
+        scheduleMerchantRoutePrefetch: function () {
+            if (!isMerchantHost() || merchantRoutePrefetched) {
+                return;
+            }
+
+            merchantRoutePrefetched = true;
+
+            this.merchantPrefetchTimer = window.setTimeout(() => {
+                this.runMerchantPrefetchLoaders(merchantCorePrefetchLoaders);
+
+                const preloadExtended = () => this.runMerchantPrefetchLoaders(merchantExtendedPrefetchLoaders);
+
+                if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+                    this.merchantPrefetchIdleHandle = window.requestIdleCallback(preloadExtended, { timeout: 2000 });
+                    return;
+                }
+
+                window.setTimeout(preloadExtended, 500);
+            }, 120);
         },
         openBillingForLockedFeature: function () {
             if (!this.lockedSubscriptionFeature) {
