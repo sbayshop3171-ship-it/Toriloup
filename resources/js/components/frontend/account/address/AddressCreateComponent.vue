@@ -78,17 +78,6 @@
                         <small class="db-field-alert" v-if="errors.country">
                             {{ errors.country[0] }}
                         </small>
-                        <small class="db-field-alert !text-slate-500"
-                            v-if="selectedCountryCurrencyCode || selectedCountryCurrencySymbol">
-                            {{ $t('label.currency_symbol') }}: {{ selectedCountryCurrencySymbol || '--' }} |
-                            {{ $t('label.currency_iso_code') }}: {{ selectedCountryCurrencyCode || '--' }}
-                        </small>
-                        <small class="db-field-alert !text-slate-500" v-if="isAutoDetectingLocation">
-                            {{ $t('message.detecting_current_location') }}
-                        </small>
-                        <small class="db-field-alert !text-green-600" v-else-if="autoDetectedLocationApplied">
-                            {{ $t('message.location_auto_filled_editable') }}
-                        </small>
                     </div>
                     <div class="form-col-12 sm:form-col-6" v-if="props.form.country"><label
                             class="text-sm font-medium capitalize mb-1 field-title" for="state">{{
@@ -253,12 +242,6 @@ export default {
         selectedCountry: function () {
             return this.countries.find((country) => country.name === this.props.form.country) || null;
         },
-        selectedCountryCurrencyCode: function () {
-            return this.selectedCountry?.currency_code ?? null;
-        },
-        selectedCountryCurrencySymbol: function () {
-            return this.selectedCountry?.currency_symbol ?? null;
-        },
         authInfo: function () {
             return this.$store.getters.authInfo || {};
         }
@@ -292,13 +275,13 @@ export default {
 
             if (defaults.country?.name && !this.props.form.country) {
                 this.props.form.country = defaults.country.name;
-                await this.callStates(defaults.country.name, defaults.state, defaults.city);
+                await this.callStates(defaults.country.name);
             } else if (this.props.form.country && (!this.props.form.state || !this.props.form.city)) {
-                await this.callStates(this.props.form.country, defaults.state, defaults.city);
+                await this.callStates(this.props.form.country);
             }
 
             addressLocationDefaultService.applyLocationDefaults(this.props.form, defaults);
-            this.autoDetectedLocationApplied = !!(defaults.country?.name || defaults.state || defaults.city || defaults.zipCode);
+            this.autoDetectedLocationApplied = false;
             this.rememberDefaultLocation(defaults.country?.name || null, defaults.callingCode, defaults.flagEmoji);
         },
         applyCurrentProfileDefaults: async function () {
@@ -409,7 +392,7 @@ export default {
                 return;
             }
 
-            const selectedCountry = this.countries.find((country) => country.name === countryName);
+            let selectedCountry = this.countries.find((country) => country.name === countryName);
             if (!selectedCountry?.code) {
                 return;
             }
@@ -418,7 +401,7 @@ export default {
             try {
                 const detectedLocation = await locationAutocompleteService.detectAddressByCountry(
                     this.mapboxAccessToken,
-                    selectedCountry.code
+                    options.allowCountryChange === true ? null : selectedCountry.code
                 );
 
                 if (!detectedLocation) {
@@ -429,7 +412,22 @@ export default {
                     detectedLocation.country_code
                     && detectedLocation.country_code.toUpperCase() !== selectedCountry.code.toUpperCase()
                 ) {
-                    return;
+                    if (options.allowCountryChange !== true) {
+                        return;
+                    }
+
+                    const detectedCountry = this.countries.find((country) => {
+                        return country.code?.toUpperCase() === detectedLocation.country_code.toUpperCase();
+                    });
+
+                    if (!detectedCountry) {
+                        return;
+                    }
+
+                    selectedCountry = detectedCountry;
+                    countryName = detectedCountry.name;
+                    this.props.form.country = detectedCountry.name;
+                    this.applyPhoneCodeForCountry(detectedCountry.name);
                 }
 
                 const shouldPreserve = options.preserveExisting === true;
@@ -461,7 +459,10 @@ export default {
             await this.applyIpLocationDefault();
 
             if (useBrowserLocation && this.props.form.country) {
-                await this.autofillLocationByCountry(this.props.form.country, { preserveExisting: true });
+                await this.autofillLocationByCountry(this.props.form.country, {
+                    allowCountryChange: true,
+                    preserveExisting: false,
+                });
             }
         },
         blankAddressForm: function () {
@@ -499,9 +500,23 @@ export default {
                 })
         },
         normalizeLocationValue: function (value) {
-            return (value || "")
+            const normalized = (value || "")
                 .toLowerCase()
                 .replace(/[^a-z0-9]/g, "");
+            const aliases = {
+                chittagong: "chattogram",
+                chittagongcity: "chattogram",
+                chittagongdistrict: "chattogram",
+                chittagongdivision: "chattogram",
+                chattogramcity: "chattogram",
+                chattogramdistrict: "chattogram",
+                chattogramdivision: "chattogram",
+                dhakacity: "dhaka",
+                dhakadistrict: "dhaka",
+                dhakadivision: "dhaka",
+            };
+
+            return aliases[normalized] || normalized.replace(/(division|district|city)$/u, "");
         },
         matchLocationOption: function (options, target) {
             const normalizedTarget = this.normalizeLocationValue(target);

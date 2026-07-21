@@ -2,10 +2,12 @@ import axios from "axios";
 
 const LOCATION_TYPES = Object.freeze({
     ADDRESS: "address",
+    POI: "poi",
     COUNTRY: "country",
     REGION: "region",
     PLACE: "place",
     LOCALITY: "locality",
+    NEIGHBORHOOD: "neighborhood",
     DISTRICT: "district",
     POSTCODE: "postcode",
 });
@@ -70,11 +72,34 @@ function resolveStreetAddress(feature) {
         return `${feature.address} ${feature.text}`.trim();
     }
 
-    if (feature.text) {
-        return feature.text;
-    }
+    return feature.place_name || feature.text || "";
+}
 
-    return feature.place_name ?? "";
+function featurePriority(feature) {
+    const placeTypes = Array.isArray(feature.place_type) ? feature.place_type : [];
+    const weights = {
+        [LOCATION_TYPES.ADDRESS]: 100,
+        [LOCATION_TYPES.POI]: 90,
+        [LOCATION_TYPES.NEIGHBORHOOD]: 70,
+        [LOCATION_TYPES.LOCALITY]: 60,
+        [LOCATION_TYPES.PLACE]: 50,
+        [LOCATION_TYPES.POSTCODE]: 40,
+        [LOCATION_TYPES.DISTRICT]: 30,
+        [LOCATION_TYPES.REGION]: 20,
+        [LOCATION_TYPES.COUNTRY]: 10,
+    };
+
+    const typeScore = placeTypes.reduce((score, type) => Math.max(score, weights[type] || 0), 0);
+
+    return typeScore
+        + (feature.address ? 8 : 0)
+        + (resolvePostalCode(feature) ? 3 : 0)
+        + (resolveCity(feature) ? 2 : 0)
+        + (resolveState(feature) ? 1 : 0);
+}
+
+function pickBestReverseFeature(features) {
+    return [...features].sort((a, b) => featurePriority(b) - featurePriority(a))[0] || null;
 }
 
 function mapFeature(feature) {
@@ -144,9 +169,9 @@ const locationAutocompleteService = {
                     reject(error);
                 },
                 {
-                    enableHighAccuracy: false,
-                    timeout: 10000,
-                    maximumAge: 600000,
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0,
                 }
             );
         });
@@ -160,8 +185,8 @@ const locationAutocompleteService = {
         const params = new URLSearchParams({
             access_token: accessToken,
             language: "en",
-            types: "address,place,postcode,locality,region,country",
-            limit: "1",
+            types: "address,poi,neighborhood,place,postcode,locality,district,region,country",
+            limit: "5",
         });
 
         if (countryCode) {
@@ -170,7 +195,8 @@ const locationAutocompleteService = {
 
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?${params.toString()}`;
         const response = await axios.get(url);
-        const feature = response?.data?.features?.[0];
+        const features = Array.isArray(response?.data?.features) ? response.data.features : [];
+        const feature = pickBestReverseFeature(features);
 
         if (!feature) {
             return null;

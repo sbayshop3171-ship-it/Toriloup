@@ -103,9 +103,14 @@ const addressLocationDefaultService = {
         }
 
         const forceAddress = options.forceAddress === true;
-        setIfBlank(form, "zip_code", location.zipCode);
+        const applyPostalCode = options.applyPostalCode === true || forceAddress;
+        const allowApproximateAddress = options.allowApproximateAddress === true || forceAddress;
 
-        if ((forceAddress || isBlank(form.address)) && !isBlank(location.address)) {
+        if (applyPostalCode) {
+            setIfBlank(form, "zip_code", location.zipCode);
+        }
+
+        if (allowApproximateAddress && (forceAddress || isBlank(form.address)) && !isBlank(location.address)) {
             form.address = location.address;
         }
 
