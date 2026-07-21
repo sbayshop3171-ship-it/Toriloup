@@ -42,6 +42,33 @@ class CurrencyConversionService
         ];
     }
 
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    public function basePriceForRequest(float|int|string $amount, Request $request, ?Tenant $tenant = null, array $settings = []): array
+    {
+        $baseCode = $this->visitorCurrencyResolver->baseCurrencyCode($tenant, $settings);
+        $currency = $this->currencyCatalogService->findByCode($baseCode, $tenant);
+        $minorUnit = (int) ($currency?->minor_unit ?? ($settings['site_digit_after_decimal_point'] ?? 2));
+        $symbol = (string) ($currency?->symbol ?: ($settings['site_default_currency_symbol'] ?? $baseCode));
+        $rounded = $this->round($amount, $baseCode, $tenant);
+
+        return [
+            'base_amount' => $rounded,
+            'base_currency_code' => $baseCode,
+            'base_currency_symbol' => $symbol,
+            'base_currency_minor_unit' => $minorUnit,
+            'formatted' => $this->format(
+                $rounded,
+                $baseCode,
+                $symbol,
+                $minorUnit,
+                $settings['site_currency_position'] ?? null
+            ),
+        ];
+    }
+
     public function convert(float|int|string $amount, string $fromCode, string $toCode, ?Tenant $tenant = null): float
     {
         return (float) $this->convertToString($amount, $fromCode, $toCode, $tenant);

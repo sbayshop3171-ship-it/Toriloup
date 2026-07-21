@@ -6,6 +6,8 @@ use App\Enums\Ask;
 use App\Enums\Activity;
 use Carbon\Carbon;
 use App\Libraries\AppLibrary;
+use App\Models\Tenant;
+use App\Services\Currency\CurrencyConversionService;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ProductAdminResource extends JsonResource
@@ -19,6 +21,17 @@ class ProductAdminResource extends JsonResource
     public function toArray($request): array
     {
         $price = count($this->variations) > 0 ? $this->variation_price : $this->selling_price;
+        $basePrice = app(CurrencyConversionService::class)->basePriceForRequest(
+            (float) $price,
+            $request,
+            $this->tenantFromRequest($request)
+        );
+        $discountedBasePrice = app(CurrencyConversionService::class)->basePriceForRequest(
+            (float) ($price - (($price / 100) * $this->discount)),
+            $request,
+            $this->tenantFromRequest($request)
+        );
+
         return [
             "id"                         => $this->id,
             "name"                       => $this->name,
@@ -45,14 +58,27 @@ class ProductAdminResource extends JsonResource
             "product_tags"               => ProductTagResource::collection($this->tags),
             "category_name"              => $this?->category?->name,
             "order"                      => abs($this?->productOrders->sum('quantity')),
-            'currency_price'             => AppLibrary::currencyAmountFormat($price),
+            'currency_price'             => $basePrice['formatted'],
+            'base_currency_code'         => $basePrice['base_currency_code'],
+            'base_currency_symbol'       => $basePrice['base_currency_symbol'],
             "cover"                      => $this->cover,
             'flash_sale'                 => $this->add_to_flash_sale == Ask::YES,
             'is_offer'                   => AppLibrary::isBetweenDate($this->offer_start_date, $this->offer_end_date),
-            'discounted_price'           => AppLibrary::currencyAmountFormat($price - (($price / 100) * $this->discount)),
+            'discounted_price'           => $discountedBasePrice['formatted'],
             'rating_star'                => $this->rating_star,
             'rating_star_count'          => $this->rating_star_count,
             "barcode_image"              => $this->barcodeImage,
         ];
+    }
+
+    private function tenantFromRequest($request): ?Tenant
+    {
+        $tenant = $request?->attributes->get(config('tenancy.tenant_request_attribute', 'saas.tenant'));
+
+        if ($tenant instanceof Tenant) {
+            return $tenant;
+        }
+
+        return app()->bound('currentTenant') && app('currentTenant') instanceof Tenant ? app('currentTenant') : null;
     }
 }

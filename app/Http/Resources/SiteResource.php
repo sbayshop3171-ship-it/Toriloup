@@ -3,6 +3,8 @@
 namespace App\Http\Resources;
 
 
+use App\Models\Tenant;
+use App\Services\Currency\CurrencyCatalogService;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SiteResource extends JsonResource
@@ -24,13 +26,20 @@ class SiteResource extends JsonResource
      */
     public function toArray($request): array
     {
+        $currencyCode = strtoupper((string) ($this->info['site_default_currency_code'] ?? ''));
+        $tenant = $this->tenantFromRequest($request);
+        $currency = $currencyCode !== ''
+            ? app(CurrencyCatalogService::class)->findByCode($currencyCode, $tenant)
+            : null;
+        $currencySymbol = $currency?->symbol ?? ($this->info['site_default_currency_symbol'] ?? '$');
+
         return [
             "site_date_format"                           => $this->info['site_date_format'],
             "site_time_format"                           => $this->info['site_time_format'],
             "site_default_timezone"                      => $this->info['site_default_timezone'],
             "site_default_currency"                      => $this->info['site_default_currency'],
-            "site_default_currency_code"                 => $this->info['site_default_currency_code'] ?? null,
-            "site_default_currency_symbol"               => $this->info['site_default_currency_symbol'],
+            "site_default_currency_code"                 => $currencyCode !== '' ? $currencyCode : null,
+            "site_default_currency_symbol"               => $currencySymbol,
             "site_currency_position"                     => $this->info['site_currency_position'],
             "site_digit_after_decimal_point"             => $this->info['site_digit_after_decimal_point'],
             "site_email_verification"                    => $this->info['site_email_verification'],
@@ -49,5 +58,21 @@ class SiteResource extends JsonResource
             "site_non_purchase_product_maximum_quantity" => $this->info['site_non_purchase_product_maximum_quantity'],
             "site_is_return_product_price_add_to_credit" => $this->info['site_is_return_product_price_add_to_credit'],
         ];
+    }
+
+    private function tenantFromRequest($request): ?Tenant
+    {
+        $tenantAttribute = config('tenancy.tenant_request_attribute', 'saas.tenant');
+        $tenant = $request?->attributes->get($tenantAttribute);
+
+        if ($tenant instanceof Tenant) {
+            return $tenant;
+        }
+
+        if (app()->bound('currentTenant') && app('currentTenant') instanceof Tenant) {
+            return app('currentTenant');
+        }
+
+        return null;
     }
 }

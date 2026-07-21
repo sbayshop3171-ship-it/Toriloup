@@ -504,7 +504,7 @@ export default {
     },
 
     closeSettingMenu: function (event) {
-        if (!event.target.closest(".settings-btn")) {
+        if (!event.target.closest(".settings-btn, .settings-menu-panel")) {
             document.querySelectorAll(".settings-btn").forEach((btn) => {
                 if (btn.getAttribute("aria-expanded") === "true") {
                     const options = btn.nextElementSibling;

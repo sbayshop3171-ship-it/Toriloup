@@ -1,6 +1,6 @@
 <template>
     <div class="db-tab-div font-medium active">
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5 settings-mobile-subnav">
 
             <router-link :to="{ name: 'admin.settings.locationSetup.countries' }"
                 class="db-tab-sub-btn w-full flex items-center gap-3 h-10 px-4 rounded-lg transition bg-white hover:text-primary hover:bg-primary/5">

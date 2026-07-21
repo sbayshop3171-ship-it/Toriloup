@@ -423,10 +423,19 @@ export default {
             return Math.round(Number(this.temp.discountPercentage || 0));
         },
         activeCurrencySymbol: function () {
-            return this.temp.displayCurrencySymbol || this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol;
+            return this.symbolForCurrency(this.temp.displayCurrencyCode)
+                || this.temp.displayCurrencySymbol
+                || this.symbolForCurrency(this.setting.display_currency?.code)
+                || this.setting.display_currency?.symbol
+                || this.setting.site_base_currency_symbol
+                || this.setting.site_default_currency_symbol;
         },
         activeCurrencyDecimal: function () {
-            return this.temp.displayCurrencyMinorUnit ?? this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point;
+            return this.minorUnitForCurrency(this.temp.displayCurrencyCode)
+                ?? this.temp.displayCurrencyMinorUnit
+                ?? this.minorUnitForCurrency(this.setting.display_currency?.code)
+                ?? this.setting.display_currency?.minor_unit
+                ?? this.setting.site_digit_after_decimal_point;
         },
     },
     mounted() {
@@ -441,15 +450,63 @@ export default {
         currencyFormat: function (amount, decimal, currency, position) {
             return appService.currencyFormat(amount, decimal, currency, position);
         },
+        currencyOption: function (code) {
+            const normalized = String(code || "").toUpperCase();
+            const options = Array.isArray(this.setting.currency_options) ? this.setting.currency_options : [];
+
+            if (!normalized) {
+                return null;
+            }
+
+            return options.find((currency) => String(currency.code || "").toUpperCase() === normalized) || null;
+        },
+        symbolForCurrency: function (code) {
+            return this.currencyOption(code)?.symbol || null;
+        },
+        minorUnitForCurrency: function (code) {
+            const option = this.currencyOption(code);
+
+            if (!option) {
+                return null;
+            }
+
+            const minorUnit = parseInt(option.minor_unit ?? 2, 10);
+
+            return Number.isFinite(minorUnit) ? minorUnit : 2;
+        },
+        rateForCurrency: function (code) {
+            const normalized = String(code || "").toUpperCase();
+            const option = this.currencyOption(normalized);
+            const display = this.setting.display_currency || {};
+            const rate = option?.exchange_rate
+                ?? (String(display.code || "").toUpperCase() === normalized ? display.exchange_rate : null)
+                ?? 1;
+            const parsed = parseFloat(rate);
+
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+        },
+        exchangeRateBetween: function (fromCode, toCode) {
+            return this.rateForCurrency(toCode) / Math.max(this.rateForCurrency(fromCode), 0.00000001);
+        },
         currencySnapshot: function (source) {
+            const displayCurrencyCode = source.display_currency_code || this.setting.display_currency?.code;
+            const baseCurrencyCode = source.base_currency_code || this.setting.site_base_currency_code || this.setting.site_default_currency_code;
+
             return {
                 basePrice: source.base_price ?? source.price ?? 0,
                 oldBasePrice: source.old_base_price ?? source.old_price ?? source.base_price ?? source.price ?? 0,
-                baseCurrencyCode: source.base_currency_code || this.setting.site_base_currency_code || this.setting.site_default_currency_code,
-                displayCurrencyCode: source.display_currency_code || this.setting.display_currency?.code,
-                displayCurrencySymbol: source.display_currency_symbol || this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol,
-                displayCurrencyMinorUnit: source.display_currency_minor_unit ?? this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point,
-                displayExchangeRate: source.display_exchange_rate || this.setting.display_currency?.exchange_rate || 1,
+                baseCurrencyCode,
+                displayCurrencyCode,
+                displayCurrencySymbol: this.symbolForCurrency(displayCurrencyCode)
+                    || source.display_currency_symbol
+                    || this.setting.display_currency?.symbol
+                    || this.setting.site_base_currency_symbol
+                    || this.setting.site_default_currency_symbol,
+                displayCurrencyMinorUnit: this.minorUnitForCurrency(displayCurrencyCode)
+                    ?? source.display_currency_minor_unit
+                    ?? this.setting.display_currency?.minor_unit
+                    ?? this.setting.site_digit_after_decimal_point,
+                displayExchangeRate: source.display_exchange_rate || this.exchangeRateBetween(baseCurrencyCode, displayCurrencyCode),
                 displayRateSource: source.display_rate_source || this.setting.display_currency?.rate_source || null,
                 displayRateSyncedAt: source.display_rate_synced_at || this.setting.display_currency?.rate_synced_at || null,
             };

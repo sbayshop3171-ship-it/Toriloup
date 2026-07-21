@@ -151,6 +151,7 @@ class StorefrontCustomerFlowTest extends TestCase
         $this->assertSame('BDT', $localResponse->json('data.0.base_currency_code'));
         $this->assertSame('BDT', $localResponse->json('data.0.display_currency_code'));
         $this->assertEquals(120.0, (float) $localResponse->json('data.0.price'));
+        $this->assertSame('Tk120.00', $localResponse->json('data.0.currency_price'));
 
         $foreignResponse = $this
             ->withHeaders($this->jsonHeaders() + ['CF-IPCountry' => 'US'])
@@ -160,6 +161,7 @@ class StorefrontCustomerFlowTest extends TestCase
         $this->assertSame('BDT', $foreignResponse->json('data.0.base_currency_code'));
         $this->assertSame('USD', $foreignResponse->json('data.0.display_currency_code'));
         $this->assertEqualsWithDelta(0.97, (float) $foreignResponse->json('data.0.price'), 0.01);
+        $this->assertSame('$0.97', $foreignResponse->json('data.0.currency_price'));
     }
 
     public function test_usd_base_currency_converts_to_bdt_for_bangladesh_visitors(): void
@@ -176,6 +178,7 @@ class StorefrontCustomerFlowTest extends TestCase
         $this->assertSame('USD', $response->json('data.0.base_currency_code'));
         $this->assertSame('BDT', $response->json('data.0.display_currency_code'));
         $this->assertEquals(14803.2, (float) $response->json('data.0.price'));
+        $this->assertSame('Tk14803.20', $response->json('data.0.currency_price'));
     }
 
     public function test_storefront_currency_uses_ip_location_when_country_header_is_missing(): void
@@ -198,6 +201,7 @@ class StorefrontCustomerFlowTest extends TestCase
         $this->assertSame('USD', $response->json('data.0.base_currency_code'));
         $this->assertSame('BDT', $response->json('data.0.display_currency_code'));
         $this->assertEquals(14803.2, (float) $response->json('data.0.price'));
+        $this->assertSame('Tk14803.20', $response->json('data.0.currency_price'));
     }
 
     public function test_merchant_can_disable_auto_visitor_currency_but_manual_currency_still_works(): void

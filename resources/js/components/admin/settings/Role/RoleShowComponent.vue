@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <form class="!d-block w-full" @submit.prevent="save" id="form" enctype="multipart/form-data">
+        <form class="!d-block w-full settings-page-form" @submit.prevent="save" id="form" enctype="multipart/form-data">
             <div class="db-card">
                 <div class="db-card-header">
                     <h3 class="db-card-title">
@@ -48,7 +48,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="db-card-body border-t">
+                <div class="db-card-body border-t settings-sticky-submit">
                     <button class="db-btn text-white bg-primary">
                         <i class="lab lab-fill-save"></i>
                         <span>{{ $t("button.save") }}</span>

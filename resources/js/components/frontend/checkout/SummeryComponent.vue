@@ -45,11 +45,24 @@ export default {
         setting: function () {
             return this.$store.getters['frontendSetting/lists'];
         },
+        displayCurrencyCode: function () {
+            return String(this.setting.display_currency?.code || this.setting.site_default_currency_code || this.setting.site_base_currency_code || "").toUpperCase();
+        },
+        displayCurrencyOption: function () {
+            const options = Array.isArray(this.setting.currency_options) ? this.setting.currency_options : [];
+
+            return options.find((currency) => String(currency.code || "").toUpperCase() === this.displayCurrencyCode) || null;
+        },
         displayCurrencySymbol: function () {
-            return this.setting.display_currency?.symbol || this.setting.site_default_currency_symbol;
+            return this.displayCurrencyOption?.symbol
+                || this.setting.display_currency?.symbol
+                || this.setting.site_base_currency_symbol
+                || this.setting.site_default_currency_symbol;
         },
         displayCurrencyDecimal: function () {
-            return this.setting.display_currency?.minor_unit ?? this.setting.site_digit_after_decimal_point;
+            return this.displayCurrencyOption?.minor_unit
+                ?? this.setting.display_currency?.minor_unit
+                ?? this.setting.site_digit_after_decimal_point;
         },
         subtotal: function () {
             return this.$store.getters['frontendCart/subtotal'];

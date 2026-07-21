@@ -1,14 +1,14 @@
 <template>
-    <div class="row" @click="closeSettingMenu($event)">
-        <div class="col-12">
+    <div class="row settings-shell" @click="closeSettingMenu($event)">
+        <div class="col-12 settings-shell-breadcrumb">
             <BreadcrumbComponent />
         </div>
 
-        <div class="col-12 md:col-4 xl:col-3">
+        <div class="col-12 md:col-4 xl:col-3 settings-menu-column">
             <MenuComponent />
         </div>
 
-        <div class="col-12 md:col-8 xl:col-9">
+        <div class="col-12 md:col-8 xl:col-9 settings-content-column">
             <router-view></router-view>
         </div>
     </div>

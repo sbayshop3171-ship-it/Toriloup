@@ -9,7 +9,7 @@
             </div>
         </div>
         <div class="db-card-body">
-            <form class="form-row" @submit.prevent="save">
+            <form class="form-row settings-page-form" @submit.prevent="save">
                 <div class="form-col-12 sm:form-col-8">
                     <label for="hostname" class="db-field-title required">Hostname</label>
                     <input id="hostname" v-model="form.hostname" type="text" class="db-field-control" :class="errors.hostname ? 'invalid' : ''" placeholder="store.yourdomain.com" />
@@ -19,7 +19,7 @@
                     <label for="dns_provider" class="db-field-title">DNS Provider</label>
                     <input id="dns_provider" v-model="form.dns_provider" type="text" class="db-field-control" placeholder="cloudflare" />
                 </div>
-                <div class="form-col-12">
+                <div class="form-col-12 settings-sticky-submit">
                     <button type="submit" class="db-btn text-white bg-primary">
                         <i class="lab lab-fill-save"></i>
                         <span>Request Domain</span>

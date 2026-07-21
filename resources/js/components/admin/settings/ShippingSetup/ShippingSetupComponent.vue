@@ -1,6 +1,6 @@
 <template>
     <LoadingComponent :props="loading" />
-    <form @submit.prevent="save" class="w-full d-block">
+    <form @submit.prevent="save" class="w-full d-block settings-page-form">
         <div id="order_setup" class="db-card db-tab-div active">
             <div class="db-card-header">
                 <h3 class="db-card-title">{{ $t('menu.shipping_setup') }}</h3>
@@ -49,7 +49,7 @@
                         </small>
                     </div>
 
-                    <div class="form-col-12"
+                    <div class="form-col-12 settings-sticky-submit"
                         v-if="form.shipping_setup_method === enums.shippingMethodEnum.PRODUCT_WISE">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
@@ -81,7 +81,7 @@
                             errors.shipping_setup_flat_rate_wise_cost[0]
                         }}</small>
                     </div>
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>
@@ -109,7 +109,7 @@
                             errors.shipping_setup_area_wise_default_cost[0]
                         }}</small>
                     </div>
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>

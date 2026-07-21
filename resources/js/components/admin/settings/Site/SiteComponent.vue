@@ -6,7 +6,7 @@
             <h3 class="db-card-title">{{ pageTitle }}</h3>
         </div>
         <div class="db-card-body">
-            <form v-if="merchantCurrencyOnly" @submit.prevent="save">
+            <form v-if="merchantCurrencyOnly" @submit.prevent="save" class="settings-page-form">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
                         <label for="merchant_site_default_currency" class="db-field-title required">
@@ -107,7 +107,7 @@
                         </small>
                     </div>
 
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>
@@ -115,7 +115,7 @@
                     </div>
                 </div>
             </form>
-            <form v-else @submit.prevent="save">
+            <form v-else @submit.prevent="save" class="settings-page-form">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
                         <label for="site_date_format" class="db-field-title required">
@@ -528,7 +528,7 @@
                         </small>
                     </div>
 
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>

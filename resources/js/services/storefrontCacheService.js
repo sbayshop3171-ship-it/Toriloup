@@ -255,11 +255,15 @@ function currentScope() {
     } catch (error) {}
 
     const authInfo = vuex?.auth?.authInfo || {};
+    const currencyCode = vuex?.globalState?.lists?.display_currency?.code
+        || vuex?.globalState?.lists?.currency_code
+        || "";
 
     return [
         window.location.hostname,
         authInfo?.current_tenant?.slug || "",
         vuex?.globalState?.lists?.language_code || "",
+        String(currencyCode).toUpperCase(),
         authInfo?.surface || "",
         authInfo?.id || "",
     ].join("|");

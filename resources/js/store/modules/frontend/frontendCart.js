@@ -42,6 +42,26 @@ const minorUnit = function (setting, code) {
     return Number.isFinite(parsed) ? parsed : 2;
 };
 
+const currencySymbol = function (setting, code) {
+    const option = currencyOption(setting, code);
+    const normalizedDisplayCode = String(setting?.display_currency?.code || "").toUpperCase();
+    const normalizedCode = String(code || "").toUpperCase();
+
+    if (option?.symbol) {
+        return option.symbol;
+    }
+
+    if (normalizedDisplayCode === normalizedCode && setting?.display_currency?.symbol) {
+        return setting.display_currency.symbol;
+    }
+
+    if (String(setting?.site_base_currency_code || setting?.site_default_currency_code || "").toUpperCase() === normalizedCode) {
+        return setting?.site_base_currency_symbol || setting?.site_default_currency_symbol || normalizedCode;
+    }
+
+    return setting?.site_default_currency_symbol || normalizedCode;
+};
+
 const exchangeRateBetween = function (setting, fromCode, toCode) {
     return currencyRate(setting, toCode) / currencyRate(setting, fromCode);
 };
@@ -305,7 +325,7 @@ export const frontendCart = {
         reprice: function (state, payload) {
             const setting = payload?.setting || {};
             const targetCode = displayCurrencyCode(setting);
-            const symbol = setting?.display_currency?.symbol || setting?.site_default_currency_symbol || targetCode;
+            const symbol = currencySymbol(setting, targetCode);
             const decimals = minorUnit(setting, targetCode);
             let currencyChanged = false;
 

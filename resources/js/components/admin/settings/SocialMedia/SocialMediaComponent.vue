@@ -6,7 +6,7 @@
             <h3 class="db-card-title">{{ $t("menu.social_media") }}</h3>
         </div>
         <div class="db-card-body">
-            <form @submit.prevent="save" class="w-full d-block">
+            <form @submit.prevent="save" class="w-full d-block settings-page-form">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
                         <label for="social_media_facebook" class="db-field-title">{{ $t("label.facebook") }}</label>
@@ -40,7 +40,7 @@
                             errors.social_media_twitter[0]
                         }}</small>
                     </div>
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>

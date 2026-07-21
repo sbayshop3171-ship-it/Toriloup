@@ -6,7 +6,7 @@
             <h3 class="db-card-title">{{ $t("menu.company") }}</h3>
         </div>
         <div class="db-card-body">
-            <form @submit.prevent="save">
+            <form @submit.prevent="save" class="settings-page-form">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
                         <label for="name" class="db-field-title required">
@@ -156,7 +156,7 @@
                         </div>
                     </div>
 
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>

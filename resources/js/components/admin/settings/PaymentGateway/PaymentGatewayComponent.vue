@@ -10,7 +10,7 @@
                 </div>
             </div>
             <div class="db-card-body">
-                <form @submit.prevent="saveMerchantMethods" class="form-row">
+                <form @submit.prevent="saveMerchantMethods" class="form-row settings-page-form">
                     <div class="form-col-12" v-if="formMethods.length === 0">
                         <p class="text-sm text-gray-500">No payment methods are available for this store yet.</p>
                     </div>
@@ -53,7 +53,7 @@
                         </div>
                     </div>
 
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>
@@ -65,7 +65,7 @@
     </div>
 
     <div v-else id="payment" class="db-tab-div active">
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5 settings-mobile-subnav">
             <button @click="selectActive(index)"
                 class="db-tab-sub-btn w-full flex items-center gap-3 h-10 px-4 rounded-lg transition bg-white hover:text-primary hover:bg-primary/5"
                 :data-tab="'#' + paymentGateway.slug" v-for="(paymentGateway, index) in paymentGateways.slice(0, 3)"
@@ -98,7 +98,7 @@
                 <h3 class="db-card-title">{{ paymentGateway.name }}</h3>
             </div>
             <div class="db-card-body">
-                <form @submit.prevent="saveOwnerGateway(index)" :id="'formElem' + index" class="w-full d-block">
+                <form @submit.prevent="saveOwnerGateway(index)" :id="'formElem' + index" class="w-full d-block settings-page-form">
                     <div class="form-row">
                         <input type="hidden" :value="paymentGateway.slug" name="payment_type">
 
@@ -126,7 +126,7 @@
                                 errors[paymentGatewayOption.option][0]
                             }}</small>
                         </div>
-                        <div class="form-col-12">
+                        <div class="form-col-12 settings-sticky-submit">
                             <button type="submit" :id="'formButton' + index" class="db-btn text-white bg-primary">
                                 <i class="lab lab-fill-save"></i>
                                 <span>{{ $t("button.save") }}</span>

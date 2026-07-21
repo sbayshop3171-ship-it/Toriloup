@@ -29,6 +29,7 @@ class SettingResource extends JsonResource
         $displayCurrency = $currencyResolver->resolve($request, $tenant, $this->info);
         $baseCurrencyCode = $currencyResolver->baseCurrencyCode($tenant, $this->info);
         $baseCurrency = app(CurrencyCatalogService::class)->findByCode($baseCurrencyCode, $tenant);
+        $baseCurrencySymbol = $baseCurrency?->symbol ?? ($this->info['site_default_currency_symbol'] ?? '$');
         $currencyConversion = app(CurrencyConversionService::class);
         $flatRateShipping = $currencyConversion->priceForRequest((float) ($this->info['shipping_setup_flat_rate_wise_cost'] ?? 0), $request, $tenant, $this->info);
         $areaDefaultShipping = $currencyConversion->priceForRequest((float) ($this->info['shipping_setup_area_wise_default_cost'] ?? 0), $request, $tenant, $this->info);
@@ -44,7 +45,7 @@ class SettingResource extends JsonResource
             'site_default_currency'                 => $this->info['site_default_currency'] ?? null,
             'site_default_currency_code'            => $baseCurrencyCode,
             'site_base_currency_code'               => $baseCurrencyCode,
-            'site_base_currency_symbol'             => $baseCurrency?->symbol ?? ($this->info['site_default_currency_symbol'] ?? '$'),
+            'site_base_currency_symbol'             => $baseCurrencySymbol,
             'display_currency'                      => $displayCurrency,
             'currency_options'                      => app(CurrencyCatalogService::class)->serializeOptions($tenant),
             'site_android_app_link'                 => $this->info['site_android_app_link'],
@@ -52,7 +53,7 @@ class SettingResource extends JsonResource
             'site_copyright'                        => $this->info['site_copyright'],
             'site_currency_position'                => $this->info['site_currency_position'],
             'site_digit_after_decimal_point'        => $this->info['site_digit_after_decimal_point'],
-            'site_default_currency_symbol'          => $this->info['site_default_currency_symbol'],
+            'site_default_currency_symbol'          => $baseCurrencySymbol,
             'site_phone_verification'               => $this->info['site_phone_verification'],
             'site_email_verification'               => $this->info['site_email_verification'],
             'site_language_switch'                  => $this->info['site_language_switch'],

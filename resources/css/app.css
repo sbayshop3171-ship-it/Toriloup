@@ -1566,7 +1566,7 @@
         }
 
         .pos-cart-summary > .flex:last-child {
-            @apply gap-2;
+            gap: 0.5rem;
         }
 
         .pos-cart-summary > .flex:last-child button {
@@ -1803,7 +1803,9 @@
 
         .profile-mobile-order-card > div > div:first-child,
         .profile-mobile-order-card > div > div:last-child {
-            @apply flex-col items-start gap-1;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
         }
 
         .mobile-detail-workspace {
@@ -1886,6 +1888,277 @@
         .backend-mobile-enhanced #sidebar .db-btn,
         .backend-mobile-enhanced #sidebar .modal-btn-outline {
             @apply w-full justify-center;
+        }
+    }
+
+    /* SETTINGS MOBILE WORKSPACE */
+    .settings-menu-toggle {
+        @apply flex items-center justify-between gap-3 rounded-xl bg-primary px-4 py-3 text-white shadow-[0_16px_32px_rgba(255,61,31,0.24)];
+    }
+
+    .settings-menu-toggle-copy {
+        @apply min-w-0 text-left;
+    }
+
+    .settings-menu-toggle-eyebrow {
+        @apply block text-[11px] font-semibold uppercase tracking-[0.7px] text-white/75;
+    }
+
+    .settings-menu-toggle-title {
+        @apply mt-1 block truncate text-base font-semibold text-white;
+    }
+
+    .settings-menu-card {
+        @apply border border-gray-100 p-3 shadow-sm;
+    }
+
+    .settings-menu-search {
+        @apply mb-3;
+    }
+
+    .settings-menu-searchbox {
+        @apply flex items-center gap-3 rounded-xl border border-gray-200 bg-[#F8FAFC] px-3 py-3;
+    }
+
+    .settings-menu-search-icon {
+        @apply text-sm text-gray-400;
+    }
+
+    .settings-menu-search-input {
+        @apply min-w-0 flex-1 bg-transparent text-sm text-heading outline-none;
+    }
+
+    .settings-menu-empty {
+        @apply rounded-xl border border-dashed border-gray-200 bg-[#FAFBFC] px-4 py-6 text-center text-sm text-paragraph;
+    }
+
+    .settings-menu-group + .settings-menu-group {
+        @apply mt-4 pt-4;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .settings-menu-group-header {
+        @apply mb-2 flex items-center justify-between gap-3 px-1;
+    }
+
+    .settings-menu-group-title {
+        @apply text-xs font-semibold uppercase tracking-[0.7px] text-gray-400;
+    }
+
+    .settings-menu-group-count {
+        @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FFF4F1] px-1.5 text-[10px] font-semibold leading-none text-primary;
+    }
+
+    .settings-menu-group-list {
+        @apply space-y-1.5;
+    }
+
+    .settings-menu-link {
+        @apply rounded-xl border border-transparent px-3 py-3;
+    }
+
+    .settings-menu-link.active {
+        @apply !bg-primary/5 !text-primary;
+        border-color: rgba(255, 61, 31, 0.12);
+    }
+
+    .settings-menu-link-icon {
+        @apply inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary;
+    }
+
+    .settings-menu-link-text {
+        @apply min-w-0 flex-1 truncate text-left text-sm font-semibold;
+    }
+
+    .settings-menu-link-badge {
+        @apply inline-flex items-center justify-center rounded-full bg-[#FFF4F1] px-2 py-1 text-[10px] font-semibold leading-none text-primary;
+    }
+
+    @media (min-width: 768px) {
+        .settings-menu-card {
+            position: sticky;
+            top: calc(var(--db-header-height, 0px) + 1rem);
+        }
+    }
+
+    @media (max-width: 767px) {
+        .settings-shell {
+            row-gap: 1rem;
+        }
+
+        .settings-menu-panel {
+            max-height: min(70vh, 34rem);
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .settings-menu-panel::-webkit-scrollbar,
+        .settings-mobile-subnav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .settings-menu-card {
+            @apply rounded-2xl;
+        }
+
+        .settings-content-column {
+            padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+        }
+
+        .settings-content-column .db-card {
+            @apply rounded-xl border border-gray-100 shadow-sm;
+        }
+
+        .settings-content-column .db-card.db-tab-div.active,
+        .settings-content-column .db-card.db-tab-sub-div.active {
+            @apply overflow-visible;
+        }
+
+        .settings-content-column .db-card.db-tab-div.active > .db-card-header,
+        .settings-content-column .db-card.db-tab-sub-div.active > .db-card-header,
+        .settings-content-column .settings-page-form > .db-card > .db-card-header {
+            position: sticky;
+            top: var(--db-header-height, 0px);
+            z-index: 18;
+            @apply gap-3 rounded-t-xl border-b border-gray-100 bg-white p-4 shadow-sm;
+        }
+
+        .settings-content-column .db-card-title {
+            @apply text-base leading-6;
+        }
+
+        .settings-content-column .db-card-body {
+            @apply p-4;
+        }
+
+        .settings-content-column .db-card-header .db-card-filter {
+            @apply grid w-full grid-cols-2 gap-2;
+        }
+
+        .settings-content-column .db-card-header .db-card-filter > *,
+        .settings-content-column .db-card-header .db-card-filter .dropdown-group {
+            @apply min-w-0;
+            flex: none;
+        }
+
+        .settings-content-column .db-card-header .db-card-filter .db-btn,
+        .settings-content-column .db-card-header .db-card-filter .db-card-filter-btn,
+        .settings-content-column .db-card-header .db-card-filter .db-card-filter-select,
+        .settings-content-column .db-card-header .db-card-filter .dropdown-group {
+            @apply w-full justify-center;
+        }
+
+        .settings-content-column .settings-page-form .form-row,
+        .settings-content-column .db-card-body > form > .form-row,
+        .settings-content-column .db-card-body > .form-row {
+            @apply -mx-2;
+            row-gap: 0.25rem;
+        }
+
+        .settings-content-column .settings-page-form [class*="form-col-"],
+        .settings-content-column .db-card-body > form > .form-row > [class*="form-col-"],
+        .settings-content-column .db-card-body > .form-row > [class*="form-col-"] {
+            width: 100%;
+            @apply px-2;
+        }
+
+        .settings-content-column .settings-page-form .db-field-control,
+        .settings-content-column .settings-page-form .db-multiple-field,
+        .settings-content-column .db-card-body > form .db-field-control,
+        .settings-content-column .db-card-body > form .db-multiple-field {
+            min-height: 2.75rem;
+        }
+
+        .settings-content-column .settings-page-form textarea.db-field-control,
+        .settings-content-column .db-card-body > form textarea.db-field-control {
+            min-height: 8rem;
+        }
+
+        .settings-content-column .settings-page-form .db-multiple-field,
+        .settings-content-column .db-card-body > form .db-multiple-field {
+            height: auto;
+        }
+
+        .settings-content-column .settings-page-form .db-multiple-field input,
+        .settings-content-column .db-card-body > form .db-multiple-field input {
+            min-height: 2.75rem;
+        }
+
+        .settings-content-column .settings-page-form .db-field-radio-group,
+        .settings-content-column .db-card-body > form .db-field-radio-group {
+            @apply flex-wrap;
+            gap: 0.75rem 1rem;
+        }
+
+        .settings-sticky-submit {
+            position: sticky;
+            bottom: 0;
+            z-index: 16;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            padding-bottom: max(0.875rem, env(safe-area-inset-bottom));
+            background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.96) 28%, rgba(255,255,255,1) 100%);
+        }
+
+        .settings-sticky-submit .db-btn {
+            width: 100%;
+            min-height: 2.875rem;
+            justify-content: center;
+            border-radius: 0.875rem;
+            box-shadow: 0 14px 30px rgba(255, 61, 31, 0.18);
+        }
+
+        .settings-mobile-subnav {
+            display: flex;
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+        }
+
+        .settings-mobile-subnav > * {
+            flex: 0 0 auto;
+            min-width: max-content;
+        }
+
+        .settings-mobile-subnav .db-tab-sub-btn,
+        .settings-mobile-subnav > a,
+        .settings-mobile-subnav > button {
+            @apply rounded-xl border border-gray-100 bg-white px-4 shadow-sm;
+            min-height: 2.875rem;
+            white-space: nowrap;
+        }
+
+        .settings-content-column .db-table-responsive[data-mobile-card-ready="true"] {
+            overflow: visible;
+        }
+
+        .settings-content-column .db-table[data-mobile-card-ready="true"] .db-table-body-tr {
+            @apply rounded-xl border border-gray-100 bg-white p-3 shadow-sm;
+        }
+
+        .settings-content-column .db-table[data-mobile-card-ready="true"] .db-table-body-td {
+            @apply min-h-0 border-b border-gray-100 px-1 py-2.5 last:border-b-0;
+        }
+
+        .settings-content-column .db-table[data-mobile-card-ready="true"] .db-table-body-td:first-child {
+            @apply text-left text-base font-bold text-heading;
+        }
+
+        .settings-content-column #role > ul {
+            padding: 0.75rem;
+        }
+
+        .settings-content-column #role > ul > li {
+            @apply rounded-2xl border border-gray-100 bg-white shadow-sm;
+            margin-bottom: 0.75rem;
+        }
+
+        .settings-content-column #role > ul > li:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-content-column #role > ul > li > div {
+            width: 100%;
         }
     }
 

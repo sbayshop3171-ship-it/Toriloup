@@ -6,7 +6,7 @@
             <h3 class="db-card-title">{{ $t("menu.theme") }}</h3>
         </div>
         <div class="db-card-body">
-            <form @submit.prevent="save" class="w-full d-block">
+            <form @submit.prevent="save" class="w-full d-block settings-page-form">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
                         <label for="theme_logo" class="db-field-title">
@@ -51,7 +51,7 @@
                             v-if="theme_footer_logo_reader" :src="theme_footer_logo_reader" />
                     </div>
 
-                    <div class="form-col-12">
+                    <div class="form-col-12 settings-sticky-submit">
                         <button type="submit" class="db-btn text-white bg-primary">
                             <i class="lab lab-fill-save"></i>
                             <span>{{ $t("button.save") }}</span>

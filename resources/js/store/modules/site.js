@@ -30,7 +30,7 @@ export const site = {
                 axios
                     .put(`/admin/setting/site`, payload)
                     .then((res) => {
-                        context.commit("lists", payload);
+                        context.commit("lists", res.data.data);
                         resolve(res);
                     })
                     .catch((err) => {
