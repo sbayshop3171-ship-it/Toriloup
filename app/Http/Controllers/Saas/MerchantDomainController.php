@@ -5,18 +5,21 @@ namespace App\Http\Controllers\Saas;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Saas\TenantDomainStoreRequest;
 use App\Models\TenantDomain;
+use App\Services\Saas\CloudflareDnsService;
 use App\Services\Saas\PlatformAuditLogService;
 use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Saas\TenantDomainManager;
 use App\Services\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class MerchantDomainController extends Controller
 {
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly TenantDomainManager $tenantDomainManager,
+        private readonly CloudflareDnsService $cloudflareDnsService,
         private readonly PlatformAuditLogService $platformAuditLogService,
         private readonly SubscriptionManagerService $subscriptionManagerService,
     ) {
@@ -77,9 +80,7 @@ class MerchantDomainController extends Controller
     public function setPrimary(Request $request, int $domainId): JsonResponse
     {
         $tenant = $this->tenantContext->current();
-        $domain = TenantDomain::query()
-            ->where('tenant_id', $tenant?->id)
-            ->findOrFail($domainId);
+        $domain = $this->tenantDomain($domainId);
         $oldValues = $domain->only(['is_primary']);
 
         $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
@@ -102,6 +103,107 @@ class MerchantDomainController extends Controller
         ]);
     }
 
+    public function connectCloudflare(Request $request, int $domainId): JsonResponse
+    {
+        $tenant = $this->tenantContext->current();
+        $domain = $this->tenantDomain($domainId);
+        $target = $this->fallbackTarget($domain);
+        $oldValues = $domain->only([
+            'verification_status',
+            'ssl_status',
+            'dns_provider',
+            'cloudflare_zone_id',
+            'verified_at',
+            'last_checked_at',
+            'is_primary',
+        ]);
+
+        $result = $this->cloudflareDnsService->connectTenantDomain($domain, $target);
+
+        $domain = $this->tenantDomainManager->markVerification($domain, [
+            'verification_status' => 'verified',
+            'ssl_status' => 'active',
+            'dns_provider' => 'cloudflare',
+            'cloudflare_zone_id' => $result['zone_id'] ?? null,
+            'check_type' => 'dns',
+            'message' => 'Cloudflare DNS connected automatically.',
+            'payload_json' => $result,
+        ]);
+
+        if ($this->shouldAutoPromote($domain)) {
+            $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
+        }
+
+        $this->platformAuditLogService->log(
+            'merchant.domain.cloudflare.connected',
+            'tenant_domain',
+            $domain->id,
+            $oldValues,
+            $domain->only(array_keys($oldValues)),
+            $request,
+            $request->user(),
+            $tenant,
+            'merchant'
+        );
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->serializeDomain($domain),
+        ]);
+    }
+
+    public function verify(Request $request, int $domainId): JsonResponse
+    {
+        $tenant = $this->tenantContext->current();
+        $domain = $this->tenantDomain($domainId);
+        $target = $this->fallbackTarget($domain);
+        $oldValues = $domain->only([
+            'verification_status',
+            'ssl_status',
+            'dns_provider',
+            'cloudflare_zone_id',
+            'verified_at',
+            'last_checked_at',
+            'is_primary',
+        ]);
+
+        $result = $this->cloudflareDnsService->verifyTenantDomain($domain, $target);
+
+        $domain = $this->tenantDomainManager->markVerification($domain, [
+            'verification_status' => $result['verified'] ? 'verified' : 'failed',
+            'ssl_status' => $result['verified'] ? 'active' : 'pending',
+            'dns_provider' => $domain->dns_provider,
+            'check_type' => $result['check_type'] ?? 'dns',
+            'message' => $result['message'] ?? null,
+            'payload_json' => $result['payload_json'] ?? null,
+        ]);
+
+        if (($result['verified'] ?? false) && $this->shouldAutoPromote($domain)) {
+            $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
+        }
+
+        $this->platformAuditLogService->log(
+            'merchant.domain.verified',
+            'tenant_domain',
+            $domain->id,
+            $oldValues,
+            $domain->only(array_keys($oldValues)),
+            $request,
+            $request->user(),
+            $tenant,
+            'merchant'
+        );
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->serializeDomain($domain),
+            'meta' => [
+                'verified' => (bool) ($result['verified'] ?? false),
+                'message' => $result['message'] ?? null,
+            ],
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -121,10 +223,47 @@ class MerchantDomainController extends Controller
             'verification_token' => $domain->verification_token,
             'dns_provider' => $domain->dns_provider,
             'verified_at' => $domain->verified_at,
+            'last_checked_at' => $domain->last_checked_at,
+            'cloudflare_connect_available' => $this->cloudflareDnsService->isConfigured() && $domain->domain_type === 'custom' && ($domain->dns_provider === null || strtolower((string) $domain->dns_provider) === 'cloudflare'),
             'dns_instructions' => [
                 'cname_target' => $fallbackDomain?->hostname,
                 'verification_txt_value' => $domain->verification_token,
             ],
         ];
+    }
+
+    private function tenantDomain(int $domainId): TenantDomain
+    {
+        $tenant = $this->tenantContext->current();
+
+        return TenantDomain::query()
+            ->where('tenant_id', $tenant?->id)
+            ->findOrFail($domainId);
+    }
+
+    private function fallbackTarget(TenantDomain $domain): string
+    {
+        $domain->loadMissing(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback')]);
+        $fallbackDomain = $domain->tenant?->domains->firstWhere('is_fallback', true);
+
+        if ($fallbackDomain === null) {
+            throw ValidationException::withMessages([
+                'domain' => 'Fallback storefront domain is missing for this tenant.',
+            ]);
+        }
+
+        return (string) $fallbackDomain->hostname;
+    }
+
+    private function shouldAutoPromote(TenantDomain $domain): bool
+    {
+        $domain->loadMissing(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback')]);
+        $currentPrimary = $domain->tenant?->domains->firstWhere('is_primary', true);
+
+        if ($currentPrimary === null) {
+            return true;
+        }
+
+        return $currentPrimary->is_fallback || $currentPrimary->id === $domain->id;
     }
 }

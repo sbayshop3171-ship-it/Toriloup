@@ -44,11 +44,46 @@
                             Verification: <span class="font-medium capitalize">{{ domain.verification_status }}</span>
                             · SSL: <span class="font-medium capitalize">{{ domain.ssl_status }}</span>
                         </p>
+                        <p v-if="domain.last_checked_at" class="mt-1 text-xs text-gray-400">
+                            Last checked: {{ formatDate(domain.last_checked_at) }}
+                        </p>
                     </div>
 
-                    <button v-if="!domain.is_primary" type="button" class="db-btn py-2 text-white bg-primary" @click="setPrimary(domain.id)">
-                        Make Primary
-                    </button>
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            v-if="showCloudflareConnect(domain)"
+                            type="button"
+                            class="db-btn py-2 text-white bg-primary"
+                            @click="connectCloudflare(domain)"
+                        >
+                            Connect Cloudflare
+                        </button>
+                        <button
+                            v-if="showVerify(domain)"
+                            type="button"
+                            class="db-btn py-2 border border-gray-200 text-gray-700 bg-white"
+                            @click="verifyDomain(domain)"
+                        >
+                            Check DNS
+                        </button>
+                        <button
+                            v-if="showMakePrimary(domain)"
+                            type="button"
+                            class="db-btn py-2 text-white bg-primary"
+                            @click="setPrimary(domain.id)"
+                        >
+                            Make Primary
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="domain.domain_type === 'custom'" class="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <p v-if="showCloudflareConnect(domain)">
+                        One click can create the DNS record automatically for zones inside the connected Cloudflare account.
+                    </p>
+                    <p v-else>
+                        Add the CNAME below at your DNS provider, wait for propagation, then use Check DNS.
+                    </p>
                 </div>
 
                 <div v-if="domain.domain_type === 'custom'" class="grid gap-3 mt-4 md:grid-cols-2">
@@ -123,6 +158,50 @@ export default {
                 this.loading.isActive = false;
                 alertService.error(err);
             });
+        },
+        connectCloudflare: function (domain) {
+            this.loading.isActive = true;
+            this.$store.dispatch("merchantDomain/connectCloudflare", { id: domain.id }).then(() => {
+                this.loading.isActive = false;
+                alertService.success("Cloudflare connected and domain verified.");
+            }).catch((err) => {
+                this.loading.isActive = false;
+                alertService.error(err);
+            });
+        },
+        verifyDomain: function (domain) {
+            this.loading.isActive = true;
+            this.$store.dispatch("merchantDomain/verify", { id: domain.id }).then((res) => {
+                this.loading.isActive = false;
+                const verified = res?.data?.meta?.verified;
+                if (verified) {
+                    alertService.success("DNS verified successfully.");
+                    return;
+                }
+
+                alertService.info(res?.data?.meta?.message || "DNS is still propagating. Please try again in a moment.");
+            }).catch((err) => {
+                this.loading.isActive = false;
+                alertService.error(err);
+            });
+        },
+        showCloudflareConnect: function (domain) {
+            return domain.domain_type === "custom"
+                && domain.cloudflare_connect_available
+                && domain.verification_status !== "verified";
+        },
+        showVerify: function (domain) {
+            return domain.domain_type === "custom" && domain.verification_status !== "verified";
+        },
+        showMakePrimary: function (domain) {
+            return !domain.is_primary && domain.verification_status === "verified";
+        },
+        formatDate: function (value) {
+            if (!value) {
+                return "";
+            }
+
+            return new Date(value).toLocaleString();
         },
     },
 };

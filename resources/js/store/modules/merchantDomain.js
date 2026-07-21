@@ -41,6 +41,26 @@ export const merchantDomain = {
                 });
             });
         },
+        connectCloudflare: function (context, payload) {
+            return new Promise((resolve, reject) => {
+                axios.post(`merchant/domains/${payload.id}/cloudflare/connect`).then((res) => {
+                    context.dispatch("lists").then().catch();
+                    resolve(res);
+                }).catch((err) => {
+                    reject(err);
+                });
+            });
+        },
+        verify: function (context, payload) {
+            return new Promise((resolve, reject) => {
+                axios.post(`merchant/domains/${payload.id}/verify`).then((res) => {
+                    context.dispatch("lists").then().catch();
+                    resolve(res);
+                }).catch((err) => {
+                    reject(err);
+                });
+            });
+        },
     },
     mutations: {
         lists: function (state, payload) {

@@ -151,6 +151,8 @@ Route::prefix('merchant')
                 Route::prefix('domains')->group(function () {
                     Route::get('/', [MerchantDomainController::class, 'index']);
                     Route::post('/', [MerchantDomainController::class, 'store'])->middleware('tenantFeature:custom_domain');
+                    Route::post('/{domainId}/cloudflare/connect', [MerchantDomainController::class, 'connectCloudflare'])->whereNumber('domainId')->middleware('tenantFeature:custom_domain');
+                    Route::post('/{domainId}/verify', [MerchantDomainController::class, 'verify'])->whereNumber('domainId')->middleware('tenantFeature:custom_domain');
                     Route::post('/{domainId}/primary', [MerchantDomainController::class, 'setPrimary'])->whereNumber('domainId')->middleware('tenantFeature:custom_domain');
                 });
 
