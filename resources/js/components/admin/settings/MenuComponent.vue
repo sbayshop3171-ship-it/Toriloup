@@ -1,19 +1,24 @@
 <template>
-    <button @click="openSettingMenu($event)" type="button"
-        class="settings-btn w-full md:hidden flex items-center justify-between gap-2 px-4 py-3 rounded-lg bg-primary text-white">
-        <span class="capitalize">{{ $t('menu.settings_menu') }}</span>
+    <button @click="openSettingMenu($event)" type="button" aria-expanded="false"
+        class="settings-btn settings-menu-toggle w-full md:hidden">
+        <span class="settings-menu-toggle-copy">
+            <span class="settings-menu-toggle-eyebrow">{{ $t('menu.settings') }}</span>
+            <span class="settings-menu-toggle-title">{{ $t('menu.settings_menu') }}</span>
+        </span>
         <i class="icon fa-solid fa-chevron-down text-sm"></i>
     </button>
 
-    <div class="h-0 overflow-hidden md:h-auto md:overflow-auto transition-all duration-300 font-medium">
-        <nav class="db-card p-3">
-            <router-link v-for="item in menuItems" :key="item.name" :to="settingRoute(item)" class="db-tab-btn"
+    <div class="settings-menu-panel h-0 overflow-hidden md:h-auto md:overflow-auto transition-all duration-300 font-medium">
+        <nav class="db-card settings-menu-card">
+            <router-link v-for="item in menuItems" :key="item.name" :to="settingRoute(item)" class="db-tab-btn settings-menu-link"
                 :class="{ 'opacity-75': isFeatureLocked(item) }" @click="closeMobileSettingMenu">
-                <i :class="item.icon" class="text-sm"></i>
-                {{ item.labelKey ? $t(item.labelKey) : item.label }}
+                <span class="settings-menu-link-icon">
+                    <i :class="item.icon"></i>
+                </span>
+                <span class="settings-menu-link-text">{{ item.labelKey ? $t(item.labelKey) : item.label }}</span>
                 <span
                     v-if="isFeatureLocked(item)"
-                    class="ml-auto inline-flex items-center justify-center h-5 px-1.5 rounded-full text-[10px] leading-none font-semibold text-primary bg-[#FFF4F1]">
+                    class="settings-menu-link-badge">
                     Lock
                 </span>
             </router-link>

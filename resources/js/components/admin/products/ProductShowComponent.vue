@@ -1,9 +1,9 @@
 <template>
     <LoadingComponent :props="loading" />
 
-    <div class="col-12 pt-2 sm:pt-3">
+    <div class="col-12 pt-2 sm:pt-3 product-detail-mobile-page">
         <div id="product" class="db-tab-div active">
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5">
+            <div class="product-detail-tabs grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5">
 
                 <button @click.prevent="multiTargets($event, 'tab-action', 'tab-content', 'information')"
                     class="tab-action active w-full flex items-center gap-3 h-10 px-4 rounded-lg bg-white hover:text-primary hover:bg-primary/5">
@@ -476,6 +476,7 @@ export default {
             loading: {
                 isActive: false,
             },
+            productBackGuardActive: false,
             printObj: {
                 id: "productBarcodePrint",
                 popTitle: this.$t('menu.products')
@@ -540,11 +541,51 @@ export default {
             mainContainer.scrollTop = 0;
         }
 
+        this.installProductBackGuard();
         this.loading.isActive = true;
         this.$store.dispatch('site/lists').then().catch(() => {});
         this.show();
     },
+    beforeUnmount() {
+        this.removeProductBackGuard();
+    },
     methods: {
+        installProductBackGuard: function () {
+            if (typeof window === "undefined" || !window.history?.pushState) {
+                return;
+            }
+
+            try {
+                const state = window.history.state || {};
+                window.history.pushState(
+                    {
+                        ...state,
+                        productDetailBackGuard: true,
+                        productDetailPath: this.$route.fullPath,
+                    },
+                    "",
+                    window.location.href
+                );
+                this.productBackGuardActive = true;
+                window.addEventListener("popstate", this.handleProductBackNavigation);
+            } catch (error) {}
+        },
+        removeProductBackGuard: function () {
+            if (typeof window === "undefined") {
+                return;
+            }
+
+            window.removeEventListener("popstate", this.handleProductBackNavigation);
+        },
+        handleProductBackNavigation: function () {
+            if (!this.productBackGuardActive) {
+                return;
+            }
+
+            this.productBackGuardActive = false;
+            this.removeProductBackGuard();
+            this.$router.replace({ name: "admin.products.list" }).catch(() => {});
+        },
         multiTargets: function (event, commonBtnClass, commonDivClass, targetID) {
             targetService.multiTargets(event, commonBtnClass, commonDivClass, targetID);
         },

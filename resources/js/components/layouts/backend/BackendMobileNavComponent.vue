@@ -5,7 +5,7 @@
                 :to="workspaceHomeRoute"
                 class="backend-mobile-nav-item"
                 :class="{ active: isDashboardActive }">
-                <i class="lab lab-line-dashboard"></i>
+                <i class="lab lab-fill-dashboard"></i>
                 <span>{{ $t("menu.dashboard") }}</span>
             </router-link>
 
@@ -14,7 +14,7 @@
                 class="backend-mobile-nav-fab"
                 :class="{ active: isActive(orderUrls) }">
                 <span class="backend-mobile-fab-button">
-                    <i class="lab lab-line-online-orders"></i>
+                    <i class="lab lab-fill-bag-tick"></i>
                     <span
                         v-if="badgeForUrls(orderUrls) > 0"
                         class="backend-mobile-fab-badge">
@@ -29,7 +29,7 @@
                 class="backend-mobile-nav-item"
                 :class="{ active: isActive(productUrls) }">
                 <span class="relative">
-                    <i class="lab lab-line-items"></i>
+                    <i class="lab lab-fill-box"></i>
                     <span v-if="badgeForUrls(productUrls) > 0" class="backend-mobile-dot"></span>
                 </span>
                 <span>{{ $t("menu.products") }}</span>

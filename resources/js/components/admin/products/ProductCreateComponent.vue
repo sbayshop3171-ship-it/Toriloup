@@ -3,14 +3,14 @@
     <SmSidebarModalCreateComponent :props="addButton" />
 
     <div id="sidebar" @click.self="reset"
-        class="fixed inset-0 z-50 bg-black/50 duration-500 transition-all invisible opacity-0">
-        <div class="w-full max-w-xl h-screen overflow-x-hidden thin-scrolling bg-white ms-auto ltr:translate-x-full rtl:-translate-x-full">
+        class="product-create-drawer fixed inset-0 z-50 bg-black/50 duration-500 transition-all invisible opacity-0">
+        <div class="product-create-drawer-panel w-full max-w-xl h-screen overflow-x-hidden thin-scrolling bg-white ms-auto ltr:translate-x-full rtl:-translate-x-full">
         <div class="drawer-header">
             <h3 class="drawer-title">{{ $t("menu.products") }}</h3>
             <button class="fa-solid fa-xmark close-btn" @click="reset"></button>
         </div>
-        <div class="drawer-body">
-            <form @submit.prevent="save">
+        <div class="drawer-body product-create-drawer-body">
+            <form @submit.prevent="save" class="product-create-form">
                 <div class="form-row">
                     <div class="form-col-12 sm:form-col-6">
                         <label for="name" class="db-field-title required">{{ $t("label.name") }}</label>
@@ -217,7 +217,7 @@
                         </small>
                     </div>
 
-                    <div class="col-12">
+                    <div class="col-12 product-create-actions">
                         <div class="flex flex-wrap gap-3 mt-4">
                             <button type="submit" class="db-btn py-2 text-white bg-primary">
                                 <i class="lab lab-fill-save"></i>
