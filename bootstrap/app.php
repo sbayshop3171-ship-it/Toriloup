@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use App\Http\Middleware\AdminAccess;
+use App\Http\Middleware\ResolveSessionDomain;
 use App\Http\Middleware\SetTenantContext;
 use App\Http\Middleware\Installed;
 use App\Http\Middleware\EnsureTenantActive;
@@ -48,6 +49,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append([]);
+        $middleware->web(prepend: [
+            ResolveSessionDomain::class,
+        ]);
         $middleware->validateCsrfTokens(
             except: [
                 '/payment/sslcommerz/*',
