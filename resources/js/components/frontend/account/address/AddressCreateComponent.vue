@@ -593,12 +593,32 @@ export default {
                 return null;
             }
 
-            return options.find((option) => {
+            return (options || []).map((option) => {
                 const normalizedOption = this.normalizeLocationValue(option.name);
-                return normalizedOption === normalizedTarget
-                    || normalizedOption.includes(normalizedTarget)
-                    || normalizedTarget.includes(normalizedOption);
-            }) || null;
+                let score = 0;
+
+                if (normalizedOption === normalizedTarget) {
+                    score = 100;
+                } else if (
+                    normalizedOption
+                    && (
+                        normalizedOption.includes(normalizedTarget)
+                        || normalizedTarget.includes(normalizedOption)
+                    )
+                ) {
+                    score = 70;
+                }
+
+                const activeCities = Number(option.active_cities_count || option.cities_count || 0);
+                if (score > 0 && activeCities > 0) {
+                    score += 20;
+                }
+
+                return { option, score, activeCities };
+            }).filter((candidate) => candidate.score > 0)
+                .sort((left, right) => {
+                    return right.score - left.score || right.activeCities - left.activeCities;
+                })[0]?.option || null;
         },
         handleAddressInput: function () {
             if (!this.mapboxAccessToken) {

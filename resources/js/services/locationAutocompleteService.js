@@ -202,6 +202,11 @@ const locationAutocompleteService = {
             return null;
         }
 
+        const backendLocation = await reverseGeocodeViaBackend(latitude, longitude, countryCode);
+        if (backendLocation) {
+            return backendLocation;
+        }
+
         if (accessToken) {
             try {
                 const params = new URLSearchParams({
@@ -228,7 +233,7 @@ const locationAutocompleteService = {
             }
         }
 
-        return reverseGeocodeViaBackend(latitude, longitude, countryCode);
+        return null;
     },
 
     async detectAddressByCountry(accessToken, countryCode = null) {

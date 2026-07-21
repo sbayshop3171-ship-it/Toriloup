@@ -19,6 +19,7 @@ class StateResource extends JsonResource
             'name' => $this->name,
             'country_id' => $this->country_id,
             'country_name' => $this->country?->name,
+            'active_cities_count' => $this->when(isset($this->active_cities_count), (int) $this->active_cities_count),
             'status'     => $this->status
         ];
     }

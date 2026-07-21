@@ -423,6 +423,43 @@ class StorefrontCustomerFlowTest extends TestCase
         $this->assertSame(91.7908, (float) $response->json('data.longitude'));
     }
 
+    public function test_storefront_states_include_active_city_counts_for_location_matching(): void
+    {
+        $tenant = $this->createTenant('state-city-location-store');
+        $country = Country::query()->create([
+            'name' => 'Bangladesh',
+            'code' => 'BD',
+            'currency_code' => 'BDT',
+            'currency_symbol' => 'Tk',
+            'status' => Status::ACTIVE,
+        ]);
+        State::query()->create([
+            'name' => 'Chittagong Division',
+            'country_id' => $country->id,
+            'status' => Status::ACTIVE,
+        ]);
+        $stateWithCities = State::query()->create([
+            'name' => 'Chattagam',
+            'country_id' => $country->id,
+            'status' => Status::ACTIVE,
+        ]);
+        City::query()->create([
+            'name' => 'Chattagam',
+            'state_id' => $stateWithCities->id,
+            'status' => Status::ACTIVE,
+        ]);
+
+        $response = $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/country-state-city/states/Bangladesh")
+            ->assertOk();
+
+        $states = collect($response->json('data'))->keyBy('name');
+
+        $this->assertSame(1, $states->get('Chattagam')['active_cities_count']);
+        $this->assertSame(0, $states->get('Chittagong Division')['active_cities_count']);
+    }
+
     public function test_profile_resource_falls_back_when_profile_media_file_is_missing(): void
     {
         $user = User::factory()->create([

@@ -36,7 +36,12 @@ class CountryStateCityService
             return [];
         }
         try {
-            return State::where('country_id', $country->id)->where('status', Status::ACTIVE)->orderBy('name', 'asc')->get();
+            return State::query()
+                ->where('country_id', $country->id)
+                ->where('status', Status::ACTIVE)
+                ->withCount(['cities as active_cities_count' => fn ($query) => $query->where('status', Status::ACTIVE)])
+                ->orderBy('name', 'asc')
+                ->get();
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
