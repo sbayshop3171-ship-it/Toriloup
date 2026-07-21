@@ -793,6 +793,7 @@
         "add_damage": "Add Damage",
         "save_changes": "Save Changes",
         "add_new_address": "Add New Address",
+        "use_current_location": "Use current location",
         "resend_code": "Resend Code",
         "verify": "Verify",
         "remove": "Remove",
@@ -919,6 +920,7 @@
         "loading_suggestions": "Loading address suggestions...",
         "detecting_current_location": "Detecting your current location...",
         "location_auto_filled_editable": "Location auto-filled. You can edit it anytime.",
+        "current_location_detection_failed": "Current location could not be detected. Please allow location permission and try again.",
         "no_saved_address": "No saved address yet.",
         "add_address_to_continue_checkout": "Add an address to continue checkout.",
         "addresses_could_not_be_loaded": "Addresses could not be loaded."

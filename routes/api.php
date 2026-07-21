@@ -774,6 +774,7 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
 
     Route::prefix('location')->name('location.')->group(function () {
         Route::get('/detect', [FrontendLocationController::class, 'detect']);
+        Route::get('/reverse', [FrontendLocationController::class, 'reverse']);
     });
 
     Route::prefix('slider')->name('slider.')->group(function () {

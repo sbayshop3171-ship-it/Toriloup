@@ -792,6 +792,7 @@
         "add_damage": "إضافة ضرر",
         "save_changes": "حفظ التغييرات",
         "add_new_address": "إضافة عنوان جديد",
+        "use_current_location": "استخدام الموقع الحالي",
         "resend_code": "إعادة إرسال الكود",
         "verify": "تحقق",
         "remove": "إزالة",
@@ -918,6 +919,7 @@
         "loading_suggestions": "Loading address suggestions...",
         "detecting_current_location": "Detecting your current location...",
         "location_auto_filled_editable": "Location auto-filled. You can edit it anytime.",
+        "current_location_detection_failed": "Current location could not be detected. Please allow location permission and try again.",
         "no_saved_address": "No saved address yet.",
         "add_address_to_continue_checkout": "Add an address to continue checkout.",
         "addresses_could_not_be_loaded": "Addresses could not be loaded."

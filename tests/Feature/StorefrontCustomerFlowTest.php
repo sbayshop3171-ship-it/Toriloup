@@ -357,6 +357,46 @@ class StorefrontCustomerFlowTest extends TestCase
             ->assertJsonPath('data.longitude', 90.4125);
     }
 
+    public function test_storefront_reverse_location_uses_server_side_geocoding_fallback(): void
+    {
+        $tenant = $this->createTenant('reverse-location-store');
+
+        config(['services.mapbox.access_token' => null]);
+
+        Http::fake([
+            'https://nominatim.openstreetmap.org/*' => Http::response([
+                'osm_id' => 123456,
+                'display_name' => 'Halishahar Road, Halishahar, Chattogram, Chattogram Division, Bangladesh, 4216',
+                'address' => [
+                    'road' => 'Halishahar Road',
+                    'suburb' => 'Halishahar',
+                    'city' => 'Chattogram',
+                    'state' => 'Chattogram Division',
+                    'postcode' => '4216',
+                    'country' => 'Bangladesh',
+                    'country_code' => 'bd',
+                ],
+            ], 200),
+        ]);
+
+        $response = $this
+            ->withHeaders($this->jsonHeaders())
+            ->getJson("http://{$tenant->slug}.company.com/api/frontend/location/reverse?latitude=22.3419&longitude=91.7908");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.country_code', 'BD')
+            ->assertJsonPath('data.country', 'Bangladesh')
+            ->assertJsonPath('data.state', 'Chattogram Division')
+            ->assertJsonPath('data.city', 'Chattogram')
+            ->assertJsonPath('data.zip_code', '4216')
+            ->assertJsonPath('data.source', 'nominatim');
+
+        $this->assertStringContainsString('Halishahar Road', $response->json('data.street_address'));
+        $this->assertSame(22.3419, (float) $response->json('data.latitude'));
+        $this->assertSame(91.7908, (float) $response->json('data.longitude'));
+    }
+
     public function test_profile_resource_falls_back_when_profile_media_file_is_missing(): void
     {
         $user = User::factory()->create([

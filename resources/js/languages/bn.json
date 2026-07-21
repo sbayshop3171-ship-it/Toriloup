@@ -789,6 +789,7 @@
         "add_damage": "ক্ষতি যোগ করুন",
         "save_changes": "পরিবর্তন সংরক্ষণ করুন",
         "add_new_address": "নতুন ঠিকানা যোগ করুন",
+        "use_current_location": "বর্তমান লোকেশন ব্যবহার করুন",
         "resend_code": "কোড পুনরায় পাঠান",
         "verify": "যাচাই করুন",
         "remove": "সরান",
@@ -915,6 +916,7 @@
         "loading_suggestions": "Loading address suggestions...",
         "detecting_current_location": "আপনার বর্তমান লোকেশন সনাক্ত করা হচ্ছে...",
         "location_auto_filled_editable": "লোকেশন অটো-ফিল হয়েছে। চাইলে আপনি এটি এডিট করতে পারবেন।",
+        "current_location_detection_failed": "বর্তমান লোকেশন সনাক্ত করা যায়নি। লোকেশন পারমিশন allow করে আবার চেষ্টা করুন।",
         "no_saved_address": "এখনও কোনো ঠিকানা সংরক্ষণ করা হয়নি।",
         "add_address_to_continue_checkout": "চেকআউট চালিয়ে যেতে একটি ঠিকানা যোগ করুন।",
         "addresses_could_not_be_loaded": "ঠিকানাগুলো লোড করা যায়নি।"

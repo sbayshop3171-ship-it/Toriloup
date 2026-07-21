@@ -117,6 +117,26 @@ function mapFeature(feature) {
     };
 }
 
+function hasCoordinate(value) {
+    return value !== null && value !== undefined && value !== "" && !Number.isNaN(Number(value));
+}
+
+async function reverseGeocodeViaBackend(latitude, longitude, countryCode = null) {
+    try {
+        const response = await axios.get("frontend/location/reverse", {
+            params: {
+                latitude,
+                longitude,
+                ...(countryCode ? { country_code: countryCode } : {}),
+            },
+        });
+
+        return response.data?.data || null;
+    } catch (error) {
+        return null;
+    }
+}
+
 const locationAutocompleteService = {
     async detectCountryByIp() {
         const response = await axios.get("frontend/location/detect");
@@ -178,31 +198,37 @@ const locationAutocompleteService = {
     },
 
     async reverseGeocodeByCoordinates(latitude, longitude, accessToken, countryCode = null) {
-        if (!accessToken || latitude === null || latitude === undefined || longitude === null || longitude === undefined) {
+        if (!hasCoordinate(latitude) || !hasCoordinate(longitude)) {
             return null;
         }
 
-        const params = new URLSearchParams({
-            access_token: accessToken,
-            language: "en",
-            types: "address,poi,neighborhood,place,postcode,locality,district,region,country",
-            limit: "5",
-        });
+        if (accessToken) {
+            try {
+                const params = new URLSearchParams({
+                    access_token: accessToken,
+                    language: "en",
+                    types: "address,poi,neighborhood,place,postcode,locality,district,region,country",
+                    limit: "5",
+                });
 
-        if (countryCode) {
-            params.append("country", countryCode.toLowerCase());
+                if (countryCode) {
+                    params.append("country", countryCode.toLowerCase());
+                }
+
+                const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?${params.toString()}`;
+                const response = await axios.get(url);
+                const features = Array.isArray(response?.data?.features) ? response.data.features : [];
+                const feature = pickBestReverseFeature(features);
+
+                if (feature) {
+                    return mapFeature(feature);
+                }
+            } catch (error) {
+                // Fall through to the server-side reverse geocoder.
+            }
         }
 
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?${params.toString()}`;
-        const response = await axios.get(url);
-        const features = Array.isArray(response?.data?.features) ? response.data.features : [];
-        const feature = pickBestReverseFeature(features);
-
-        if (!feature) {
-            return null;
-        }
-
-        return mapFeature(feature);
+        return reverseGeocodeViaBackend(latitude, longitude, countryCode);
     },
 
     async detectAddressByCountry(accessToken, countryCode = null) {

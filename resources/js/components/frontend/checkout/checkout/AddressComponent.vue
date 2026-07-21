@@ -209,9 +209,17 @@
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
-                        <label class="text-sm font-medium capitalize mb-1 field-title required" for="street_address">
-                            {{ $t('label.street_address') }}
-                        </label>
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <label class="text-sm font-medium capitalize field-title required !mb-0" for="street_address">
+                                {{ $t('label.street_address') }}
+                            </label>
+                            <button type="button" @click.prevent="useCurrentLocation"
+                                :disabled="isAutoDetectingLocation"
+                                :title="$t('button.use_current_location')"
+                                class="w-8 h-8 rounded-full flex items-center justify-center bg-[#FFF4F1] text-primary disabled:opacity-60">
+                                <i :class="isAutoDetectingLocation ? 'lab-fill-refresh animate-spin' : 'lab-fill-location'"></i>
+                            </button>
+                        </div>
                         <div class="relative">
                             <input type="text" id="street_address" :class="errors.address ? 'invalid' : ''"
                                 v-model="address.form.address" @input="handleAddressInput" @focus="handleAddressInput"
@@ -504,10 +512,15 @@ export default {
             }
         },
         showTarget: async function (targetID, addClass) {
+            this.$store.dispatch("frontendAddress/reset").then().catch();
+            this.address.form = this.blankAddressForm();
+            this.address.states = [];
+            this.address.cities = [];
+            this.addressSuggestions = [];
+            this.showAddressSuggestions = false;
+            this.autoDetectedLocationApplied = false;
             targetService.showTarget(targetID, addClass);
-            if (!this.$store.getters["frontendAddress/temp"].isEditing) {
-                await this.prepareSmartAddressDefaults(true);
-            }
+            await this.prepareSmartAddressDefaults(true);
         },
         callCountry: function () {
             this.$store.dispatch('frontendCountryStateCity/countries');
@@ -556,14 +569,26 @@ export default {
                     }
                 })
         },
+        useCurrentLocation: async function () {
+            const applied = await this.autofillLocationByCountry(this.address.form.country, {
+                allowCountryChange: true,
+                preserveExisting: false,
+            });
+
+            if (!applied) {
+                alertService.error(this.$t("message.current_location_detection_failed"));
+            }
+        },
         autofillLocationByCountry: async function (countryName, options = {}) {
-            if (!countryName || !this.mapboxAccessToken) {
-                return;
+            if (!countryName && options.allowCountryChange !== true) {
+                return false;
             }
 
-            let selectedCountry = this.countries.find((country) => country.name === countryName);
-            if (!selectedCountry?.code) {
-                return;
+            let selectedCountry = countryName
+                ? this.countries.find((country) => country.name === countryName)
+                : null;
+            if (countryName && !selectedCountry?.code) {
+                return false;
             }
 
             this.isAutoDetectingLocation = true;
@@ -574,15 +599,25 @@ export default {
                 );
 
                 if (!detectedLocation) {
-                    return;
+                    return false;
+                }
+
+                if (
+                    selectedCountry
+                    && detectedLocation.country_code
+                    && detectedLocation.country_code.toUpperCase() !== selectedCountry.code.toUpperCase()
+                ) {
+                    if (options.allowCountryChange !== true) {
+                        return false;
+                    }
                 }
 
                 if (
                     detectedLocation.country_code
-                    && detectedLocation.country_code.toUpperCase() !== selectedCountry.code.toUpperCase()
+                    && (!selectedCountry || detectedLocation.country_code.toUpperCase() !== selectedCountry.code.toUpperCase())
                 ) {
                     if (options.allowCountryChange !== true) {
-                        return;
+                        return false;
                     }
 
                     const detectedCountry = this.countries.find((country) => {
@@ -590,13 +625,17 @@ export default {
                     });
 
                     if (!detectedCountry) {
-                        return;
+                        return false;
                     }
 
                     selectedCountry = detectedCountry;
                     countryName = detectedCountry.name;
                     this.address.form.country = detectedCountry.name;
                     this.applyPhoneCodeForCountry(detectedCountry.name);
+                }
+
+                if (!countryName) {
+                    return false;
                 }
 
                 const shouldPreserve = options.preserveExisting === true;
@@ -617,22 +656,28 @@ export default {
                 const preferredCity = detectedLocation.city || this.address.form.city || null;
                 await this.callStates(countryName, preferredState, preferredCity);
                 this.autoDetectedLocationApplied = true;
+                return true;
             } catch (error) {
                 this.autoDetectedLocationApplied = false;
+                return false;
             } finally {
                 this.isAutoDetectingLocation = false;
             }
         },
         prepareSmartAddressDefaults: async function (useBrowserLocation = false) {
             await this.applyCurrentProfileDefaults();
-            await this.applyIpLocationDefault();
 
-            if (useBrowserLocation && this.address.form.country) {
-                await this.autofillLocationByCountry(this.address.form.country, {
+            if (useBrowserLocation) {
+                const applied = await this.autofillLocationByCountry(this.address.form.country, {
                     allowCountryChange: true,
                     preserveExisting: false,
                 });
+                if (applied) {
+                    return;
+                }
             }
+
+            await this.applyIpLocationDefault();
         },
         blankAddressForm: function () {
             return {
