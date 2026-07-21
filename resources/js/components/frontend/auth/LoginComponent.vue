@@ -1,10 +1,18 @@
 <template>
     <LoadingComponent :props="loading" />
     <section :class="authPageShellClass" dir="ltr">
-        <div class="w-full max-w-3xl rounded-2xl flex overflow-hidden gap-y-6 bg-white shadow-card" dir="ltr">
-            <img :src="APP_URL + '/images/required/auth.jpg'" alt="banners"
-                class="w-full hidden sm:block sm:max-w-xs md:max-w-sm flex-shrink-0">
-            <form class="w-full p-6" dir="ltr" @submit.prevent="login">
+        <div class="w-full max-w-3xl">
+            <div v-if="showAuthBrandLogo" class="flex justify-center mb-6 sm:mb-8">
+                <router-link :to="{ name: 'auth.login' }"
+                    class="flex h-[74px] w-full max-w-[220px] items-center justify-center overflow-hidden rounded-2xl border border-[#EFF0F6] bg-white px-5 py-4 shadow-[0_14px_30px_rgba(18,18,23,0.08)]">
+                    <FrontendLogoSlotComponent :src="authBrandLogo" />
+                </router-link>
+            </div>
+
+            <div class="w-full rounded-2xl flex overflow-hidden gap-y-6 bg-white shadow-card" dir="ltr">
+                <img :src="APP_URL + '/images/required/auth.jpg'" alt="banners"
+                    class="w-full hidden sm:block sm:max-w-xs md:max-w-sm flex-shrink-0">
+                <form class="w-full p-6" dir="ltr" @submit.prevent="login">
             <div class="text-center mb-8">
                 <h3 class="capitalize text-2xl mb-2 font-bold text-primary">{{ loginTitle }}</h3>
                 <p class="font-medium" v-if="!isAdminLoginRoute">{{ $t('message.continue_shopping') }}</p>
@@ -124,7 +132,8 @@
                     </button>
                 </nav>
             </div>
-            </form>
+                </form>
+            </div>
         </div>
     </section>
 </template>
@@ -132,6 +141,7 @@
 <script>
 import router from "../../../router";
 import LoadingComponent from "../components/LoadingComponent";
+import FrontendLogoSlotComponent from "../../layouts/frontend/FrontendLogoSlotComponent.vue";
 import alertService from "../../../services/alertService";
 import appService from "../../../services/appService";
 import ENV from "../../../config/env";
@@ -141,7 +151,7 @@ import { authRedirectQuery, resolvePostAuthRedirect } from "../../../services/au
 
 export default {
     name: "LoginComponent",
-    components: { LoadingComponent },
+    components: { FrontendLogoSlotComponent, LoadingComponent },
     data() {
         return {
             loading: {
@@ -168,6 +178,9 @@ export default {
         }
     },
     computed: {
+        setting: function () {
+            return this.$store.getters['frontendSetting/lists'];
+        },
         carts: function () {
             return this.$store.getters['frontendCart/lists'];
         },
@@ -179,6 +192,12 @@ export default {
         },
         isMerchantLoginRoute: function () {
             return this.authSurface === "merchant";
+        },
+        showAuthBrandLogo: function () {
+            return this.isMerchantLoginRoute;
+        },
+        authBrandLogo: function () {
+            return this.setting?.company_logo || this.setting?.theme_logo || "";
         },
         authSurface: function () {
             const workspace = detectWorkspaceHost();

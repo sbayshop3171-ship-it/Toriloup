@@ -41,6 +41,7 @@ class SettingResource extends JsonResource
             'company_phone'                         => $this->info['company_phone'],
             'company_country_code'                  => $this->info['company_country_code'],
             'company_address'                       => $this->info['company_address'],
+            'company_logo'                          => $this->assetUrl($this->info['company_logo'] ?? null),
             'site_default_language'                 => $this->info['site_default_language'],
             'site_default_currency'                 => $this->info['site_default_currency'] ?? null,
             'site_default_currency_code'            => $baseCurrencyCode,
@@ -106,6 +107,11 @@ class SettingResource extends JsonResource
     {
         $path = $this->info[$key] ?? null;
 
+        return $this->assetUrl($path);
+    }
+
+    private function assetUrl(?string $path): ?string
+    {
         return filled($path) ? Storage::disk('public')->url($path) : null;
     }
 
