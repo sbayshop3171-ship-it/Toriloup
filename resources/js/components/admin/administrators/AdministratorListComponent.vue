@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <div class="db-card">
+        <div class="db-card mobile-workspace-card users-accounts-card">
             <div class="db-card-header border-none">
                 <h3 class="db-card-title">{{ $t("menu.administrators") }}</h3>
                 <div class="db-card-filter">
@@ -64,7 +64,7 @@
                 </form>
             </div>
             <div class="db-table-responsive">
-                <table class="db-table stripe" id="print">
+                <table class="db-table stripe users-accounts-table administrator-mobile-table" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
                             <th class="db-table-head-th">

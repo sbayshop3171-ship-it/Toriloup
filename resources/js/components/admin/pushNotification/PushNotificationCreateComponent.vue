@@ -44,6 +44,9 @@
                                 type="file" class="db-field-control" ref="imageProperty"
                                 accept="image/png, image/jpeg, image/jpg">
                             <small class="db-field-alert" v-if="errors.image">{{ errors.image[0] }}</small>
+                            <div v-if="imagePreview" class="merchant-upload-preview merchant-upload-preview-wide">
+                                <img :src="imagePreview" alt="preview" />
+                            </div>
                         </div>
 
                         <div class="col-12">
@@ -109,6 +112,7 @@ export default {
                 },
             },
             image: "",
+            imagePreview: "",
             errors: {},
         }
     },
@@ -140,7 +144,9 @@ export default {
     },
     methods: {
         changeImage: function (e) {
-            this.image = e.target.files[0];
+            const file = e.target.files[0];
+            this.image = file || "";
+            this.imagePreview = file ? URL.createObjectURL(file) : "";
         },
         reset: function () {
             useCanvas().closeCanvas('sidebar');
@@ -154,6 +160,7 @@ export default {
             };
             if (this.image) {
                 this.image = "";
+                this.imagePreview = "";
                 this.$refs.imageProperty.value = null;
             }
         },
@@ -195,6 +202,7 @@ export default {
                         status: statusEnum.ACTIVE,
                     }
                     this.image = "";
+                    this.imagePreview = "";
                     this.errors = {};
                     this.$refs.imageProperty.value = null;
                 }).catch((err) => {

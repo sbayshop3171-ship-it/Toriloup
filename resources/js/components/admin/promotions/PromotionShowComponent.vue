@@ -2,8 +2,8 @@
     <LoadingComponent :props="loading" />
 
     <div class="col-12">
-        <div id="promotion" class="db-tab-div active">
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5">
+        <div id="promotion" class="db-tab-div active mobile-detail-workspace promo-detail-workspace">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5 mobile-tab-strip">
                 <button @click.prevent="multiTargets($event, 'tab-action', 'tab-content', 'promotionInformation')"
                     class="tab-action active w-full flex items-center gap-3 h-10 px-4 rounded-lg bg-white hover:text-primary hover:bg-primary/5">
                     <i class="lab lab-fill-info lab-font-size-16"></i>
@@ -24,7 +24,7 @@
                 </button>
             </div>
 
-            <div class="db-card tab-content active" id="promotionInformation">
+            <div class="db-card tab-content active mobile-detail-card" id="promotionInformation">
                 <div class="db-card-header">
                     <h3 class="db-card-title">{{ $t('label.information') }}</h3>
                 </div>
@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <div class="db-card tab-content px-4" id="promotionImage">
+            <div class="db-card tab-content px-4 mobile-detail-card mobile-image-detail-card" id="promotionImage">
                 <div class="row py-2">
                     <div class="col-12 sm:col-5">
                         <img class="db-image" alt="slider" :src="previewImage" />
@@ -101,7 +101,7 @@
 
                 </div>
             </div>
-            <div class="db-card tab-content" id="promotionProduct">
+            <div class="db-card tab-content mobile-detail-card" id="promotionProduct">
                 <PromotionProductListComponent :promotion="parseInt($route.params.id)" />
             </div>
         </div>

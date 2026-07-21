@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
 
-    <div class="space-y-6">
+    <div class="space-y-6 wallet-mobile-workspace">
         <div v-if="flash.text" class="db-card">
             <div class="db-card-body">
                 <div class="rounded-lg border px-4 py-3 text-sm" :class="flash.type === 'success' ? 'border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]' : 'border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]'">
@@ -10,7 +10,7 @@
             </div>
         </div>
 
-        <div class="db-card">
+        <div class="db-card wallet-balance-card">
             <div class="db-card-header flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h3 class="db-card-title">Wallet & Settlements</h3>
@@ -183,35 +183,35 @@
                     </div>
                 </div>
                 <div class="db-card-body overflow-x-auto">
-                    <table class="min-w-[640px] w-full overflow-hidden rounded-2xl text-left text-sm">
-                        <thead class="bg-[#FFF4F1]">
-                            <tr class="border-b border-[#FFD6CC] text-gray-600">
-                                <th class="px-4 py-3 font-semibold">Date</th>
-                                <th class="px-4 py-3 font-semibold">Type</th>
-                                <th class="px-4 py-3 font-semibold">Status</th>
-                                <th class="px-4 py-3 font-semibold">Amount</th>
-                                <th class="px-4 py-3 font-semibold">Balance</th>
+                    <table class="db-table stripe wallet-mobile-table min-w-[640px] w-full overflow-hidden rounded-2xl text-left text-sm">
+                        <thead class="db-table-head bg-[#FFF4F1]">
+                            <tr class="db-table-head-tr border-b border-[#FFD6CC] text-gray-600">
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Date</th>
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Type</th>
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Status</th>
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Amount</th>
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Balance</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr v-if="transactions.length === 0">
-                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">No wallet transactions yet.</td>
+                        <tbody class="db-table-body">
+                            <tr v-if="transactions.length === 0" class="db-table-body-tr">
+                                <td colspan="5" class="db-table-body-td px-4 py-8 text-center text-gray-500">No wallet transactions yet.</td>
                             </tr>
-                            <tr v-for="transaction in transactions" :key="transaction.id" class="border-b border-[#EFF0F6] bg-white last:border-b-0 hover:bg-[#FFFDFB]">
-                                <td class="px-4 py-4">{{ formatDate(transaction.created_at) }}</td>
-                                <td class="px-4 py-4">
+                            <tr v-for="transaction in transactions" :key="transaction.id" class="db-table-body-tr border-b border-[#EFF0F6] bg-white last:border-b-0 hover:bg-[#FFFDFB]">
+                                <td class="db-table-body-td px-4 py-4">{{ formatDate(transaction.created_at) }}</td>
+                                <td class="db-table-body-td px-4 py-4">
                                     <p class="font-semibold text-gray-900">{{ formatLabel(transaction.type) }}</p>
                                     <p class="text-xs text-gray-500">{{ transaction.description }}</p>
                                 </td>
-                                <td class="px-4 py-4">
+                                <td class="db-table-body-td px-4 py-4">
                                     <span class="rounded-full px-3 py-1 text-xs font-semibold capitalize" :class="statusClass(transaction.status)">
                                         {{ transaction.status }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-4 font-semibold" :class="transaction.direction === 'credit' ? 'text-[#047857]' : 'text-[#B91C1C]'">
+                                <td class="db-table-body-td px-4 py-4 font-semibold" :class="transaction.direction === 'credit' ? 'text-[#047857]' : 'text-[#B91C1C]'">
                                     {{ transaction.direction === 'credit' ? '+' : '-' }}{{ money(transaction.amount) }}
                                 </td>
-                                <td class="px-4 py-4">{{ money(transaction.balance_after) }}</td>
+                                <td class="db-table-body-td px-4 py-4">{{ money(transaction.balance_after) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -226,30 +226,30 @@
                     </div>
                 </div>
                 <div class="db-card-body overflow-x-auto">
-                    <table class="min-w-[600px] w-full overflow-hidden rounded-2xl text-left text-sm">
-                        <thead class="bg-[#FFF4F1]">
-                            <tr class="border-b border-[#FFD6CC] text-gray-600">
-                                <th class="px-4 py-3 font-semibold">Request</th>
-                                <th class="px-4 py-3 font-semibold">Method</th>
-                                <th class="px-4 py-3 font-semibold">Amount</th>
-                                <th class="px-4 py-3 font-semibold">Status</th>
+                    <table class="db-table stripe wallet-mobile-table min-w-[600px] w-full overflow-hidden rounded-2xl text-left text-sm">
+                        <thead class="db-table-head bg-[#FFF4F1]">
+                            <tr class="db-table-head-tr border-b border-[#FFD6CC] text-gray-600">
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Request</th>
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Method</th>
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Amount</th>
+                                <th class="db-table-head-th px-4 py-3 font-semibold">Status</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr v-if="withdrawals.length === 0">
-                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">No withdrawal requests yet.</td>
+                        <tbody class="db-table-body">
+                            <tr v-if="withdrawals.length === 0" class="db-table-body-tr">
+                                <td colspan="4" class="db-table-body-td px-4 py-8 text-center text-gray-500">No withdrawal requests yet.</td>
                             </tr>
-                            <tr v-for="withdrawal in withdrawals" :key="withdrawal.id" class="border-b border-[#EFF0F6] bg-white last:border-b-0 hover:bg-[#FFFDFB]">
-                                <td class="px-4 py-4">
+                            <tr v-for="withdrawal in withdrawals" :key="withdrawal.id" class="db-table-body-tr border-b border-[#EFF0F6] bg-white last:border-b-0 hover:bg-[#FFFDFB]">
+                                <td class="db-table-body-td px-4 py-4">
                                     <p class="font-semibold text-gray-900">{{ withdrawal.request_no }}</p>
                                     <p class="text-xs text-gray-500">{{ formatDate(withdrawal.requested_at) }}</p>
                                 </td>
-                                <td class="px-4 py-4">{{ withdrawal.payout_method?.name || "-" }}</td>
-                                <td class="px-4 py-4">
+                                <td class="db-table-body-td px-4 py-4">{{ withdrawal.payout_method?.name || "-" }}</td>
+                                <td class="db-table-body-td px-4 py-4">
                                     <p class="font-semibold text-gray-900">{{ money(withdrawal.amount) }}</p>
                                     <p class="text-xs text-gray-500">Fee {{ money(withdrawal.fee_amount) }}</p>
                                 </td>
-                                <td class="px-4 py-4">
+                                <td class="db-table-body-td px-4 py-4">
                                     <span class="rounded-full px-3 py-1 text-xs font-semibold capitalize" :class="statusClass(withdrawal.status)">
                                         {{ withdrawal.status }}
                                     </span>

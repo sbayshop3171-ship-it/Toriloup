@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <div class="p-6 rounded-xl mb-8 shadow-xs bg-white">
+        <div class="p-6 rounded-xl mb-8 shadow-xs bg-white profile-mobile-hero">
             <div class="flex flex-wrap gap-4 sm:gap-6">
                 <img class="w-[120px] h-[120px] object-cover rounded-lg" :src="previewImage" alt="avatar" />
                 <div>
@@ -39,7 +39,7 @@
                 </div>
             </div>
         </div>
-        <div class="flex flex-col items-start sm:flex-row sm:items-center gap-1.5 mb-6">
+        <div class="flex flex-col items-start sm:flex-row sm:items-center gap-1.5 mb-6 profile-mobile-tabs">
             <button type="button" @click="handleTab($event, '#profile', '.profile-tabBtn', '.profile-tabDiv', 'active')"
                 class="profile-tabBtn active w-full justify-start sm:w-fit inline-flex items-center sm:justify-center gap-2 h-[38px] py-2 px-4 rounded-md text-[#6E7191] stroke-[#6E7191]">
                 <i class="lab lab-line-user"></i>
@@ -163,7 +163,7 @@
                     <div class="row">
                         <div class="col-12 md:col-6 lg:col-6 xl:col-4" v-if="myOrders.length > 0"
                             v-for="order in myOrders" :key="order">
-                            <div class="w-full rounded-lg py-2 px-3 flex items-center gap-5 border border-[#EFF0F6]">
+                            <div class="w-full rounded-lg py-2 px-3 flex items-center gap-5 border border-[#EFF0F6] profile-mobile-order-card">
                                 <i class="lab lab-line-reserve lab-font-size-24 lab-font-color-2"></i>
                                 <div class="w-full">
                                     <div class="flex items-center gap-4 mb-1">

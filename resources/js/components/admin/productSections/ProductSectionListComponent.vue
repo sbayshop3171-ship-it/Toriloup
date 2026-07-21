@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <div class="db-card db-tab-div active">
+        <div class="db-card db-tab-div active mobile-workspace-card promo-communication-card">
             <div class="db-card-header border-none">
                 <h3 class="db-card-title">{{ $t("menu.product_sections") }}</h3>
                 <div class="db-card-filter">
@@ -54,7 +54,7 @@
                 </form>
             </div>
             <div class="db-table-responsive">
-                <table class="db-table stripe" id="print">
+                <table class="db-table stripe promo-communication-table product-section-mobile-table" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
                             <th class="db-table-head-th">{{ $t("label.name") }}</th>

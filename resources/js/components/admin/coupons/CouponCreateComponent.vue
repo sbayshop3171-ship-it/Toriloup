@@ -119,6 +119,9 @@
                         <input @change="changeImage" v-bind:class="errors.image ? 'invalid' : ''" id="image" type="file"
                             class="db-field-control" ref="imageProperty" accept="image/png, image/jpeg, image/jpg" />
                         <small class="db-field-alert" v-if="errors.image">{{ errors.image[0] }}</small>
+                        <div v-if="imagePreview" class="merchant-upload-preview">
+                            <img :src="imagePreview" alt="preview" />
+                        </div>
                     </div>
                     <div class="form-col-12 sm:form-col-12">
                         <label for="description" class="db-field-title">{{
@@ -173,6 +176,7 @@ export default {
                 },
             },
             image: "",
+            imagePreview: "",
             errors: {},
         };
     },
@@ -186,7 +190,9 @@ export default {
             return appService.floatNumber(e);
         },
         changeImage: function (e) {
-            this.image = e.target.files[0];
+            const file = e.target.files[0];
+            this.image = file || "";
+            this.imagePreview = file ? URL.createObjectURL(file) : "";
         },
         reset: function () {
             useCanvas().closeCanvas('sidebar');
@@ -206,6 +212,7 @@ export default {
             };
             if (this.image) {
                 this.image = "";
+                this.imagePreview = "";
                 this.$refs.imageProperty.value = null;
             }
         },
@@ -253,6 +260,7 @@ export default {
                             limit_per_user: "",
                         };
                         this.image = "";
+                        this.imagePreview = "";
                         this.errors = {};
                         this.$refs.imageProperty.value = null;
                     })

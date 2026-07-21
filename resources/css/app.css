@@ -1609,6 +1609,286 @@
         }
     }
 
+    /* PROMO, COMMUNICATION, USERS, ACCOUNTS AND REPORTS MOBILE WORKSPACE */
+    .merchant-upload-preview {
+        @apply mt-3 overflow-hidden rounded-xl border border-gray-100 bg-[#F7F7FC] shadow-sm;
+        aspect-ratio: 4 / 3;
+    }
+
+    .merchant-upload-preview-wide {
+        aspect-ratio: 16 / 9;
+    }
+
+    .merchant-upload-preview img {
+        @apply h-full w-full object-cover;
+    }
+
+    @media (max-width: 767px) {
+        .mobile-workspace-card,
+        .mobile-detail-card,
+        .wallet-balance-card {
+            @apply overflow-visible rounded-xl border border-gray-100 shadow-sm;
+        }
+
+        .mobile-workspace-card .db-card-header,
+        .wallet-balance-card .db-card-header {
+            position: sticky;
+            top: var(--db-header-height, 0px);
+            z-index: 18;
+            @apply gap-3 rounded-t-xl border-b border-gray-100 bg-white p-4 shadow-sm;
+        }
+
+        .mobile-workspace-card .db-card-title,
+        .wallet-balance-card .db-card-title,
+        .mobile-detail-card .db-card-title {
+            @apply text-base leading-6;
+        }
+
+        .mobile-workspace-card .db-card-filter {
+            @apply grid w-full grid-cols-2 gap-2;
+        }
+
+        .mobile-workspace-card .db-card-filter > *,
+        .mobile-workspace-card .db-card-filter .dropdown-group {
+            @apply min-w-0;
+            flex: none;
+        }
+
+        .mobile-workspace-card .db-card-filter .dropdown-group,
+        .mobile-workspace-card .db-card-filter .db-card-filter-btn,
+        .mobile-workspace-card .db-card-filter .db-card-filter-select,
+        .mobile-workspace-card .db-card-filter .db-btn {
+            @apply w-full justify-center;
+        }
+
+        .mobile-workspace-card .table-filter-div form {
+            @apply mb-3 p-4;
+        }
+
+        .mobile-workspace-card .table-filter-div .row,
+        .reports-mobile-card .report-summary-grid {
+            @apply -mx-2;
+        }
+
+        .mobile-workspace-card .table-filter-div [class*="col-"],
+        .reports-mobile-card .report-summary-grid [class*="col-"] {
+            @apply px-2;
+        }
+
+        .backend-mobile-enhanced .promo-communication-table[data-mobile-card-ready="true"] .db-table-body-tr,
+        .backend-mobile-enhanced .users-accounts-table[data-mobile-card-ready="true"] .db-table-body-tr,
+        .backend-mobile-enhanced .report-mobile-table[data-mobile-card-ready="true"] .db-table-body-tr,
+        .backend-mobile-enhanced .wallet-mobile-table[data-mobile-card-ready="true"] .db-table-body-tr {
+            @apply rounded-xl border border-gray-100 bg-white p-3 shadow-sm;
+        }
+
+        .backend-mobile-enhanced .promo-communication-table[data-mobile-card-ready="true"] .db-table-body-td:first-child,
+        .backend-mobile-enhanced .users-accounts-table[data-mobile-card-ready="true"] .db-table-body-td:first-child,
+        .backend-mobile-enhanced .transactions-mobile-table[data-mobile-card-ready="true"] .db-table-body-td:first-child,
+        .backend-mobile-enhanced .report-mobile-table[data-mobile-card-ready="true"] .db-table-body-td:first-child {
+            @apply text-left text-base font-bold text-heading;
+        }
+
+        .backend-mobile-enhanced .promo-communication-table[data-mobile-card-ready="true"] .db-table-body-td,
+        .backend-mobile-enhanced .users-accounts-table[data-mobile-card-ready="true"] .db-table-body-td,
+        .backend-mobile-enhanced .report-mobile-table[data-mobile-card-ready="true"] .db-table-body-td,
+        .backend-mobile-enhanced .wallet-mobile-table[data-mobile-card-ready="true"] .db-table-body-td {
+            @apply min-h-0 border-b border-gray-100 px-1 py-2.5 last:border-b-0;
+        }
+
+        .backend-mobile-enhanced .subscribers-mobile-table[data-mobile-card-ready="true"] .db-table-body-tr {
+            @apply p-3;
+        }
+
+        .backend-mobile-enhanced .subscribers-mobile-table[data-mobile-card-ready="true"] .db-table-body-td {
+            @apply text-sm;
+        }
+
+        .reports-mobile-card .report-summary-grid {
+            @apply mt-4 mb-4 px-4;
+        }
+
+        .reports-mobile-card .report-summary-grid > div > div {
+            @apply rounded-xl border-gray-100 bg-white p-3 shadow-sm;
+        }
+
+        .reports-mobile-card .report-summary-grid i {
+            @apply text-xl;
+        }
+
+        .reports-mobile-card .report-summary-grid h3 {
+            @apply text-xs leading-5;
+        }
+
+        .reports-mobile-card .report-summary-grid h4 {
+            @apply text-base leading-6;
+        }
+
+        .wallet-mobile-workspace {
+            @apply space-y-4;
+        }
+
+        .wallet-mobile-workspace .db-card-body {
+            @apply p-4;
+        }
+
+        .wallet-mobile-workspace .grid {
+            @apply gap-3;
+        }
+
+        .wallet-mobile-workspace .rounded-2xl {
+            @apply rounded-xl;
+        }
+
+        .wallet-mobile-workspace table.wallet-mobile-table {
+            @apply min-w-0;
+        }
+
+        .backend-mobile-enhanced .wallet-mobile-table[data-mobile-card-ready="true"] .db-table-body-td {
+            @apply text-sm;
+        }
+
+        .backend-mobile-enhanced .wallet-mobile-table[data-mobile-card-ready="true"] .db-table-body-td:first-child {
+            @apply text-left text-base font-bold text-heading;
+        }
+
+        .profile-mobile-hero {
+            @apply mb-4 p-4;
+        }
+
+        .profile-mobile-hero > div {
+            @apply flex-col items-start gap-3;
+        }
+
+        .profile-mobile-hero img {
+            @apply h-20 w-20 rounded-xl;
+        }
+
+        .profile-mobile-hero h3 {
+            @apply text-xl leading-7;
+        }
+
+        .profile-mobile-tabs,
+        .mobile-tab-strip {
+            display: flex;
+            flex-direction: row;
+            @apply gap-2 overflow-x-auto pb-1;
+            scrollbar-width: none;
+        }
+
+        .profile-mobile-tabs::-webkit-scrollbar,
+        .mobile-tab-strip::-webkit-scrollbar {
+            display: none;
+        }
+
+        .profile-mobile-tabs .profile-tabBtn,
+        .mobile-tab-strip .tab-action {
+            @apply w-auto flex-none justify-center whitespace-nowrap rounded-xl border border-gray-100 bg-white px-3 shadow-sm;
+            min-width: 132px;
+        }
+
+        .profile-mobile-tabs .profile-tabBtn.active,
+        .mobile-tab-strip .tab-action.active {
+            @apply border-primary bg-primary text-white shadow-[0_10px_22px_rgba(255,61,31,0.22)];
+        }
+
+        .profile-mobile-order-card {
+            @apply items-start gap-3 rounded-xl p-3 shadow-sm;
+        }
+
+        .profile-mobile-order-card > i {
+            display: flex;
+            @apply mt-1 h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary;
+        }
+
+        .profile-mobile-order-card > div > div:first-child,
+        .profile-mobile-order-card > div > div:last-child {
+            @apply flex-col items-start gap-1;
+        }
+
+        .mobile-detail-workspace {
+            @apply space-y-4;
+        }
+
+        .mobile-detail-card .db-card-body {
+            @apply p-4;
+        }
+
+        .mobile-detail-card .db-list-item {
+            @apply rounded-lg bg-[#F8FAFC] px-3 py-2;
+        }
+
+        .mobile-image-detail-card {
+            @apply p-4;
+        }
+
+        .mobile-image-detail-card .row {
+            @apply gap-3;
+        }
+
+        .mobile-image-detail-card .db-image {
+            @apply h-auto max-h-56 w-full rounded-xl object-cover;
+            aspect-ratio: 16 / 9;
+        }
+
+        .mobile-image-detail-card form {
+            @apply w-full;
+        }
+
+        .backend-mobile-enhanced #sidebar > div {
+            width: 100vw !important;
+            max-width: 100vw !important;
+            height: 100dvh;
+            @apply rounded-none;
+        }
+
+        .backend-mobile-enhanced #sidebar .drawer-header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            @apply bg-white;
+        }
+
+        .backend-mobile-enhanced #sidebar .drawer-body {
+            @apply px-4 py-5;
+            padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+        }
+
+        .backend-mobile-enhanced #sidebar .form-row,
+        .backend-mobile-enhanced .modal .form-row {
+            @apply -mx-2;
+        }
+
+        .backend-mobile-enhanced #sidebar [class*="form-col-"],
+        .backend-mobile-enhanced .modal [class*="form-col-"] {
+            @apply px-2;
+        }
+
+        .backend-mobile-enhanced .modal.active .modal-dialog:not(.pos-payment-dialog) {
+            width: calc(100vw - 1rem);
+            max-width: calc(100vw - 1rem);
+            max-height: calc(100dvh - 1rem);
+            @apply overflow-y-auto rounded-2xl;
+        }
+
+        .backend-mobile-enhanced .modal.active .modal-dialog:not(.pos-payment-dialog) .modal-header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            @apply bg-white;
+        }
+
+        .backend-mobile-enhanced .modal .modal-btns {
+            @apply grid grid-cols-2 gap-2;
+        }
+
+        .backend-mobile-enhanced .modal .modal-btns button,
+        .backend-mobile-enhanced #sidebar .db-btn,
+        .backend-mobile-enhanced #sidebar .modal-btn-outline {
+            @apply w-full justify-center;
+        }
+    }
+
     /* FOOTER */
     .footer-part { @apply bg-primary }
 

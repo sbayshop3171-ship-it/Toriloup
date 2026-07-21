@@ -1,7 +1,7 @@
 <template>
     <LoadingComponent :props="loading" />
     <div class="col-12">
-        <div class="db-card db-tab-div active">
+        <div class="db-card db-tab-div active mobile-workspace-card reports-mobile-card">
             <div class="db-card-header">
                 <h3 class="db-card-title">{{ $t('menu.sales_report') }}</h3>
                 <div class="db-card-filter">
@@ -95,7 +95,7 @@
                     </div>
                 </form>
             </div>
-            <div class="row px-5 mt-5 mb-5">
+            <div class="row px-5 mt-5 mb-5 report-summary-grid">
                 <div class="col-12 sm:col-6 md:col-4 lg:col-6 xl:col-3">
                     <div class="border flex items-center gap-4 p-4 rounded-lg">
                         <div class="bg-[#F7F7F7] w-12 h-12 rounded-full flex items-center justify-center">
@@ -153,7 +153,7 @@
             </div>
 
             <div class="db-table-responsive">
-                <table class="db-table stripe" id="print">
+                <table class="db-table stripe report-mobile-table sales-report-mobile-table" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
                             <th class="db-table-head-th">{{ $t('label.order_id') }}</th>
