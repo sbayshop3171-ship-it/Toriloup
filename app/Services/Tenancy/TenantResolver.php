@@ -18,7 +18,36 @@ class TenantResolver
             return $storeSlug !== '' ? $this->resolveFromStoreSlug($storeSlug) : null;
         }
 
-        $resolver = fn () => TenantDomain::query()
+        $resolver = fn () => $this->resolveHost($host);
+
+        if (config('tenancy.cache.enabled', true)) {
+            $ttl = max(1, (int) config('tenancy.cache.ttl', 300));
+
+            return Cache::remember("tenant-domain:{$host}", now()->addSeconds($ttl), $resolver);
+        }
+
+        return $resolver();
+    }
+
+    private function resolveHost(string $host): ?TenantDomain
+    {
+        $domain = $this->resolveExactHost($host);
+
+        if ($domain instanceof TenantDomain || !str_starts_with($host, 'www.')) {
+            return $domain;
+        }
+
+        return TenantDomain::query()
+            ->with('tenant')
+            ->where('hostname', substr($host, 4))
+            ->where('domain_type', 'custom')
+            ->where('verification_status', 'verified')
+            ->first();
+    }
+
+    private function resolveExactHost(string $host): ?TenantDomain
+    {
+        return TenantDomain::query()
             ->with('tenant')
             ->where('hostname', $host)
             ->where(function ($query) {
@@ -31,14 +60,6 @@ class TenantResolver
                     });
             })
             ->first();
-
-        if (config('tenancy.cache.enabled', true)) {
-            $ttl = max(1, (int) config('tenancy.cache.ttl', 300));
-
-            return Cache::remember("tenant-domain:{$host}", now()->addSeconds($ttl), $resolver);
-        }
-
-        return $resolver();
     }
 
     public function resolveFromStoreSlug(string $storeSlug): ?TenantDomain

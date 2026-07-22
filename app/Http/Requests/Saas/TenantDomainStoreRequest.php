@@ -16,6 +16,7 @@ class TenantDomainStoreRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $hostname = trim(strtolower((string) $this->input('hostname')));
+        $setupMode = trim(strtolower((string) $this->input('dns_setup_mode', 'cname')));
 
         if (str_contains($hostname, '://')) {
             $hostname = (string) parse_url($hostname, PHP_URL_HOST);
@@ -23,9 +24,15 @@ class TenantDomainStoreRequest extends FormRequest
 
         $hostname = preg_replace('/\/.*$/', '', $hostname) ?? $hostname;
         $hostname = preg_replace('/:\d+$/', '', $hostname) ?? $hostname;
+        $hostname = trim($hostname, '. ');
+
+        if ($setupMode === 'full_zone' && str_starts_with($hostname, 'www.')) {
+            $hostname = substr($hostname, 4);
+        }
 
         $this->merge([
-            'hostname' => trim($hostname, '. '),
+            'hostname' => $hostname,
+            'dns_setup_mode' => in_array($setupMode, ['cname', 'full_zone'], true) ? $setupMode : 'cname',
         ]);
     }
 
@@ -45,6 +52,7 @@ class TenantDomainStoreRequest extends FormRequest
                 },
             ],
             'dns_provider' => ['nullable', 'string', 'max:50'],
+            'dns_setup_mode' => ['nullable', Rule::in(['cname', 'full_zone'])],
         ];
     }
 }

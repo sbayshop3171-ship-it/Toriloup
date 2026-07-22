@@ -28,6 +28,7 @@ class TenantDomainManager
             'ssl_status' => 'pending',
             'verification_status' => 'pending',
             'dns_provider' => $payload['dns_provider'] ?? null,
+            'dns_setup_mode' => $payload['dns_setup_mode'] ?? 'cname',
             'verification_token' => Str::upper(Str::random(32)),
         ]);
 
@@ -48,8 +49,16 @@ class TenantDomainManager
             'verification_status' => $payload['verification_status'],
             'ssl_status' => $payload['ssl_status'] ?? $domain->ssl_status,
             'dns_provider' => $payload['dns_provider'] ?? $domain->dns_provider,
+            'dns_setup_mode' => $payload['dns_setup_mode'] ?? $domain->dns_setup_mode,
             'cloudflare_zone_id' => $payload['cloudflare_zone_id'] ?? $domain->cloudflare_zone_id,
             'cloudflare_hostname_id' => $payload['cloudflare_hostname_id'] ?? $domain->cloudflare_hostname_id,
+            'cloudflare_zone_status' => $payload['cloudflare_zone_status'] ?? $domain->cloudflare_zone_status,
+            'cloudflare_name_servers' => $payload['cloudflare_name_servers'] ?? $domain->cloudflare_name_servers,
+            'cloudflare_dns_records' => $payload['cloudflare_dns_records'] ?? $domain->cloudflare_dns_records,
+            'cloudflare_activated_at' => ($payload['cloudflare_zone_status'] ?? null) === 'active'
+                ? ($domain->cloudflare_activated_at ?? now())
+                : $domain->cloudflare_activated_at,
+            'cloudflare_activation_checked_at' => $payload['cloudflare_activation_checked_at'] ?? $domain->cloudflare_activation_checked_at,
             'verified_at' => $payload['verification_status'] === 'verified' ? now() : null,
             'last_checked_at' => now(),
         ])->save();

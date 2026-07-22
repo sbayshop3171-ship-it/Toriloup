@@ -39,4 +39,14 @@ return [
         'access_token' => env('MAPBOX_ACCESS_TOKEN', env('VITE_MAPBOX_ACCESS_TOKEN')),
     ],
 
+    'fastpanel' => [
+        'base_url' => env('FASTPANEL_BASE_URL'),
+        'username' => env('FASTPANEL_USERNAME'),
+        'password' => env('FASTPANEL_PASSWORD'),
+        'storefront_site_id' => env('FASTPANEL_STOREFRONT_SITE_ID'),
+        'timeout' => (int) env('FASTPANEL_TIMEOUT', 15),
+        'verify_tls' => filter_var(env('FASTPANEL_VERIFY_TLS', true), FILTER_VALIDATE_BOOL),
+        'include_www_alias' => filter_var(env('FASTPANEL_STOREFRONT_INCLUDE_WWW_ALIAS', true), FILTER_VALIDATE_BOOL),
+    ],
+
 ];

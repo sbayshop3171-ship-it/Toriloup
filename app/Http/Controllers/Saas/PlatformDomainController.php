@@ -56,6 +56,7 @@ class PlatformDomainController extends Controller
                 'domain_type',
                 'verification_status',
                 'ssl_status',
+                'dns_setup_mode',
                 'is_primary',
                 'is_fallback',
             ]),
@@ -145,16 +146,45 @@ class PlatformDomainController extends Controller
             'verification_status' => $domain->verification_status,
             'ssl_status' => $domain->ssl_status,
             'dns_provider' => $domain->dns_provider,
+            'dns_setup_mode' => $domain->dns_setup_mode ?: 'cname',
             'verification_token' => $domain->verification_token,
             'verified_at' => $domain->verified_at,
             'last_checked_at' => $domain->last_checked_at,
+            'cloudflare_zone_id' => $domain->cloudflare_zone_id,
+            'cloudflare_hostname_id' => $domain->cloudflare_hostname_id,
+            'cloudflare_zone_status' => $domain->cloudflare_zone_status,
+            'cloudflare_name_servers' => $domain->cloudflare_name_servers ?? [],
+            'cloudflare_dns_records' => $domain->cloudflare_dns_records ?? [],
+            'cloudflare_activated_at' => $domain->cloudflare_activated_at,
+            'cloudflare_activation_checked_at' => $domain->cloudflare_activation_checked_at,
             'tenant' => $domain->tenant?->only(['id', 'name', 'slug', 'status', 'plan_code']),
-            'dns_instructions' => [
+            'dns_instructions' => $this->dnsInstructions($domain, $fallbackDomain),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function dnsInstructions(TenantDomain $domain, ?TenantDomain $fallbackDomain): array
+    {
+        if (($domain->dns_setup_mode ?: 'cname') === 'full_zone') {
+            return [
+                'setup_mode' => 'full_zone',
+                'record_type' => 'NS',
+                'name_servers' => $domain->cloudflare_name_servers ?? [],
+                'zone_status' => $domain->cloudflare_zone_status,
                 'cname_target' => $fallbackDomain?->hostname,
-                'record_type' => 'CNAME',
-                'proxy_mode' => 'DNS only',
+                'proxy_mode' => config('cloudflare.full_zone.proxy_records', true) ? 'Proxied' : 'DNS only',
                 'verification_txt_value' => $domain->verification_token,
-            ],
+            ];
+        }
+
+        return [
+            'setup_mode' => 'cname',
+            'cname_target' => $fallbackDomain?->hostname,
+            'record_type' => 'CNAME',
+            'proxy_mode' => 'DNS only',
+            'verification_txt_value' => $domain->verification_token,
         ];
     }
 }

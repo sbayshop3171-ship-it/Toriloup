@@ -5,14 +5,35 @@
         <div class="db-card-header">
             <div>
                 <h3 class="db-card-title">Domains</h3>
-                <p class="text-sm text-gray-500">Keep the fallback subdomain active while provisioning Cloudflare SaaS custom hostnames for your custom domains.</p>
+                <p class="text-sm text-gray-500">Connect a root domain with Cloudflare nameservers, or keep the CNAME flow for subdomains.</p>
             </div>
         </div>
         <div class="db-card-body">
             <form class="form-row settings-page-form" @submit.prevent="save">
+                <div class="form-col-12">
+                    <label class="db-field-title">Connection Type</label>
+                    <div class="inline-flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-gray-50 p-1">
+                        <button
+                            type="button"
+                            class="rounded-md px-3 py-2 text-sm font-medium transition"
+                            :class="form.dns_setup_mode === 'full_zone' ? 'bg-white text-primary shadow-sm' : 'text-gray-600'"
+                            @click="selectSetupMode('full_zone')"
+                        >
+                            Full domain
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-md px-3 py-2 text-sm font-medium transition"
+                            :class="form.dns_setup_mode === 'cname' ? 'bg-white text-primary shadow-sm' : 'text-gray-600'"
+                            @click="selectSetupMode('cname')"
+                        >
+                            Subdomain CNAME
+                        </button>
+                    </div>
+                </div>
                 <div class="form-col-12 sm:form-col-8">
                     <label for="hostname" class="db-field-title required">Hostname</label>
-                    <input id="hostname" v-model="form.hostname" type="text" class="db-field-control" :class="errors.hostname ? 'invalid' : ''" placeholder="store.yourdomain.com" />
+                    <input id="hostname" v-model="form.hostname" type="text" class="db-field-control" :class="errors.hostname ? 'invalid' : ''" :placeholder="hostnamePlaceholder" />
                     <small v-if="errors.hostname" class="db-field-alert">{{ errors.hostname[0] }}</small>
                 </div>
                 <div class="form-col-12 sm:form-col-4">
@@ -56,7 +77,7 @@
                             class="db-btn py-2 text-white bg-primary"
                             @click="connectCloudflare(domain)"
                         >
-                            Provision Hostname
+                            {{ cloudflareButtonLabel(domain) }}
                         </button>
                         <button
                             v-if="showVerify(domain)"
@@ -64,7 +85,7 @@
                             class="db-btn py-2 border border-gray-200 text-gray-700 bg-white"
                             @click="verifyDomain(domain)"
                         >
-                            Check DNS
+                            {{ verifyButtonLabel(domain) }}
                         </button>
                         <button
                             v-if="showMakePrimary(domain)"
@@ -77,7 +98,16 @@
                     </div>
                 </div>
 
-                <div v-if="domain.domain_type === 'custom'" class="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                <div v-if="domain.domain_type === 'custom' && isFullZone(domain)" class="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <p v-if="domain.cloudflare_name_servers?.length">
+                        Replace the nameservers at your domain registrar with the Cloudflare nameservers below. Existing email DNS records must be recreated in Cloudflare before switching.
+                    </p>
+                    <p v-else>
+                        Create the Cloudflare DNS zone to receive the exact nameservers for this domain.
+                    </p>
+                </div>
+
+                <div v-else-if="domain.domain_type === 'custom'" class="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
                     <p v-if="showCloudflareConnect(domain)">
                         One click provisions the Cloudflare custom hostname in the platform account. Add the CNAME at your DNS provider as DNS only.
                     </p>
@@ -86,7 +116,22 @@
                     </p>
                 </div>
 
-                <div v-if="domain.domain_type === 'custom'" class="grid gap-3 mt-4 md:grid-cols-2">
+                <div v-if="domain.domain_type === 'custom' && isFullZone(domain)" class="grid gap-3 mt-4 md:grid-cols-2">
+                    <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Cloudflare Nameservers</p>
+                        <div v-if="domain.cloudflare_name_servers?.length" class="mt-2 space-y-1">
+                            <p v-for="nameserver in domain.cloudflare_name_servers" :key="nameserver" class="text-sm font-medium text-gray-900 break-all">{{ nameserver }}</p>
+                        </div>
+                        <p v-else class="mt-1 text-sm font-medium text-gray-900">Create DNS zone first</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Zone Status</p>
+                        <p class="mt-1 text-sm font-medium text-gray-900 capitalize">{{ domain.cloudflare_zone_status || 'not created' }}</p>
+                        <p class="mt-2 text-xs text-gray-500">Records: apex and www route to {{ domain.dns_instructions?.cname_target || 'storefront fallback' }}</p>
+                    </div>
+                </div>
+
+                <div v-else-if="domain.domain_type === 'custom'" class="grid gap-3 mt-4 md:grid-cols-2">
                     <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">CNAME Target</p>
                         <p class="mt-1 text-sm font-medium text-gray-900 break-all">{{ domain.dns_instructions?.cname_target || '-' }}</p>
@@ -117,6 +162,7 @@ export default {
             form: {
                 hostname: "",
                 dns_provider: "cloudflare",
+                dns_setup_mode: "full_zone",
             },
             errors: {},
         };
@@ -124,6 +170,9 @@ export default {
     computed: {
         domains: function () {
             return this.$store.getters["merchantDomain/lists"];
+        },
+        hostnamePlaceholder: function () {
+            return this.form.dns_setup_mode === "full_zone" ? "yourdomain.com" : "store.yourdomain.com";
         },
     },
     mounted() {
@@ -149,6 +198,11 @@ export default {
                 this.loading.isActive = false;
                 this.errors = err?.response?.data?.errors || {};
             });
+        },
+        selectSetupMode: function (mode) {
+            this.form.dns_setup_mode = mode;
+            this.form.dns_provider = "cloudflare";
+            this.errors = {};
         },
         setPrimary: function (id) {
             this.loading.isActive = true;
@@ -197,10 +251,25 @@ export default {
                 && domain.verification_status !== "verified";
         },
         showVerify: function (domain) {
-            return domain.domain_type === "custom" && domain.verification_status !== "verified";
+            return domain.domain_type === "custom"
+                && domain.verification_status !== "verified"
+                && (!this.isFullZone(domain) || Boolean(domain.cloudflare_zone_id));
         },
         showMakePrimary: function (domain) {
             return !domain.is_primary && domain.verification_status === "verified";
+        },
+        isFullZone: function (domain) {
+            return domain.dns_setup_mode === "full_zone";
+        },
+        cloudflareButtonLabel: function (domain) {
+            if (!this.isFullZone(domain)) {
+                return "Provision Hostname";
+            }
+
+            return domain.cloudflare_zone_id ? "Refresh Zone" : "Get Nameservers";
+        },
+        verifyButtonLabel: function (domain) {
+            return this.isFullZone(domain) ? "Check Nameservers" : "Check DNS";
         },
         formatDate: function (value) {
             if (!value) {

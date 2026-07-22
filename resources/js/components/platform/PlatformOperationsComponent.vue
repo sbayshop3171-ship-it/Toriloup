@@ -19,7 +19,7 @@
                             <th class="px-4 py-3 font-semibold">Tenant</th>
                             <th class="px-4 py-3 font-semibold">Verification</th>
                             <th class="px-4 py-3 font-semibold">SSL</th>
-                            <th class="px-4 py-3 font-semibold">Fallback Target</th>
+                            <th class="px-4 py-3 font-semibold">DNS Setup</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -45,7 +45,7 @@
                                     {{ domain.ssl_status || "unknown" }}
                                 </span>
                             </td>
-                            <td class="px-4 py-4 align-top text-[#374151]">{{ domain.dns_instructions?.cname_target || "Not required" }}</td>
+                            <td class="px-4 py-4 align-top text-[#374151]">{{ dnsSummary(domain) }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -541,6 +541,14 @@ export default {
             }
 
             return "bg-[#FFF7ED] text-[#C2410C]";
+        },
+        dnsSummary: function (domain) {
+            if (domain.dns_setup_mode === "full_zone") {
+                const nameservers = domain.cloudflare_name_servers || [];
+                return nameservers.length ? nameservers.join(", ") : "Cloudflare nameservers pending";
+            }
+
+            return domain.dns_instructions?.cname_target || "Not required";
         },
         money: function (amount, currency = "USD") {
             return `${currency || "USD"} ${Number(amount || 0).toFixed(2)}`;

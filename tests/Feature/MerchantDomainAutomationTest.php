@@ -29,6 +29,10 @@ class MerchantDomainAutomationTest extends TestCase
             'saas.owner_host' => 'owner.company.com',
             'saas.merchant_host' => 'merchant.company.com',
             'saas.fallback_subdomain_suffix' => 'company.com',
+            'services.fastpanel.base_url' => null,
+            'services.fastpanel.username' => null,
+            'services.fastpanel.password' => null,
+            'services.fastpanel.storefront_site_id' => null,
         ]);
 
         app(SubscriptionManagerService::class)->ensureDefaultPlans();
@@ -190,6 +194,259 @@ class MerchantDomainAutomationTest extends TestCase
             'cloudflare_hostname_id' => 'hostname_456',
             'is_primary' => 0,
         ]);
+    }
+
+    public function test_merchant_can_create_cloudflare_full_zone_and_receive_nameservers(): void
+    {
+        config([
+            'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
+            'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.account_id' => 'account_123',
+            'cloudflare.full_zone.origin_ipv4' => null,
+            'cloudflare.full_zone.origin_ipv6' => null,
+            'cloudflare.full_zone.proxy_records' => true,
+        ]);
+
+        $owner = $this->createPlatformOwner();
+        $merchantContext = $this->createMerchantContext('full-zone-store');
+        $platformToken = $this->platformToken($owner);
+        $merchantToken = $this->merchantToken($merchantContext['user']);
+
+        $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
+
+        Http::fake(function ($request) {
+            $url = (string) $request->url();
+            $method = strtoupper($request->method());
+
+            if ($method === 'GET' && str_contains($url, '/zones?')) {
+                return Http::response(['success' => true, 'result' => []], 200);
+            }
+
+            if ($method === 'POST' && str_ends_with($url, '/zones')) {
+                return Http::response([
+                    'success' => true,
+                    'result' => [
+                        'id' => 'zone_full_123',
+                        'name' => 'zeroinvest.space',
+                        'status' => 'pending',
+                        'name_servers' => ['ada.ns.cloudflare.com', 'bob.ns.cloudflare.com'],
+                    ],
+                ], 200);
+            }
+
+            if ($method === 'PUT' && str_ends_with($url, '/zones/zone_full_123/activation_check')) {
+                return Http::response(['success' => true, 'result' => null], 200);
+            }
+
+            if ($method === 'GET' && str_contains($url, '/zones/zone_full_123/dns_records')) {
+                return Http::response(['success' => true, 'result' => []], 200);
+            }
+
+            if ($method === 'POST' && str_ends_with($url, '/zones/zone_full_123/dns_records')) {
+                return Http::response([
+                    'success' => true,
+                    'result' => [
+                        'id' => 'record_'.md5((string) $request['name']),
+                        'type' => $request['type'],
+                        'name' => $request['name'],
+                        'content' => $request['content'],
+                        'proxied' => $request['proxied'],
+                        'ttl' => $request['ttl'],
+                    ],
+                ], 200);
+            }
+
+            return Http::response(['success' => false, 'errors' => [['message' => 'Unexpected request '.$method.' '.$url]]], 500);
+        });
+
+        $createResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson('http://merchant.company.com/api/merchant/domains', [
+                'hostname' => 'zeroinvest.space',
+                'dns_provider' => 'cloudflare',
+                'dns_setup_mode' => 'full_zone',
+            ]);
+
+        $domainId = (int) $createResponse->json('data.id');
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson("http://merchant.company.com/api/merchant/domains/{$domainId}/cloudflare/connect")
+            ->assertOk()
+            ->assertJsonPath('data.dns_setup_mode', 'full_zone')
+            ->assertJsonPath('data.verification_status', 'pending')
+            ->assertJsonPath('data.cloudflare_zone_id', 'zone_full_123')
+            ->assertJsonPath('data.cloudflare_zone_status', 'pending')
+            ->assertJsonPath('data.cloudflare_name_servers.0', 'ada.ns.cloudflare.com')
+            ->assertJsonPath('meta.zone_active', false)
+            ->assertJsonPath('meta.nameservers.1', 'bob.ns.cloudflare.com');
+
+        $this->assertDatabaseHas('tenant_domains', [
+            'id' => $domainId,
+            'hostname' => 'zeroinvest.space',
+            'dns_setup_mode' => 'full_zone',
+            'cloudflare_zone_id' => 'zone_full_123',
+            'cloudflare_zone_status' => 'pending',
+            'verification_status' => 'pending',
+            'is_primary' => 0,
+        ]);
+
+        Http::assertSent(fn ($request): bool => strtoupper($request->method()) === 'POST'
+            && str_ends_with((string) $request->url(), '/zones')
+            && $request['account']['id'] === 'account_123');
+
+        Http::assertSent(fn ($request): bool => strtoupper($request->method()) === 'POST'
+            && str_ends_with((string) $request->url(), '/dns_records')
+            && $request['type'] === 'CNAME'
+            && $request['name'] === 'zeroinvest.space'
+            && $request['content'] === 'full-zone-store.company.com');
+    }
+
+    public function test_merchant_can_verify_active_full_zone_and_promote_it_to_primary(): void
+    {
+        config([
+            'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
+            'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.account_id' => 'account_456',
+            'cloudflare.full_zone.origin_ipv4' => null,
+            'cloudflare.full_zone.origin_ipv6' => null,
+            'cloudflare.full_zone.proxy_records' => true,
+            'services.fastpanel.base_url' => 'https://fastpanel.test',
+            'services.fastpanel.username' => 'fastuser',
+            'services.fastpanel.password' => 'panel-password',
+            'services.fastpanel.storefront_site_id' => 48,
+            'services.fastpanel.include_www_alias' => true,
+        ]);
+
+        $owner = $this->createPlatformOwner();
+        $merchantContext = $this->createMerchantContext('active-zone-store');
+        $platformToken = $this->platformToken($owner);
+        $merchantToken = $this->merchantToken($merchantContext['user']);
+
+        $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
+
+        Http::fake(function ($request) {
+            $url = (string) $request->url();
+            $method = strtoupper($request->method());
+
+            if ($method === 'POST' && $url === 'https://fastpanel.test/login') {
+                return Http::response(['token' => 'panel-token'], 200);
+            }
+
+            if ($method === 'GET' && $url === 'https://fastpanel.test/api/sites/48') {
+                return Http::response([
+                    'data' => [
+                        'id' => 48,
+                        'domain' => 'storefront.company.com',
+                        'aliases' => [
+                            ['id' => 9, 'name' => '*.company.com', 'raw_name' => '*.company.com'],
+                        ],
+                    ],
+                ], 200);
+            }
+
+            if ($method === 'PUT' && $url === 'https://fastpanel.test/api/sites/48') {
+                return Http::response([
+                    'data' => [
+                        'id' => 48,
+                        'domain' => 'storefront.company.com',
+                        'aliases' => $request['aliases'],
+                    ],
+                ], 200);
+            }
+
+            if ($method === 'GET' && str_contains($url, '/zones?')) {
+                return Http::response([
+                    'success' => true,
+                    'result' => [[
+                        'id' => 'zone_active_456',
+                        'name' => 'launchstore.com',
+                        'status' => 'active',
+                        'name_servers' => ['sue.ns.cloudflare.com', 'tim.ns.cloudflare.com'],
+                    ]],
+                ], 200);
+            }
+
+            if ($method === 'GET' && str_contains($url, '/zones/zone_active_456/dns_records')) {
+                $name = str_contains($url, 'www.launchstore.com') ? 'www.launchstore.com' : 'launchstore.com';
+
+                return Http::response([
+                    'success' => true,
+                    'result' => [[
+                        'id' => 'record_'.md5($name),
+                        'type' => 'CNAME',
+                        'name' => $name,
+                        'content' => 'active-zone-store.company.com',
+                        'proxied' => true,
+                        'ttl' => 1,
+                    ]],
+                ], 200);
+            }
+
+            if ($method === 'PUT' && str_contains($url, '/zones/zone_active_456/dns_records/')) {
+                return Http::response([
+                    'success' => true,
+                    'result' => [
+                        'id' => basename($url),
+                        'type' => $request['type'],
+                        'name' => $request['name'],
+                        'content' => $request['content'],
+                        'proxied' => $request['proxied'],
+                        'ttl' => $request['ttl'],
+                    ],
+                ], 200);
+            }
+
+            if ($method === 'GET' && $url === 'https://launchstore.com/api/storefront/up') {
+                return Http::response([
+                    'status' => true,
+                    'surface' => 'storefront',
+                    'scaffold' => 'storefront',
+                ], 200);
+            }
+
+            return Http::response(['success' => false, 'errors' => [['message' => 'Unexpected request '.$method.' '.$url]]], 500);
+        });
+
+        $createResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson('http://merchant.company.com/api/merchant/domains', [
+                'hostname' => 'launchstore.com',
+                'dns_provider' => 'cloudflare',
+                'dns_setup_mode' => 'full_zone',
+            ]);
+
+        $domainId = (int) $createResponse->json('data.id');
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson("http://merchant.company.com/api/merchant/domains/{$domainId}/verify")
+            ->assertOk()
+            ->assertJsonPath('data.verification_status', 'verified')
+            ->assertJsonPath('data.ssl_status', 'active')
+            ->assertJsonPath('data.is_primary', true)
+            ->assertJsonPath('data.cloudflare_zone_status', 'active')
+            ->assertJsonPath('meta.verified', true)
+            ->assertJsonPath('meta.zone_active', true)
+            ->assertJsonPath('meta.storefront_alias_ready', true)
+            ->assertJsonPath('meta.storefront_launched', true);
+
+        Http::assertSent(fn ($request): bool => strtoupper($request->method()) === 'PUT'
+            && (string) $request->url() === 'https://fastpanel.test/api/sites/48'
+            && collect($request['aliases'])->contains(fn (array $alias): bool => ($alias['name'] ?? null) === 'launchstore.com')
+            && collect($request['aliases'])->contains(fn (array $alias): bool => ($alias['name'] ?? null) === 'www.launchstore.com'));
     }
 
     public function test_merchant_verify_marks_cloudflare_custom_hostname_as_verified_even_when_storefront_probe_has_not_passed(): void

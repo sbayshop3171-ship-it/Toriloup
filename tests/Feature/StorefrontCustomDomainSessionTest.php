@@ -81,6 +81,36 @@ class StorefrontCustomDomainSessionTest extends TestCase
         $this->assertContains($this->cookieDomain($response, 'XSRF-TOKEN'), [null, '']);
     }
 
+    public function test_www_custom_domain_resolves_to_verified_apex_custom_domain(): void
+    {
+        $tenant = $this->createTenant('www-custom-store');
+
+        TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'www-custom-store.company.com',
+            'domain_type' => 'subdomain',
+            'is_primary' => false,
+            'is_fallback' => true,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+        ]);
+
+        TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'launchstore.test',
+            'domain_type' => 'custom',
+            'is_primary' => true,
+            'is_fallback' => false,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+        ]);
+
+        $response = $this->get('http://www.launchstore.test/_tenant/up');
+
+        $response->assertOk()
+            ->assertJsonPath('tenant.slug', 'www-custom-store');
+    }
+
     private function createTenant(string $slug): Tenant
     {
         return Tenant::query()->create([
