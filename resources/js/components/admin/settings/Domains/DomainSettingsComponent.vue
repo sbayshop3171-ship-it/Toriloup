@@ -68,6 +68,9 @@
                         <p v-if="domain.last_checked_at" class="mt-1 text-xs text-gray-400">
                             Last checked: {{ formatDate(domain.last_checked_at) }}
                         </p>
+                        <p v-if="isAutoCheckCandidate(domain)" class="mt-1 text-xs font-medium text-blue-600">
+                            Auto-checking every minute until this domain is live.
+                        </p>
                     </div>
 
                     <div class="flex flex-wrap gap-2">
@@ -185,6 +188,8 @@ export default {
             },
             errors: {},
             copiedNameserver: "",
+            autoCheckTimer: null,
+            autoCheckingIds: {},
         };
     },
     computed: {
@@ -196,15 +201,35 @@ export default {
         },
     },
     mounted() {
-        this.fetchDomains();
+        this.fetchDomains().then(() => {
+            this.startAutoCheck();
+        }).catch(() => {
+            this.startAutoCheck();
+        });
+    },
+    beforeUnmount() {
+        this.stopAutoCheck();
     },
     methods: {
-        fetchDomains: function () {
-            this.loading.isActive = true;
-            this.$store.dispatch("merchantDomain/lists").then(() => {
-                this.loading.isActive = false;
-            }).catch(() => {
-                this.loading.isActive = false;
+        fetchDomains: function (options = {}) {
+            const silent = Boolean(options.silent);
+
+            if (!silent) {
+                this.loading.isActive = true;
+            }
+
+            return this.$store.dispatch("merchantDomain/lists").then((res) => {
+                if (!silent) {
+                    this.loading.isActive = false;
+                }
+
+                return res;
+            }).catch((err) => {
+                if (!silent) {
+                    this.loading.isActive = false;
+                }
+
+                throw err;
             });
         },
         save: function () {
@@ -214,6 +239,7 @@ export default {
                 this.form.hostname = "";
                 this.errors = {};
                 alertService.success("Domain request submitted successfully.");
+                this.scheduleAutoCheck();
             }).catch((err) => {
                 this.loading.isActive = false;
                 this.errors = err?.response?.data?.errors || {};
@@ -244,6 +270,7 @@ export default {
                 }
 
                 alertService.info(res?.data?.meta?.message || "Cloudflare DNS connected. Waiting for storefront launch.");
+                this.scheduleAutoCheck();
             }).catch((err) => {
                 this.loading.isActive = false;
                 alertService.error(this.extractMessage(err));
@@ -260,9 +287,55 @@ export default {
                 }
 
                 alertService.info(res?.data?.meta?.message || "DNS is still propagating. Please try again in a moment.");
+                this.scheduleAutoCheck();
             }).catch((err) => {
                 this.loading.isActive = false;
                 alertService.error(this.extractMessage(err));
+            });
+        },
+        startAutoCheck: function () {
+            this.stopAutoCheck();
+            this.runAutoCheck();
+            this.autoCheckTimer = window.setInterval(() => {
+                this.runAutoCheck();
+            }, 60000);
+        },
+        stopAutoCheck: function () {
+            if (this.autoCheckTimer) {
+                window.clearInterval(this.autoCheckTimer);
+                this.autoCheckTimer = null;
+            }
+        },
+        scheduleAutoCheck: function () {
+            window.setTimeout(() => {
+                this.runAutoCheck();
+            }, 3000);
+        },
+        runAutoCheck: function () {
+            this.domains
+                .filter((domain) => this.isAutoCheckCandidate(domain))
+                .forEach((domain) => this.autoVerifyDomain(domain));
+        },
+        autoVerifyDomain: function (domain) {
+            if (this.autoCheckingIds[domain.id]) {
+                return;
+            }
+
+            this.autoCheckingIds = {
+                ...this.autoCheckingIds,
+                [domain.id]: true,
+            };
+
+            this.$store.dispatch("merchantDomain/verify", { id: domain.id }).then((res) => {
+                if (res?.data?.meta?.verified) {
+                    alertService.success(`${domain.hostname} is live now.`);
+                }
+            }).catch(() => {
+                // Manual checks still show detailed errors; background checks stay quiet.
+            }).finally(() => {
+                const autoCheckingIds = { ...this.autoCheckingIds };
+                delete autoCheckingIds[domain.id];
+                this.autoCheckingIds = autoCheckingIds;
             });
         },
         showCloudflareConnect: function (domain) {
@@ -280,6 +353,12 @@ export default {
         },
         isFullZone: function (domain) {
             return domain.dns_setup_mode === "full_zone";
+        },
+        isAutoCheckCandidate: function (domain) {
+            return domain.domain_type === "custom"
+                && this.isFullZone(domain)
+                && Boolean(domain.cloudflare_zone_id)
+                && domain.verification_status !== "verified";
         },
         cloudflareButtonLabel: function (domain) {
             if (!this.isFullZone(domain)) {
