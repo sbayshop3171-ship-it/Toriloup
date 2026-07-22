@@ -157,7 +157,7 @@ export default {
                 alertService.success("Primary domain updated.");
             }).catch((err) => {
                 this.loading.isActive = false;
-                alertService.error(err);
+                alertService.error(this.extractMessage(err));
             });
         },
         connectCloudflare: function (domain) {
@@ -172,7 +172,7 @@ export default {
                 alertService.info(res?.data?.meta?.message || "Cloudflare DNS connected. Waiting for storefront launch.");
             }).catch((err) => {
                 this.loading.isActive = false;
-                alertService.error(err);
+                alertService.error(this.extractMessage(err));
             });
         },
         verifyDomain: function (domain) {
@@ -188,7 +188,7 @@ export default {
                 alertService.info(res?.data?.meta?.message || "DNS is still propagating. Please try again in a moment.");
             }).catch((err) => {
                 this.loading.isActive = false;
-                alertService.error(err);
+                alertService.error(this.extractMessage(err));
             });
         },
         showCloudflareConnect: function (domain) {
@@ -208,6 +208,13 @@ export default {
             }
 
             return new Date(value).toLocaleString();
+        },
+        extractMessage: function (err) {
+            return err?.response?.data?.message
+                || err?.response?.data?.meta?.message
+                || Object.values(err?.response?.data?.errors || {}).flat()?.[0]
+                || err?.message
+                || "Operation failed. Please try again.";
         },
     },
 };

@@ -192,6 +192,68 @@ class MerchantDomainAutomationTest extends TestCase
         ]);
     }
 
+    public function test_merchant_verify_marks_cloudflare_custom_hostname_as_verified_even_when_storefront_probe_has_not_passed(): void
+    {
+        config([
+            'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
+            'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.saas_zone_id' => 'saas_zone_verify_active',
+            'cloudflare.proxy_custom_domains' => false,
+        ]);
+
+        $owner = $this->createPlatformOwner();
+        $merchantContext = $this->createMerchantContext('verify-active-store');
+        $platformToken = $this->platformToken($owner);
+        $merchantToken = $this->merchantToken($merchantContext['user']);
+
+        $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
+
+        Http::fake([
+            'https://api.cloudflare.com/client/v4/zones/saas_zone_verify_active/custom_hostnames?*' => Http::response([
+                'success' => true,
+                'result' => [
+                    [
+                        'id' => 'hostname_verify_active',
+                        'hostname' => 'verify-active.com',
+                        'status' => 'active',
+                        'custom_origin_server' => 'verify-active-store.company.com',
+                        'ssl' => [
+                            'status' => 'active',
+                        ],
+                    ],
+                ],
+            ], 200),
+            'https://verify-active.com/api/storefront/up' => Http::response('<html>legacy site</html>', 404, [
+                'content-type' => 'text/html; charset=UTF-8',
+            ]),
+        ]);
+
+        $createResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson('http://merchant.company.com/api/merchant/domains', [
+                'hostname' => 'verify-active.com',
+                'dns_provider' => 'cloudflare',
+            ]);
+
+        $domainId = (int) $createResponse->json('data.id');
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson("http://merchant.company.com/api/merchant/domains/{$domainId}/verify")
+            ->assertOk()
+            ->assertJsonPath('data.verification_status', 'verified')
+            ->assertJsonPath('data.ssl_status', 'active')
+            ->assertJsonPath('data.is_primary', true)
+            ->assertJsonPath('meta.verified', true)
+            ->assertJsonPath('meta.storefront_launched', false);
+    }
+
     public function test_merchant_can_verify_manual_dns_and_activate_the_custom_domain(): void
     {
         $this->mock(CloudflareDnsService::class, function ($mock): void {

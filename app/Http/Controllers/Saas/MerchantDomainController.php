@@ -122,25 +122,28 @@ class MerchantDomainController extends Controller
         ]);
 
         $result = $this->cloudflareDnsService->connectTenantDomain($domain, $target);
-        $launchResult = $this->storefrontLaunchProbeService->probe($domain);
+        $verified = $this->customHostnameReady($result);
+        $launchResult = $verified ? $this->storefrontLaunchProbeService->probe($domain) : null;
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
-            'verification_status' => ($launchResult['launched'] ?? false) ? 'verified' : 'pending',
-            'ssl_status' => ($launchResult['launched'] ?? false) ? 'active' : ($result['ssl_status'] ?? 'pending'),
+            'verification_status' => $verified ? 'verified' : 'pending',
+            'ssl_status' => $verified ? 'active' : ($result['ssl_status'] ?? 'pending'),
             'dns_provider' => 'cloudflare',
             'cloudflare_zone_id' => $result['zone_id'] ?? null,
             'cloudflare_hostname_id' => $result['hostname_id'] ?? null,
             'check_type' => $launchResult['check_type'] ?? 'storefront_probe',
-            'message' => $launchResult['launched'] ?? false
+            'message' => $verified && ($launchResult['launched'] ?? false)
                 ? 'Cloudflare custom hostname is provisioned and the storefront is live.'
-                : ($launchResult['message'] ?? 'Cloudflare custom hostname is provisioned, but the storefront is not live on this domain yet.'),
+                : ($verified
+                    ? 'Cloudflare custom hostname is verified. Storefront launch probe has not passed yet.'
+                    : 'Cloudflare custom hostname is provisioned and waiting for DNS/SSL verification.'),
             'payload_json' => [
                 'cloudflare_custom_hostname' => $result,
                 'launch_probe' => $launchResult,
             ],
         ]);
 
-        if (($launchResult['launched'] ?? false) && $this->shouldAutoPromote($domain)) {
+        if ($verified && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
         }
 
@@ -160,10 +163,13 @@ class MerchantDomainController extends Controller
             'status' => true,
             'data' => $this->serializeDomain($domain),
             'meta' => [
-                'verified' => (bool) ($launchResult['launched'] ?? false),
-                'message' => $launchResult['launched'] ?? false
+                'verified' => $verified,
+                'storefront_launched' => (bool) ($launchResult['launched'] ?? false),
+                'message' => $verified && ($launchResult['launched'] ?? false)
                     ? 'Cloudflare custom hostname connected and storefront launched successfully.'
-                    : ($launchResult['message'] ?? 'Cloudflare custom hostname provisioned. Waiting for storefront launch.'),
+                    : ($verified
+                        ? 'Cloudflare custom hostname verified. Storefront launch is still warming up.'
+                        : 'Cloudflare custom hostname provisioned. Waiting for DNS/SSL verification.'),
             ],
         ]);
     }
@@ -185,21 +191,20 @@ class MerchantDomainController extends Controller
         ]);
 
         $result = $this->cloudflareDnsService->verifyTenantDomain($domain, $target);
-        $launchResult = ($result['verified'] ?? false)
-            ? $this->storefrontLaunchProbeService->probe($domain)
-            : null;
+        $verified = (bool) ($result['verified'] ?? false);
+        $launchResult = $verified ? $this->storefrontLaunchProbeService->probe($domain) : null;
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
-            'verification_status' => ($result['verified'] ?? false) && ($launchResult['launched'] ?? false) ? 'verified' : 'pending',
-            'ssl_status' => ($result['verified'] ?? false) && ($launchResult['launched'] ?? false) ? 'active' : ($domain->ssl_status ?? 'pending'),
+            'verification_status' => $verified ? 'verified' : 'pending',
+            'ssl_status' => $verified ? 'active' : ($domain->ssl_status ?? 'pending'),
             'dns_provider' => 'cloudflare',
             'cloudflare_zone_id' => $domain->cloudflare_zone_id,
             'cloudflare_hostname_id' => $domain->cloudflare_hostname_id,
             'check_type' => ($launchResult['check_type'] ?? null) ?: ($result['check_type'] ?? 'dns'),
-            'message' => ($result['verified'] ?? false)
+            'message' => $verified
                 ? (($launchResult['launched'] ?? false)
                     ? 'DNS verified and the storefront is live on this domain.'
-                    : ($launchResult['message'] ?? 'DNS is correct, but the storefront is not live on this domain yet.'))
+                    : 'DNS/custom hostname is verified. Storefront launch probe has not passed yet.')
                 : ($result['message'] ?? null),
             'payload_json' => [
                 'dns_check' => $result['payload_json'] ?? null,
@@ -207,7 +212,7 @@ class MerchantDomainController extends Controller
             ],
         ]);
 
-        if (($result['verified'] ?? false) && ($launchResult['launched'] ?? false) && $this->shouldAutoPromote($domain)) {
+        if ($verified && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
         }
 
@@ -227,11 +232,12 @@ class MerchantDomainController extends Controller
             'status' => true,
             'data' => $this->serializeDomain($domain),
             'meta' => [
-                'verified' => (bool) (($result['verified'] ?? false) && ($launchResult['launched'] ?? false)),
-                'message' => ($result['verified'] ?? false)
+                'verified' => $verified,
+                'storefront_launched' => (bool) ($launchResult['launched'] ?? false),
+                'message' => $verified
                     ? (($launchResult['launched'] ?? false)
                         ? 'DNS verified and storefront launched successfully.'
-                        : ($launchResult['message'] ?? 'DNS is correct. Waiting for storefront launch.'))
+                        : 'DNS/custom hostname verified. Storefront launch is still warming up.')
                     : ($result['message'] ?? null),
             ],
         ]);
@@ -302,5 +308,17 @@ class MerchantDomainController extends Controller
         }
 
         return $currentPrimary->is_fallback || $currentPrimary->id === $domain->id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function customHostnameReady(array $result): bool
+    {
+        $status = strtolower((string) ($result['status'] ?? ''));
+        $sslStatus = strtolower((string) ($result['ssl_status'] ?? ''));
+
+        return in_array($status, ['active', 'verified', 'deployed'], true)
+            || in_array($sslStatus, ['active', 'verified'], true);
     }
 }
