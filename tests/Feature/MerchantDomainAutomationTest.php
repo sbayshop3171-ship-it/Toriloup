@@ -34,7 +34,7 @@ class MerchantDomainAutomationTest extends TestCase
         app(SubscriptionManagerService::class)->ensureDefaultPlans();
     }
 
-    public function test_merchant_can_connect_cloudflare_domain_and_auto_verify_it(): void
+    public function test_merchant_can_connect_cloudflare_domain_and_launch_it_when_storefront_probe_passes(): void
     {
         config([
             'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
@@ -74,6 +74,11 @@ class MerchantDomainAutomationTest extends TestCase
                     'proxied' => false,
                 ],
             ], 200),
+            'https://gachwalas.com/api/storefront/up' => Http::response([
+                'status' => true,
+                'surface' => 'storefront',
+                'scaffold' => 'storefront',
+            ], 200),
         ]);
 
         $createResponse = $this
@@ -101,7 +106,8 @@ class MerchantDomainAutomationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.verification_status', 'verified')
             ->assertJsonPath('data.ssl_status', 'active')
-            ->assertJsonPath('data.is_primary', true);
+            ->assertJsonPath('data.is_primary', true)
+            ->assertJsonPath('meta.verified', true);
 
         $this->assertDatabaseHas('tenant_domains', [
             'id' => $domainId,
@@ -112,7 +118,86 @@ class MerchantDomainAutomationTest extends TestCase
             'is_primary' => 1,
         ]);
 
-        Http::assertSentCount(3);
+        Http::assertSentCount(4);
+    }
+
+    public function test_merchant_cloudflare_connect_stays_pending_until_storefront_probe_passes(): void
+    {
+        config([
+            'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
+            'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.proxy_custom_domains' => false,
+        ]);
+
+        $owner = $this->createPlatformOwner();
+        $merchantContext = $this->createMerchantContext('domain-pending-store');
+        $platformToken = $this->platformToken($owner);
+        $merchantToken = $this->merchantToken($merchantContext['user']);
+
+        $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
+
+        Http::fake([
+            'https://api.cloudflare.com/client/v4/zones?*' => Http::response([
+                'success' => true,
+                'result' => [
+                    [
+                        'id' => 'zone_456',
+                        'name' => 'pending-launch.com',
+                        'status' => 'active',
+                    ],
+                ],
+            ], 200),
+            'https://api.cloudflare.com/client/v4/zones/zone_456/dns_records?*' => Http::response([
+                'success' => true,
+                'result' => [],
+            ], 200),
+            'https://api.cloudflare.com/client/v4/zones/zone_456/dns_records' => Http::response([
+                'success' => true,
+                'result' => [
+                    'id' => 'record_456',
+                    'name' => 'pending-launch.com',
+                    'type' => 'CNAME',
+                    'content' => 'domain-pending-store.company.com',
+                    'proxied' => false,
+                ],
+            ], 200),
+            'https://pending-launch.com/api/storefront/up' => Http::response('<html>old site</html>', 404, [
+                'content-type' => 'text/html; charset=UTF-8',
+            ]),
+        ]);
+
+        $createResponse = $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson('http://merchant.company.com/api/merchant/domains', [
+                'hostname' => 'pending-launch.com',
+                'dns_provider' => 'cloudflare',
+            ]);
+
+        $domainId = (int) $createResponse->json('data.id');
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson("http://merchant.company.com/api/merchant/domains/{$domainId}/cloudflare/connect")
+            ->assertOk()
+            ->assertJsonPath('data.verification_status', 'pending')
+            ->assertJsonPath('data.ssl_status', 'pending')
+            ->assertJsonPath('data.is_primary', false)
+            ->assertJsonPath('meta.verified', false);
+
+        $this->assertDatabaseHas('tenant_domains', [
+            'id' => $domainId,
+            'hostname' => 'pending-launch.com',
+            'verification_status' => 'pending',
+            'ssl_status' => 'pending',
+            'cloudflare_zone_id' => 'zone_456',
+            'is_primary' => 0,
+        ]);
     }
 
     public function test_merchant_can_verify_manual_dns_and_activate_the_custom_domain(): void
@@ -132,6 +217,14 @@ class MerchantDomainAutomationTest extends TestCase
                     ],
                 ]);
         });
+
+        Http::fake([
+            'https://manual-gachwalas.com/api/storefront/up' => Http::response([
+                'status' => true,
+                'surface' => 'storefront',
+                'scaffold' => 'storefront',
+            ], 200),
+        ]);
 
         $owner = $this->createPlatformOwner();
         $merchantContext = $this->createMerchantContext('manual-verify-store');

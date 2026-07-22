@@ -42,6 +42,7 @@ class TenantDomainManager
     public function markVerification(TenantDomain $domain, array $payload): TenantDomain
     {
         $domain->loadMissing('tenant.domains');
+        $checkType = $this->normalizeCheckType((string) ($payload['check_type'] ?? 'hostname'));
 
         $domain->forceFill([
             'verification_status' => $payload['verification_status'],
@@ -56,7 +57,7 @@ class TenantDomainManager
         DomainVerificationLog::query()->create([
             'tenant_domain_id' => $domain->id,
             'check_status' => $payload['verification_status'] === 'verified' ? 'success' : 'failed',
-            'check_type' => $payload['check_type'] ?? 'hostname',
+            'check_type' => $checkType,
             'message' => $payload['message'] ?? null,
             'payload_json' => $payload['payload_json'] ?? null,
             'checked_at' => now(),
@@ -115,5 +116,10 @@ class TenantDomainManager
         }
 
         Cache::forget('tenant-domain:slug:'.$tenant->slug);
+    }
+
+    private function normalizeCheckType(string $checkType): string
+    {
+        return in_array($checkType, ['dns', 'ssl', 'hostname'], true) ? $checkType : 'hostname';
     }
 }

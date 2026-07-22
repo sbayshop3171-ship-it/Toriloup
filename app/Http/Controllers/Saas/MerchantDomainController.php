@@ -7,6 +7,7 @@ use App\Http\Requests\Saas\TenantDomainStoreRequest;
 use App\Models\TenantDomain;
 use App\Services\Saas\CloudflareDnsService;
 use App\Services\Saas\PlatformAuditLogService;
+use App\Services\Saas\StorefrontLaunchProbeService;
 use App\Services\Saas\SubscriptionManagerService;
 use App\Services\Saas\TenantDomainManager;
 use App\Services\Tenancy\TenantContext;
@@ -20,6 +21,7 @@ class MerchantDomainController extends Controller
         private readonly TenantContext $tenantContext,
         private readonly TenantDomainManager $tenantDomainManager,
         private readonly CloudflareDnsService $cloudflareDnsService,
+        private readonly StorefrontLaunchProbeService $storefrontLaunchProbeService,
         private readonly PlatformAuditLogService $platformAuditLogService,
         private readonly SubscriptionManagerService $subscriptionManagerService,
     ) {
@@ -119,18 +121,24 @@ class MerchantDomainController extends Controller
         ]);
 
         $result = $this->cloudflareDnsService->connectTenantDomain($domain, $target);
+        $launchResult = $this->storefrontLaunchProbeService->probe($domain);
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
-            'verification_status' => 'verified',
-            'ssl_status' => 'active',
+            'verification_status' => ($launchResult['launched'] ?? false) ? 'verified' : 'pending',
+            'ssl_status' => ($launchResult['launched'] ?? false) ? 'active' : 'pending',
             'dns_provider' => 'cloudflare',
             'cloudflare_zone_id' => $result['zone_id'] ?? null,
-            'check_type' => 'dns',
-            'message' => 'Cloudflare DNS connected automatically.',
-            'payload_json' => $result,
+            'check_type' => $launchResult['check_type'] ?? 'storefront_probe',
+            'message' => $launchResult['launched'] ?? false
+                ? 'Cloudflare DNS connected and the storefront is live.'
+                : ($launchResult['message'] ?? 'Cloudflare DNS connected, but the storefront is not live on this domain yet.'),
+            'payload_json' => [
+                'cloudflare' => $result,
+                'launch_probe' => $launchResult,
+            ],
         ]);
 
-        if ($this->shouldAutoPromote($domain)) {
+        if (($launchResult['launched'] ?? false) && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
         }
 
@@ -149,6 +157,12 @@ class MerchantDomainController extends Controller
         return response()->json([
             'status' => true,
             'data' => $this->serializeDomain($domain),
+            'meta' => [
+                'verified' => (bool) ($launchResult['launched'] ?? false),
+                'message' => $launchResult['launched'] ?? false
+                    ? 'Cloudflare connected and storefront launched successfully.'
+                    : ($launchResult['message'] ?? 'Cloudflare DNS connected. Waiting for storefront launch.'),
+            ],
         ]);
     }
 
@@ -168,17 +182,27 @@ class MerchantDomainController extends Controller
         ]);
 
         $result = $this->cloudflareDnsService->verifyTenantDomain($domain, $target);
+        $launchResult = ($result['verified'] ?? false)
+            ? $this->storefrontLaunchProbeService->probe($domain)
+            : null;
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
-            'verification_status' => $result['verified'] ? 'verified' : 'failed',
-            'ssl_status' => $result['verified'] ? 'active' : 'pending',
+            'verification_status' => ($result['verified'] ?? false) && ($launchResult['launched'] ?? false) ? 'verified' : 'pending',
+            'ssl_status' => ($result['verified'] ?? false) && ($launchResult['launched'] ?? false) ? 'active' : 'pending',
             'dns_provider' => $domain->dns_provider,
-            'check_type' => $result['check_type'] ?? 'dns',
-            'message' => $result['message'] ?? null,
-            'payload_json' => $result['payload_json'] ?? null,
+            'check_type' => ($launchResult['check_type'] ?? null) ?: ($result['check_type'] ?? 'dns'),
+            'message' => ($result['verified'] ?? false)
+                ? (($launchResult['launched'] ?? false)
+                    ? 'DNS verified and the storefront is live on this domain.'
+                    : ($launchResult['message'] ?? 'DNS is correct, but the storefront is not live on this domain yet.'))
+                : ($result['message'] ?? null),
+            'payload_json' => [
+                'dns_check' => $result['payload_json'] ?? null,
+                'launch_probe' => $launchResult,
+            ],
         ]);
 
-        if (($result['verified'] ?? false) && $this->shouldAutoPromote($domain)) {
+        if (($result['verified'] ?? false) && ($launchResult['launched'] ?? false) && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
         }
 
@@ -198,8 +222,12 @@ class MerchantDomainController extends Controller
             'status' => true,
             'data' => $this->serializeDomain($domain),
             'meta' => [
-                'verified' => (bool) ($result['verified'] ?? false),
-                'message' => $result['message'] ?? null,
+                'verified' => (bool) (($result['verified'] ?? false) && ($launchResult['launched'] ?? false)),
+                'message' => ($result['verified'] ?? false)
+                    ? (($launchResult['launched'] ?? false)
+                        ? 'DNS verified and storefront launched successfully.'
+                        : ($launchResult['message'] ?? 'DNS is correct. Waiting for storefront launch.'))
+                    : ($result['message'] ?? null),
             ],
         ]);
     }

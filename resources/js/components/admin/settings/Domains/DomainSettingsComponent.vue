@@ -161,9 +161,14 @@ export default {
         },
         connectCloudflare: function (domain) {
             this.loading.isActive = true;
-            this.$store.dispatch("merchantDomain/connectCloudflare", { id: domain.id }).then(() => {
+            this.$store.dispatch("merchantDomain/connectCloudflare", { id: domain.id }).then((res) => {
                 this.loading.isActive = false;
-                alertService.success("Cloudflare connected and domain verified.");
+                if (res?.data?.meta?.verified) {
+                    alertService.success("Cloudflare connected and storefront launched successfully.");
+                    return;
+                }
+
+                alertService.info(res?.data?.meta?.message || "Cloudflare DNS connected. Waiting for storefront launch.");
             }).catch((err) => {
                 this.loading.isActive = false;
                 alertService.error(err);
