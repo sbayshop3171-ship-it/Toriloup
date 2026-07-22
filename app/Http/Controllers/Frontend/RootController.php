@@ -12,8 +12,14 @@ use Illuminate\Http\Request;
 
 class RootController extends Controller
 {
-    public function index(Request $request, TenantResolver $tenantResolver): \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View|\Illuminate\Contracts\Foundation\Application
+    public function index(Request $request, TenantResolver $tenantResolver): \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View|\Illuminate\Contracts\Foundation\Application|\Illuminate\Http\RedirectResponse
     {
+        $primaryCustomDomain = $tenantResolver->primaryCustomDomainForFallbackHost($request->getHost());
+
+        if ($primaryCustomDomain !== null) {
+            return redirect()->away('https://'.$primaryCustomDomain->hostname.$request->getRequestUri());
+        }
+
         if ($tenantResolver->isReservedStorefrontHost($request->getHost())) {
             abort(404);
         }

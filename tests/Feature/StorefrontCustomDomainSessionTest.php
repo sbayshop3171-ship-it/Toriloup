@@ -111,6 +111,64 @@ class StorefrontCustomDomainSessionTest extends TestCase
             ->assertJsonPath('tenant.slug', 'www-custom-store');
     }
 
+    public function test_fallback_subdomain_redirects_to_primary_custom_domain(): void
+    {
+        $tenant = $this->createTenant('redirect-custom-store');
+
+        TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'redirect-custom-store.company.com',
+            'domain_type' => 'subdomain',
+            'is_primary' => false,
+            'is_fallback' => true,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+        ]);
+
+        TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'brand-redirect.test',
+            'domain_type' => 'custom',
+            'is_primary' => true,
+            'is_fallback' => false,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+        ]);
+
+        $this
+            ->get('http://redirect-custom-store.company.com/home?from=fallback')
+            ->assertRedirect('https://brand-redirect.test/home?from=fallback');
+    }
+
+    public function test_suppressed_fallback_subdomain_does_not_resolve_storefront_context(): void
+    {
+        $tenant = $this->createTenant('suppressed-fallback-store');
+
+        TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'suppressed-fallback-store.company.com',
+            'domain_type' => 'subdomain',
+            'is_primary' => false,
+            'is_fallback' => true,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+        ]);
+
+        TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'brand-suppressed.test',
+            'domain_type' => 'custom',
+            'is_primary' => true,
+            'is_fallback' => false,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+        ]);
+
+        $this
+            ->get('http://suppressed-fallback-store.company.com/_tenant/up')
+            ->assertNotFound();
+    }
+
     private function createTenant(string $slug): Tenant
     {
         return Tenant::query()->create([

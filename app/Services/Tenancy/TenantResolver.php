@@ -47,8 +47,8 @@ class TenantResolver
 
     private function resolveExactHost(string $host): ?TenantDomain
     {
-        return TenantDomain::query()
-            ->with('tenant')
+        $domain = TenantDomain::query()
+            ->with(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback')])
             ->where('hostname', $host)
             ->where(function ($query) {
                 $query
@@ -60,6 +60,12 @@ class TenantResolver
                     });
             })
             ->first();
+
+        if ($domain instanceof TenantDomain && $this->fallbackIsSuppressed($domain)) {
+            return null;
+        }
+
+        return $domain;
     }
 
     public function resolveFromStoreSlug(string $storeSlug): ?TenantDomain
@@ -117,6 +123,23 @@ class TenantResolver
             && in_array($host, $this->reservedHosts(), true);
     }
 
+    public function primaryCustomDomainForFallbackHost(string $host): ?TenantDomain
+    {
+        $fallbackDomain = TenantDomain::query()
+            ->with(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback')])
+            ->where('hostname', $this->normalizeHost($host))
+            ->where('domain_type', 'subdomain')
+            ->where('is_fallback', true)
+            ->where('verification_status', 'verified')
+            ->first();
+
+        if (!$fallbackDomain instanceof TenantDomain) {
+            return null;
+        }
+
+        return $this->activePrimaryCustomDomain($fallbackDomain);
+    }
+
     /**
      * @return array<int, string>
      */
@@ -165,5 +188,23 @@ class TenantResolver
         }
 
         return array_values(array_unique($hosts));
+    }
+
+    private function fallbackIsSuppressed(TenantDomain $domain): bool
+    {
+        return $domain->domain_type === 'subdomain'
+            && $domain->is_fallback
+            && $this->activePrimaryCustomDomain($domain) instanceof TenantDomain;
+    }
+
+    private function activePrimaryCustomDomain(TenantDomain $domain): ?TenantDomain
+    {
+        $domain->loadMissing(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback')]);
+
+        return $domain->tenant?->domains->first(function (TenantDomain $candidate): bool {
+            return $candidate->domain_type === 'custom'
+                && $candidate->is_primary
+                && $candidate->verification_status === 'verified';
+        });
     }
 }

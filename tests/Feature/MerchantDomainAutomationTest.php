@@ -449,6 +449,80 @@ class MerchantDomainAutomationTest extends TestCase
             && collect($request['aliases'])->contains(fn (array $alias): bool => ($alias['name'] ?? null) === 'www.launchstore.com'));
     }
 
+    public function test_failed_custom_domain_verification_restores_fallback_as_primary(): void
+    {
+        $this->mock(CloudflareDnsService::class, function ($mock): void {
+            $mock->shouldReceive('isFullZoneConfigured')->andReturn(true);
+            $mock->shouldReceive('verifyTenantZone')
+                ->once()
+                ->andReturn([
+                    'verified' => false,
+                    'zone_id' => 'zone_lost_123',
+                    'zone_status' => 'pending',
+                    'name_servers' => ['ada.ns.cloudflare.com', 'bob.ns.cloudflare.com'],
+                    'dns_records' => [],
+                    'message' => 'Replace nameservers at the registrar, then check again.',
+                ]);
+        });
+
+        $owner = $this->createPlatformOwner();
+        $merchantContext = $this->createMerchantContext('restore-fallback-store');
+        $platformToken = $this->platformToken($owner);
+        $merchantToken = $this->merchantToken($merchantContext['user']);
+
+        $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
+
+        $fallbackDomain = TenantDomain::query()
+            ->where('tenant_id', $merchantContext['tenant']->id)
+            ->where('is_fallback', true)
+            ->firstOrFail();
+
+        $fallbackDomain->forceFill(['is_primary' => false])->save();
+
+        $customDomain = TenantDomain::query()->create([
+            'tenant_id' => $merchantContext['tenant']->id,
+            'hostname' => 'lost-custom-domain.com',
+            'domain_type' => 'custom',
+            'is_primary' => true,
+            'is_fallback' => false,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+            'dns_provider' => 'cloudflare',
+            'dns_setup_mode' => 'full_zone',
+            'cloudflare_zone_id' => 'zone_lost_123',
+            'cloudflare_zone_status' => 'active',
+            'cloudflare_name_servers' => ['ada.ns.cloudflare.com', 'bob.ns.cloudflare.com'],
+            'verified_at' => now(),
+            'last_checked_at' => now(),
+            'verification_token' => Str::upper(Str::random(32)),
+        ]);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson("http://merchant.company.com/api/merchant/domains/{$customDomain->id}/verify")
+            ->assertOk()
+            ->assertJsonPath('data.verification_status', 'pending')
+            ->assertJsonPath('data.ssl_status', 'pending')
+            ->assertJsonPath('data.is_primary', false)
+            ->assertJsonPath('meta.verified', false);
+
+        $this->assertDatabaseHas('tenant_domains', [
+            'id' => $customDomain->id,
+            'is_primary' => 0,
+            'verification_status' => 'pending',
+            'ssl_status' => 'pending',
+        ]);
+
+        $this->assertDatabaseHas('tenant_domains', [
+            'id' => $fallbackDomain->id,
+            'is_primary' => 1,
+            'verification_status' => 'verified',
+        ]);
+    }
+
     public function test_merchant_verify_marks_cloudflare_custom_hostname_as_verified_even_when_storefront_probe_has_not_passed(): void
     {
         config([

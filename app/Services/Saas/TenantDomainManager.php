@@ -100,6 +100,39 @@ class TenantDomainManager
         return $domain->fresh(['tenant.domains']);
     }
 
+    public function restoreFallbackPrimaryIfCustomUnverified(TenantDomain $domain): TenantDomain
+    {
+        $domain->loadMissing('tenant.domains');
+
+        if (
+            $domain->domain_type !== 'custom'
+            || !$domain->is_primary
+            || $domain->verification_status === 'verified'
+        ) {
+            return $domain->fresh(['tenant.domains']);
+        }
+
+        $fallbackDomain = $domain->tenant?->domains->first(function (TenantDomain $candidate): bool {
+            return $candidate->is_fallback && $candidate->domain_type === 'subdomain';
+        });
+
+        if (!$fallbackDomain instanceof TenantDomain) {
+            return $domain->fresh(['tenant.domains']);
+        }
+
+        DB::transaction(function () use ($domain, $fallbackDomain): void {
+            TenantDomain::query()
+                ->where('tenant_id', $domain->tenant_id)
+                ->update(['is_primary' => false]);
+
+            $fallbackDomain->forceFill(['is_primary' => true])->save();
+        });
+
+        $this->clearTenantLookupCache($domain->tenant->fresh('domains'));
+
+        return $domain->fresh(['tenant.domains']);
+    }
+
     public function normalizeHostname(string $hostname): string
     {
         $hostname = trim(strtolower($hostname));

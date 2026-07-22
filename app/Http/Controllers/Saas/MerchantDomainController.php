@@ -145,6 +145,10 @@ class MerchantDomainController extends Controller
             ],
         ]);
 
+        if (!$verified) {
+            $domain = $this->tenantDomainManager->restoreFallbackPrimaryIfCustomUnverified($domain);
+        }
+
         if ($verified && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
         }
@@ -212,6 +216,10 @@ class MerchantDomainController extends Controller
                 'launch_probe' => $launchResult,
             ],
         ]);
+
+        if (!$verified) {
+            $domain = $this->tenantDomainManager->restoreFallbackPrimaryIfCustomUnverified($domain);
+        }
 
         if ($verified && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
@@ -311,6 +319,10 @@ class MerchantDomainController extends Controller
             ],
         ]);
 
+        if (!$verified) {
+            $domain = $this->tenantDomainManager->restoreFallbackPrimaryIfCustomUnverified($domain);
+        }
+
         if ($verified && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
         }
@@ -370,6 +382,10 @@ class MerchantDomainController extends Controller
                 'launch_probe' => $launchResult,
             ],
         ]);
+
+        if (!$verified) {
+            $domain = $this->tenantDomainManager->restoreFallbackPrimaryIfCustomUnverified($domain);
+        }
 
         if ($verified && $this->shouldAutoPromote($domain)) {
             $domain = $this->tenantDomainManager->setPrimaryDomain($domain);
