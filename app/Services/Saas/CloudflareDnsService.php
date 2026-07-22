@@ -365,11 +365,21 @@ class CloudflareDnsService
         $sameTypeRecord = Arr::first($existing, function (array $record) use ($recordType): bool {
             return strtoupper((string) ($record['type'] ?? '')) === $recordType;
         });
+        $sameTypeRecordId = (string) ($sameTypeRecord['id'] ?? '');
 
-        if ($sameTypeRecord !== null && filled($sameTypeRecord['id'] ?? null)) {
+        foreach ($existing as $record) {
+            $existingType = strtoupper((string) ($record['type'] ?? ''));
+            $recordId = (string) ($record['id'] ?? '');
+
+            if ($recordId !== '' && $recordId !== $sameTypeRecordId && $existingType === $recordType) {
+                $this->deleteDnsRecord($zoneId, $recordId);
+            }
+        }
+
+        if ($sameTypeRecord !== null && $sameTypeRecordId !== '') {
             $response = $this->request(
                 'put',
-                "/zones/{$zoneId}/dns_records/{$sameTypeRecord['id']}",
+                "/zones/{$zoneId}/dns_records/{$sameTypeRecordId}",
                 $desired
             );
 

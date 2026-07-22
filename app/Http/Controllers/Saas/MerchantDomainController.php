@@ -295,8 +295,8 @@ class MerchantDomainController extends Controller
         $target = $this->fallbackTarget($domain);
         $oldValues = $this->domainAutomationValues($domain);
         $result = $this->cloudflareDnsService->connectTenantZone($domain, $target);
-        $storefrontAlias = $this->ensureStorefrontAlias($domain);
         $zoneActive = (bool) ($result['verified'] ?? false);
+        $storefrontAlias = $zoneActive ? $this->ensureStorefrontAlias($domain) : $this->pendingStorefrontAliasResult();
         $launchResult = $zoneActive ? $this->storefrontLaunchProbeService->probe($domain) : null;
         $verified = $zoneActive && (bool) ($launchResult['launched'] ?? false);
 
@@ -442,6 +442,21 @@ class MerchantDomainController extends Controller
                 'message' => $exception->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function pendingStorefrontAliasResult(): array
+    {
+        return [
+            'configured' => $this->fastPanelSiteAliasService->isConfigured(),
+            'ensured' => false,
+            'aliases_added' => [],
+            'aliases_present' => [],
+            'aliases_released' => [],
+            'message' => 'FastPanel aliases will be attached after Cloudflare nameservers are active.',
+        ];
     }
 
     private function fallbackTarget(TenantDomain $domain): string

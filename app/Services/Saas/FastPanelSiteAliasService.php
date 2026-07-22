@@ -41,6 +41,7 @@ class FastPanelSiteAliasService
         $existingNames = array_map(fn (array $alias): string => $alias['name'], $existingAliases);
         $desiredNames = $this->desiredAliasNames($hostname);
         $missingNames = array_values(array_diff($desiredNames, $existingNames));
+        $releasedAliases = [];
 
         if ($missingNames === []) {
             return [
@@ -49,10 +50,46 @@ class FastPanelSiteAliasService
                 'site_id' => $siteId,
                 'aliases_added' => [],
                 'aliases_present' => $desiredNames,
+                'aliases_released' => [],
                 'message' => 'FastPanel storefront aliases are already present.',
             ];
         }
 
+        try {
+            $this->updateSiteAliases($siteId, $token, $existingAliases, $missingNames);
+        } catch (ValidationException $exception) {
+            if (!$this->shouldTakeOverAliasConflicts($exception)) {
+                throw $exception;
+            }
+
+            $releasedAliases = $this->releaseAliasConflicts($siteId, $token, $desiredNames);
+            $site = $this->site($siteId, $token);
+            $existingAliases = $this->normalizedAliases($site['aliases'] ?? []);
+            $existingNames = array_map(fn (array $alias): string => $alias['name'], $existingAliases);
+            $missingNames = array_values(array_diff($desiredNames, $existingNames));
+
+            if ($missingNames !== []) {
+                $this->updateSiteAliases($siteId, $token, $existingAliases, $missingNames);
+            }
+        }
+
+        return [
+            'configured' => true,
+            'ensured' => true,
+            'site_id' => $siteId,
+            'aliases_added' => $missingNames,
+            'aliases_present' => $desiredNames,
+            'aliases_released' => $releasedAliases,
+            'message' => 'FastPanel storefront aliases were updated.',
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $existingAliases
+     * @param  array<int, string>  $missingNames
+     */
+    private function updateSiteAliases(string $siteId, string $token, array $existingAliases, array $missingNames): void
+    {
         $payloadAliases = [
             ...$existingAliases,
             ...array_map(fn (string $alias): array => ['name' => $alias], $missingNames),
@@ -64,15 +101,91 @@ class FastPanelSiteAliasService
         ]);
 
         $this->throwIfFailed($response->json(), $response->failed(), 'FastPanel storefront alias update failed.');
+    }
 
-        return [
-            'configured' => true,
-            'ensured' => true,
-            'site_id' => $siteId,
-            'aliases_added' => $missingNames,
-            'aliases_present' => $desiredNames,
-            'message' => 'FastPanel storefront aliases were updated.',
-        ];
+    /**
+     * Move exact hostname conflicts away from other FastPanel sites so the
+     * storefront vhost can own the customer domain after Cloudflare activation.
+     *
+     * @param  array<int, string>  $desiredNames
+     * @return array<int, array<string, mixed>>
+     */
+    private function releaseAliasConflicts(string $storefrontSiteId, string $token, array $desiredNames): array
+    {
+        if (!(bool) config('services.fastpanel.takeover_alias_conflicts', true)) {
+            return [];
+        }
+
+        $released = [];
+
+        foreach ($this->sites($token) as $siteSummary) {
+            $siteId = (string) ($siteSummary['id'] ?? '');
+
+            if ($siteId === '' || $siteId === $storefrontSiteId) {
+                continue;
+            }
+
+            $site = $this->site($siteId, $token);
+            $siteDomain = $this->normalizeHostname((string) ($site['domain'] ?? ''));
+            $aliases = $this->normalizedAliases($site['aliases'] ?? []);
+            $aliasNames = array_map(fn (array $alias): string => $alias['name'], $aliases);
+            $domainConflicts = in_array($siteDomain, $desiredNames, true) ? [$siteDomain] : [];
+            $aliasConflicts = array_values(array_intersect($aliasNames, $desiredNames));
+            $conflicts = array_values(array_unique([...$domainConflicts, ...$aliasConflicts]));
+
+            if ($conflicts === []) {
+                continue;
+            }
+
+            if ($domainConflicts !== []) {
+                $this->deleteSiteVhost($siteId, $token);
+
+                $released[] = [
+                    'site_id' => $siteId,
+                    'previous_domain' => $siteDomain,
+                    'site_removed' => true,
+                    'related_resources_deleted' => false,
+                    'aliases_removed' => $aliasConflicts,
+                    'conflicts' => $conflicts,
+                ];
+
+                continue;
+            }
+
+            $payload = [
+                'aliases' => array_values(array_filter(
+                    $aliases,
+                    fn (array $alias): bool => !in_array($alias['name'], $desiredNames, true)
+                )),
+                'manual_changes' => false,
+            ];
+
+            $response = $this->client($token)->put("/api/sites/{$siteId}", $payload);
+            $this->throwIfFailed($response->json(), $response->failed(), 'FastPanel conflicting alias release failed.');
+
+            $released[] = [
+                'site_id' => $siteId,
+                'previous_domain' => $siteDomain,
+                'site_removed' => false,
+                'related_resources_deleted' => false,
+                'aliases_removed' => $aliasConflicts,
+                'conflicts' => $conflicts,
+            ];
+        }
+
+        return $released;
+    }
+
+    private function deleteSiteVhost(string $siteId, string $token): void
+    {
+        $response = $this->client($token)->put("/api/sites/{$siteId}/delete", [
+            'sub_domains' => [],
+            'databases' => [],
+            'dns_domains' => [],
+            'email_domains' => [],
+        ]);
+
+        $this->throwIfFailed($response->json(), $response->failed(), 'FastPanel conflicting website release failed.');
     }
 
     private function login(): string
@@ -111,6 +224,42 @@ class FastPanelSiteAliasService
         $site = data_get($json, 'data', $json);
 
         return is_array($site) ? $site : [];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function sites(string $token): array
+    {
+        $response = $this->client($token)->get('/api/sites/simple');
+        $json = $response->json();
+
+        $this->throwIfFailed($json, $response->failed(), 'FastPanel site list lookup failed.');
+
+        $sites = data_get($json, 'data', $json);
+
+        if (is_array($sites) && count($sites) === 1 && is_array($sites[0] ?? null)) {
+            $sites = $sites[0];
+        }
+
+        return array_values(array_filter($sites ?: [], 'is_array'));
+    }
+
+    private function shouldTakeOverAliasConflicts(ValidationException $exception): bool
+    {
+        if (!(bool) config('services.fastpanel.takeover_alias_conflicts', true)) {
+            return false;
+        }
+
+        $message = strtolower((string) collect($exception->errors())->flatten()->implode(' '));
+
+        return (
+            str_contains($message, 'alias')
+            && (str_contains($message, 'exist') || str_contains($message, 'already'))
+        ) || (
+            str_contains($message, 'website')
+            && (str_contains($message, 'exist') || str_contains($message, 'disabled'))
+        );
     }
 
     /**

@@ -47,6 +47,7 @@ return [
         'timeout' => (int) env('FASTPANEL_TIMEOUT', 15),
         'verify_tls' => filter_var(env('FASTPANEL_VERIFY_TLS', true), FILTER_VALIDATE_BOOL),
         'include_www_alias' => filter_var(env('FASTPANEL_STOREFRONT_INCLUDE_WWW_ALIAS', true), FILTER_VALIDATE_BOOL),
+        'takeover_alias_conflicts' => filter_var(env('FASTPANEL_STOREFRONT_TAKEOVER_ALIASES', true), FILTER_VALIDATE_BOOL),
     ],
 
 ];
