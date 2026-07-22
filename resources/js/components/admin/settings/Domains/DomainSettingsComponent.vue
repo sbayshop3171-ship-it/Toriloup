@@ -100,7 +100,7 @@
 
                 <div v-if="domain.domain_type === 'custom' && isFullZone(domain)" class="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
                     <p v-if="domain.cloudflare_name_servers?.length">
-                        Replace the nameservers at your domain registrar with the Cloudflare nameservers below. Existing email DNS records must be recreated in Cloudflare before switching.
+                        Use these exact nameservers at your domain registrar. Do not use old Cloudflare nameservers from another zone.
                     </p>
                     <p v-else>
                         Create the Cloudflare DNS zone to receive the exact nameservers for this domain.
@@ -119,8 +119,27 @@
                 <div v-if="domain.domain_type === 'custom' && isFullZone(domain)" class="grid gap-3 mt-4 md:grid-cols-2">
                     <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Cloudflare Nameservers</p>
-                        <div v-if="domain.cloudflare_name_servers?.length" class="mt-2 space-y-1">
-                            <p v-for="nameserver in domain.cloudflare_name_servers" :key="nameserver" class="text-sm font-medium text-gray-900 break-all">{{ nameserver }}</p>
+                        <div v-if="domain.cloudflare_name_servers?.length" class="mt-2 space-y-2">
+                            <div
+                                v-for="nameserver in domain.cloudflare_name_servers"
+                                :key="nameserver"
+                                class="flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2"
+                            >
+                                <p class="min-w-0 text-sm font-medium text-gray-900 break-all">{{ nameserver }}</p>
+                                <button
+                                    type="button"
+                                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:border-primary hover:text-primary"
+                                    :title="copiedNameserver === nameserver ? 'Copied' : 'Copy nameserver'"
+                                    @click="copyNameserver(nameserver)"
+                                >
+                                    <i :class="copiedNameserver === nameserver ? 'fa-solid fa-check' : 'fa-regular fa-copy'"></i>
+                                </button>
+                            </div>
+                            <ul class="mt-3 space-y-1 text-xs text-gray-500">
+                                <li>DNS update may take up to 48 hours.</li>
+                                <li>Do not use old Cloudflare nameservers.</li>
+                                <li>If you use email, old MX/TXT records need to be added in Cloudflare.</li>
+                            </ul>
                         </div>
                         <p v-else class="mt-1 text-sm font-medium text-gray-900">Create DNS zone first</p>
                     </div>
@@ -165,6 +184,7 @@ export default {
                 dns_setup_mode: "full_zone",
             },
             errors: {},
+            copiedNameserver: "",
         };
     },
     computed: {
@@ -270,6 +290,42 @@ export default {
         },
         verifyButtonLabel: function (domain) {
             return this.isFullZone(domain) ? "Check Nameservers" : "Check DNS";
+        },
+        copyNameserver: function (nameserver) {
+            if (!nameserver) {
+                return;
+            }
+
+            const done = () => {
+                this.copiedNameserver = nameserver;
+                alertService.success("Nameserver copied.");
+                window.setTimeout(() => {
+                    if (this.copiedNameserver === nameserver) {
+                        this.copiedNameserver = "";
+                    }
+                }, 1800);
+            };
+
+            if (navigator?.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(nameserver).then(done).catch(() => {
+                    this.copyWithTextarea(nameserver, done);
+                });
+                return;
+            }
+
+            this.copyWithTextarea(nameserver, done);
+        },
+        copyWithTextarea: function (value, done) {
+            const textarea = document.createElement("textarea");
+            textarea.value = value;
+            textarea.setAttribute("readonly", "readonly");
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+            done();
         },
         formatDate: function (value) {
             if (!value) {
