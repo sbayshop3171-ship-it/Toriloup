@@ -151,6 +151,8 @@ class PlatformDomainController extends Controller
             'tenant' => $domain->tenant?->only(['id', 'name', 'slug', 'status', 'plan_code']),
             'dns_instructions' => [
                 'cname_target' => $fallbackDomain?->hostname,
+                'record_type' => 'CNAME',
+                'proxy_mode' => 'DNS only',
                 'verification_txt_value' => $domain->verification_token,
             ],
         ];

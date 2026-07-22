@@ -5,7 +5,7 @@
         <div class="db-card-header">
             <div>
                 <h3 class="db-card-title">Domains</h3>
-                <p class="text-sm text-gray-500">Keep the fallback subdomain forever and connect custom storefront domains when you are ready.</p>
+                <p class="text-sm text-gray-500">Keep the fallback subdomain active while provisioning Cloudflare SaaS custom hostnames for your custom domains.</p>
             </div>
         </div>
         <div class="db-card-body">
@@ -56,7 +56,7 @@
                             class="db-btn py-2 text-white bg-primary"
                             @click="connectCloudflare(domain)"
                         >
-                            Connect Cloudflare
+                            Provision Hostname
                         </button>
                         <button
                             v-if="showVerify(domain)"
@@ -79,10 +79,10 @@
 
                 <div v-if="domain.domain_type === 'custom'" class="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
                     <p v-if="showCloudflareConnect(domain)">
-                        One click can create the DNS record automatically for zones inside the connected Cloudflare account.
+                        One click provisions the Cloudflare custom hostname in the platform account. Add the CNAME at your DNS provider as DNS only.
                     </p>
                     <p v-else>
-                        Add the CNAME below at your DNS provider, wait for propagation, then use Check DNS.
+                        Add the CNAME below at your DNS provider, keep it DNS only if the provider is Cloudflare, then use Check DNS.
                     </p>
                 </div>
 
@@ -90,6 +90,7 @@
                     <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">CNAME Target</p>
                         <p class="mt-1 text-sm font-medium text-gray-900 break-all">{{ domain.dns_instructions?.cname_target || '-' }}</p>
+                        <p class="mt-2 text-xs text-gray-500">Record type: {{ domain.dns_instructions?.record_type || 'CNAME' }} · Proxy: {{ domain.dns_instructions?.proxy_mode || 'DNS only' }}</p>
                     </div>
                     <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Verification TXT</p>

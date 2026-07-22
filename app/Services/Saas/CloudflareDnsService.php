@@ -12,82 +12,44 @@ class CloudflareDnsService
 {
     public function isConfigured(): bool
     {
-        return filled(config('cloudflare.api_token'));
+        return filled(config('cloudflare.api_token')) && filled(config('cloudflare.saas_zone_id'));
     }
 
     /**
+     * Provision or refresh a Cloudflare for SaaS custom hostname.
+     *
      * @return array<string, mixed>
      */
     public function connectTenantDomain(TenantDomain $domain, string $target): array
     {
-        if (!$this->isConfigured()) {
-            throw ValidationException::withMessages([
-                'cloudflare' => 'Cloudflare automatic connect is not configured yet. Add the platform Cloudflare API token first.',
-            ]);
-        }
+        $zoneId = $this->saasZoneId();
+        $hostname = $this->normalizeHostname($domain->hostname);
+        $origin = $this->normalizeHostname($target);
+        $payload = $this->customHostnamePayload($hostname, $origin);
+        $existing = $this->findCustomHostname($zoneId, $hostname);
 
-        $zone = $this->findZoneForHostname($domain->hostname);
+        if ($existing === null) {
+            $customHostname = $this->request('post', "/zones/{$zoneId}/custom_hostnames", $payload)['result'] ?? [];
+        } else {
+            $hostnameId = (string) ($existing['id'] ?? '');
 
-        if ($zone === null) {
-            throw ValidationException::withMessages([
-                'cloudflare' => 'No accessible Cloudflare zone was found for this hostname. Make sure the domain is inside the connected Cloudflare account, or add the CNAME manually and use Check DNS.',
-            ]);
-        }
+            if ($hostnameId === '') {
+                throw ValidationException::withMessages([
+                    'cloudflare' => 'Cloudflare custom hostname exists, but the hostname id is missing.',
+                ]);
+            }
 
-        $zoneId = (string) ($zone['id'] ?? '');
-        $records = $this->listDnsRecords($zoneId, $domain->hostname);
-        $conflicts = array_values(array_filter($records, function (array $record): bool {
-            return strtoupper((string) ($record['type'] ?? '')) !== 'CNAME';
-        }));
-
-        if ($conflicts !== []) {
-            $types = implode(', ', array_unique(array_map(
-                fn (array $record): string => strtoupper((string) ($record['type'] ?? 'UNKNOWN')),
-                $conflicts
-            )));
-
-            throw ValidationException::withMessages([
-                'cloudflare' => "Cannot create the CNAME automatically because {$domain->hostname} already has conflicting DNS record(s): {$types}. Remove those record(s) first, then try again.",
-            ]);
-        }
-
-        $existingRecord = collect($records)->first(function (array $record) use ($domain): bool {
-            return $this->normalizeHostname((string) ($record['name'] ?? '')) === $this->normalizeHostname($domain->hostname)
-                && strtoupper((string) ($record['type'] ?? '')) === 'CNAME';
-        });
-
-        $payload = [
-            'type' => 'CNAME',
-            'name' => $domain->hostname,
-            'content' => $target,
-            'ttl' => 1,
-            'proxied' => $this->proxyCustomDomains(),
-        ];
-
-        if ($existingRecord !== null) {
-            $recordId = (string) ($existingRecord['id'] ?? '');
-            $needsUpdate = $this->normalizeHostname((string) ($existingRecord['content'] ?? '')) !== $this->normalizeHostname($target)
-                || (bool) ($existingRecord['proxied'] ?? false) !== $this->proxyCustomDomains();
+            $existingOrigin = $this->normalizeHostname((string) data_get($existing, 'custom_origin_server', ''));
+            $needsUpdate = $existingOrigin !== $origin;
 
             if ($needsUpdate) {
-                $record = $this->request('put', "/zones/{$zoneId}/dns_records/{$recordId}", $payload)['result'] ?? [];
+                $customHostname = $this->request('patch', "/zones/{$zoneId}/custom_hostnames/{$hostnameId}", $payload)['result'] ?? [];
             } else {
-                $record = $existingRecord;
+                $customHostname = $existing;
             }
-        } else {
-            $record = $this->request('post', "/zones/{$zoneId}/dns_records", $payload)['result'] ?? [];
         }
 
-        return [
-            'zone_id' => $zoneId,
-            'zone_name' => $zone['name'] ?? null,
-            'record_id' => $record['id'] ?? null,
-            'record_name' => $record['name'] ?? $domain->hostname,
-            'record_type' => $record['type'] ?? 'CNAME',
-            'record_target' => $record['content'] ?? $target,
-            'proxied' => (bool) ($record['proxied'] ?? $this->proxyCustomDomains()),
-            'expected_target' => $target,
-        ];
+        return $this->normalizeCustomHostnameResult($zoneId, $customHostname, $origin, $hostname);
     }
 
     /**
@@ -113,7 +75,7 @@ class CloudflareDnsService
             return [
                 'verified' => true,
                 'check_type' => 'dns',
-                'message' => 'Custom domain DNS is pointing to the storefront target.',
+                'message' => 'Custom domain DNS is pointing to the Toriloup target.',
                 'payload_json' => [
                     'hostname' => $hostname,
                     'expected_target' => $expectedTarget,
@@ -122,23 +84,43 @@ class CloudflareDnsService
             ];
         }
 
-        $cloudflareRecord = $this->findMatchingCloudflareRecord($domain, $expectedTarget);
+        $customHostname = $this->findCustomHostname($this->saasZoneId(), $hostname);
 
-        if ($cloudflareRecord !== null) {
+        if ($customHostname !== null && $this->isCustomHostnameReady($customHostname)) {
             return [
                 'verified' => true,
-                'check_type' => 'cloudflare_api',
-                'message' => 'Cloudflare DNS record matches the storefront target.',
+                'check_type' => 'cloudflare_custom_hostname',
+                'message' => 'Cloudflare custom hostname is active for this domain.',
                 'payload_json' => [
                     'hostname' => $hostname,
                     'expected_target' => $expectedTarget,
                     'observed_targets' => $observedTargets,
-                    'cloudflare_record' => [
-                        'id' => $cloudflareRecord['id'] ?? null,
-                        'name' => $cloudflareRecord['name'] ?? $domain->hostname,
-                        'type' => $cloudflareRecord['type'] ?? 'CNAME',
-                        'target' => $cloudflareRecord['content'] ?? null,
-                        'proxied' => (bool) ($cloudflareRecord['proxied'] ?? false),
+                    'cloudflare_custom_hostname' => [
+                        'id' => $customHostname['id'] ?? null,
+                        'hostname' => $customHostname['hostname'] ?? $hostname,
+                        'status' => $customHostname['status'] ?? null,
+                        'ssl_status' => data_get($customHostname, 'ssl.status'),
+                        'custom_origin_server' => data_get($customHostname, 'custom_origin_server'),
+                    ],
+                ],
+            ];
+        }
+
+        if ($customHostname !== null) {
+            return [
+                'verified' => false,
+                'check_type' => 'cloudflare_custom_hostname',
+                'message' => 'Cloudflare custom hostname is still provisioning. Add the DNS record as a DNS-only CNAME, wait for propagation, then try Check DNS again.',
+                'payload_json' => [
+                    'hostname' => $hostname,
+                    'expected_target' => $expectedTarget,
+                    'observed_targets' => $observedTargets,
+                    'cloudflare_custom_hostname' => [
+                        'id' => $customHostname['id'] ?? null,
+                        'hostname' => $customHostname['hostname'] ?? $hostname,
+                        'status' => $customHostname['status'] ?? null,
+                        'ssl_status' => data_get($customHostname, 'ssl.status'),
+                        'custom_origin_server' => data_get($customHostname, 'custom_origin_server'),
                     ],
                 ],
             ];
@@ -147,7 +129,7 @@ class CloudflareDnsService
         return [
             'verified' => false,
             'check_type' => 'dns',
-            'message' => 'DNS propagation is not complete yet. Add the exact CNAME target, wait for propagation, then try Check DNS again.',
+            'message' => 'DNS propagation is not complete yet. Add the exact CNAME target, keep it DNS only, wait for propagation, then try Check DNS again.',
             'payload_json' => [
                 'hostname' => $hostname,
                 'expected_target' => $expectedTarget,
@@ -159,86 +141,79 @@ class CloudflareDnsService
     /**
      * @return array<string, mixed>|null
      */
-    private function findMatchingCloudflareRecord(TenantDomain $domain, string $expectedTarget): ?array
+    private function findCustomHostname(string $zoneId, string $hostname): ?array
     {
-        if (!$this->isConfigured()) {
-            return null;
-        }
-
-        $zoneId = $this->resolveZoneId($domain);
-
-        if ($zoneId === null) {
-            return null;
-        }
-
-        return collect($this->listDnsRecords($zoneId, $domain->hostname))->first(function (array $record) use ($domain, $expectedTarget): bool {
-            return $this->normalizeHostname((string) ($record['name'] ?? '')) === $this->normalizeHostname($domain->hostname)
-                && strtoupper((string) ($record['type'] ?? '')) === 'CNAME'
-                && $this->normalizeHostname((string) ($record['content'] ?? '')) === $expectedTarget;
-        });
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function findZoneForHostname(string $hostname): ?array
-    {
-        foreach ($this->candidateZones($hostname) as $candidate) {
-            $response = $this->request('get', '/zones', [
-                'name' => $candidate,
-                'status' => 'active',
-                'per_page' => 1,
-            ]);
-
-            $zone = Arr::first($response['result'] ?? []);
-
-            if ($zone !== null) {
-                return $zone;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function candidateZones(string $hostname): array
-    {
-        $labels = array_values(array_filter(explode('.', $this->normalizeHostname($hostname))));
-        $candidates = [];
-
-        for ($index = 0; $index <= max(count($labels) - 2, 0); $index++) {
-            $candidates[] = implode('.', array_slice($labels, $index));
-        }
-
-        return array_values(array_unique(array_filter($candidates)));
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function listDnsRecords(string $zoneId, string $hostname): array
-    {
-        $response = $this->request('get', "/zones/{$zoneId}/dns_records", [
-            'name' => $hostname,
+        $response = $this->request('get', "/zones/{$zoneId}/custom_hostnames", [
+            'hostname' => $hostname,
             'per_page' => 100,
         ]);
 
-        return array_values($response['result'] ?? []);
+        return Arr::first($response['result'] ?? []);
     }
 
-    private function resolveZoneId(TenantDomain $domain): ?string
+    /**
+     * @return array<string, mixed>
+     */
+    private function normalizeCustomHostnameResult(string $zoneId, array $customHostname, string $origin, string $hostname): array
     {
-        $configuredZoneId = trim((string) ($domain->cloudflare_zone_id ?? ''));
+        return [
+            'zone_id' => $zoneId,
+            'hostname_id' => $customHostname['id'] ?? null,
+            'hostname' => $customHostname['hostname'] ?? $hostname,
+            'status' => $customHostname['status'] ?? null,
+            'ssl_status' => data_get($customHostname, 'ssl.status'),
+            'custom_origin_server' => data_get($customHostname, 'custom_origin_server', $origin),
+            'expected_target' => $origin,
+            'dns_mode' => 'DNS only',
+            'required_dns' => [
+                'record_type' => 'CNAME',
+                'record_name' => $hostname,
+                'record_target' => $origin,
+                'proxy_status' => 'DNS only',
+            ],
+        ];
+    }
 
-        if ($configuredZoneId !== '') {
-            return $configuredZoneId;
+    /**
+     * @return array<string, mixed>
+     */
+    private function customHostnamePayload(string $hostname, string $origin): array
+    {
+        return [
+            'hostname' => $hostname,
+            'custom_origin_server' => $origin,
+            'ssl' => [
+                'method' => 'http',
+                'type' => 'dv',
+                'settings' => [
+                    'http2' => 'on',
+                    'min_tls_version' => '1.2',
+                    'tls_1_3' => 'on',
+                ],
+            ],
+        ];
+    }
+
+    private function isCustomHostnameReady(array $customHostname): bool
+    {
+        $status = strtolower((string) ($customHostname['status'] ?? ''));
+        $sslStatus = strtolower((string) data_get($customHostname, 'ssl.status', ''));
+
+        return in_array($status, ['active', 'verified', 'deployed'], true)
+            || in_array($sslStatus, ['active', 'verified'], true);
+    }
+
+    private function saasZoneId(): string
+    {
+        $zoneId = trim((string) config('cloudflare.saas_zone_id'));
+
+        if ($zoneId === '') {
+            throw ValidationException::withMessages([
+                'cloudflare' => 'Cloudflare SaaS zone id is not configured yet.',
+            ]);
         }
 
-        $zone = $this->findZoneForHostname($domain->hostname);
-
-        return $zone !== null ? (string) ($zone['id'] ?? '') : null;
+        return $zoneId;
     }
 
     /**
@@ -251,6 +226,7 @@ class CloudflareDnsService
             'get' => $this->client()->get($path, $payload),
             'post' => $this->client()->post($path, $payload),
             'put' => $this->client()->put($path, $payload),
+            'patch' => $this->client()->patch($path, $payload),
             default => throw ValidationException::withMessages([
                 'cloudflare' => 'Unsupported Cloudflare API request.',
             ]),
@@ -280,11 +256,6 @@ class CloudflareDnsService
             ->timeout((int) config('cloudflare.timeout', 15));
     }
 
-    private function proxyCustomDomains(): bool
-    {
-        return (bool) config('cloudflare.proxy_custom_domains', false);
-    }
-
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -295,6 +266,19 @@ class CloudflareDnsService
 
     private function normalizeHostname(string $value): string
     {
-        return trim(strtolower(rtrim($value, '.')));
+        $value = trim(strtolower($value));
+
+        if ($value === '') {
+            return '';
+        }
+
+        if (str_contains($value, '://')) {
+            $value = (string) parse_url($value, PHP_URL_HOST);
+        }
+
+        $value = preg_replace('/\/.*$/', '', $value) ?? $value;
+        $value = preg_replace('/:\d+$/', '', $value) ?? $value;
+
+        return trim($value, '. ');
     }
 }

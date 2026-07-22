@@ -39,6 +39,7 @@ class MerchantDomainAutomationTest extends TestCase
         config([
             'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
             'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.saas_zone_id' => 'saas_zone_123',
             'cloudflare.proxy_custom_domains' => false,
         ]);
 
@@ -50,28 +51,21 @@ class MerchantDomainAutomationTest extends TestCase
         $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
 
         Http::fake([
-            'https://api.cloudflare.com/client/v4/zones?*' => Http::response([
+            'https://api.cloudflare.com/client/v4/zones/saas_zone_123/custom_hostnames?*' => Http::response([
                 'success' => true,
                 'result' => [
-                    [
-                        'id' => 'zone_123',
-                        'name' => 'gachwalas.com',
-                        'status' => 'active',
-                    ],
                 ],
             ], 200),
-            'https://api.cloudflare.com/client/v4/zones/zone_123/dns_records?*' => Http::response([
-                'success' => true,
-                'result' => [],
-            ], 200),
-            'https://api.cloudflare.com/client/v4/zones/zone_123/dns_records' => Http::response([
+            'https://api.cloudflare.com/client/v4/zones/saas_zone_123/custom_hostnames' => Http::response([
                 'success' => true,
                 'result' => [
-                    'id' => 'record_123',
-                    'name' => 'gachwalas.com',
-                    'type' => 'CNAME',
-                    'content' => 'domain-connect-store.company.com',
-                    'proxied' => false,
+                    'id' => 'hostname_123',
+                    'hostname' => 'gachwalas.com',
+                    'status' => 'active',
+                    'custom_origin_server' => 'domain-connect-store.company.com',
+                    'ssl' => [
+                        'status' => 'active',
+                    ],
                 ],
             ], 200),
             'https://gachwalas.com/api/storefront/up' => Http::response([
@@ -107,6 +101,7 @@ class MerchantDomainAutomationTest extends TestCase
             ->assertJsonPath('data.verification_status', 'verified')
             ->assertJsonPath('data.ssl_status', 'active')
             ->assertJsonPath('data.is_primary', true)
+            ->assertJsonPath('data.cloudflare_hostname_id', 'hostname_123')
             ->assertJsonPath('meta.verified', true);
 
         $this->assertDatabaseHas('tenant_domains', [
@@ -114,11 +109,12 @@ class MerchantDomainAutomationTest extends TestCase
             'hostname' => 'gachwalas.com',
             'verification_status' => 'verified',
             'ssl_status' => 'active',
-            'cloudflare_zone_id' => 'zone_123',
+            'cloudflare_zone_id' => 'saas_zone_123',
+            'cloudflare_hostname_id' => 'hostname_123',
             'is_primary' => 1,
         ]);
 
-        Http::assertSentCount(4);
+        Http::assertSentCount(3);
     }
 
     public function test_merchant_cloudflare_connect_stays_pending_until_storefront_probe_passes(): void
@@ -126,6 +122,7 @@ class MerchantDomainAutomationTest extends TestCase
         config([
             'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
             'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.saas_zone_id' => 'saas_zone_456',
             'cloudflare.proxy_custom_domains' => false,
         ]);
 
@@ -137,28 +134,21 @@ class MerchantDomainAutomationTest extends TestCase
         $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
 
         Http::fake([
-            'https://api.cloudflare.com/client/v4/zones?*' => Http::response([
+            'https://api.cloudflare.com/client/v4/zones/saas_zone_456/custom_hostnames?*' => Http::response([
                 'success' => true,
                 'result' => [
-                    [
-                        'id' => 'zone_456',
-                        'name' => 'pending-launch.com',
-                        'status' => 'active',
-                    ],
                 ],
             ], 200),
-            'https://api.cloudflare.com/client/v4/zones/zone_456/dns_records?*' => Http::response([
-                'success' => true,
-                'result' => [],
-            ], 200),
-            'https://api.cloudflare.com/client/v4/zones/zone_456/dns_records' => Http::response([
+            'https://api.cloudflare.com/client/v4/zones/saas_zone_456/custom_hostnames' => Http::response([
                 'success' => true,
                 'result' => [
-                    'id' => 'record_456',
-                    'name' => 'pending-launch.com',
-                    'type' => 'CNAME',
-                    'content' => 'domain-pending-store.company.com',
-                    'proxied' => false,
+                    'id' => 'hostname_456',
+                    'hostname' => 'pending-launch.com',
+                    'status' => 'pending',
+                    'custom_origin_server' => 'domain-pending-store.company.com',
+                    'ssl' => [
+                        'status' => 'pending',
+                    ],
                 ],
             ], 200),
             'https://pending-launch.com/api/storefront/up' => Http::response('<html>old site</html>', 404, [
@@ -188,6 +178,7 @@ class MerchantDomainAutomationTest extends TestCase
             ->assertJsonPath('data.verification_status', 'pending')
             ->assertJsonPath('data.ssl_status', 'pending')
             ->assertJsonPath('data.is_primary', false)
+            ->assertJsonPath('data.cloudflare_hostname_id', 'hostname_456')
             ->assertJsonPath('meta.verified', false);
 
         $this->assertDatabaseHas('tenant_domains', [
@@ -195,7 +186,8 @@ class MerchantDomainAutomationTest extends TestCase
             'hostname' => 'pending-launch.com',
             'verification_status' => 'pending',
             'ssl_status' => 'pending',
-            'cloudflare_zone_id' => 'zone_456',
+            'cloudflare_zone_id' => 'saas_zone_456',
+            'cloudflare_hostname_id' => 'hostname_456',
             'is_primary' => 0,
         ]);
     }
@@ -263,6 +255,7 @@ class MerchantDomainAutomationTest extends TestCase
         config([
             'cloudflare.api_base_url' => 'https://api.cloudflare.com/client/v4',
             'cloudflare.api_token' => 'cf-test-token',
+            'cloudflare.saas_zone_id' => 'saas_zone_789',
             'cloudflare.proxy_custom_domains' => false,
         ]);
 
@@ -281,15 +274,31 @@ class MerchantDomainAutomationTest extends TestCase
         ]);
 
         Http::fake([
-            'https://api.cloudflare.com/client/v4/zones/zone_123/dns_records?*' => Http::response([
+            'https://api.cloudflare.com/client/v4/zones/saas_zone_789/custom_hostnames?*' => Http::response([
                 'success' => true,
                 'result' => [
                     [
-                        'id' => 'record_123',
-                        'name' => 'flattened-check.invalid',
-                        'type' => 'CNAME',
-                        'content' => 'flattened-check-store.company.com',
-                        'proxied' => true,
+                        'id' => 'hostname_789',
+                        'hostname' => 'flattened-check.invalid',
+                        'status' => 'active',
+                        'custom_origin_server' => 'flattened-check-store.company.com',
+                        'ssl' => [
+                            'status' => 'active',
+                        ],
+                    ],
+                ],
+            ], 200),
+            'https://api.cloudflare.com/client/v4/zones/zone_123/custom_hostnames?*' => Http::response([
+                'success' => true,
+                'result' => [
+                    [
+                        'id' => 'hostname_123',
+                        'hostname' => 'flattened-check.invalid',
+                        'status' => 'active',
+                        'custom_origin_server' => 'flattened-check-store.company.com',
+                        'ssl' => [
+                            'status' => 'active',
+                        ],
                     ],
                 ],
             ], 200),
@@ -298,9 +307,9 @@ class MerchantDomainAutomationTest extends TestCase
         $result = app(CloudflareDnsService::class)->verifyTenantDomain($domain, 'flattened-check-store.company.com');
 
         $this->assertTrue($result['verified']);
-        $this->assertSame('cloudflare_api', $result['check_type']);
-        $this->assertSame('Cloudflare DNS record matches the storefront target.', $result['message']);
-        $this->assertSame('flattened-check-store.company.com', data_get($result, 'payload_json.cloudflare_record.target'));
+        $this->assertSame('cloudflare_custom_hostname', $result['check_type']);
+        $this->assertSame('Cloudflare custom hostname is active for this domain.', $result['message']);
+        $this->assertSame('flattened-check-store.company.com', data_get($result, 'payload_json.cloudflare_custom_hostname.custom_origin_server'));
 
         Http::assertSentCount(1);
     }

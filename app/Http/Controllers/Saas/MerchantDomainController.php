@@ -115,6 +115,7 @@ class MerchantDomainController extends Controller
             'ssl_status',
             'dns_provider',
             'cloudflare_zone_id',
+            'cloudflare_hostname_id',
             'verified_at',
             'last_checked_at',
             'is_primary',
@@ -125,15 +126,16 @@ class MerchantDomainController extends Controller
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
             'verification_status' => ($launchResult['launched'] ?? false) ? 'verified' : 'pending',
-            'ssl_status' => ($launchResult['launched'] ?? false) ? 'active' : 'pending',
+            'ssl_status' => ($launchResult['launched'] ?? false) ? 'active' : ($result['ssl_status'] ?? 'pending'),
             'dns_provider' => 'cloudflare',
             'cloudflare_zone_id' => $result['zone_id'] ?? null,
+            'cloudflare_hostname_id' => $result['hostname_id'] ?? null,
             'check_type' => $launchResult['check_type'] ?? 'storefront_probe',
             'message' => $launchResult['launched'] ?? false
-                ? 'Cloudflare DNS connected and the storefront is live.'
-                : ($launchResult['message'] ?? 'Cloudflare DNS connected, but the storefront is not live on this domain yet.'),
+                ? 'Cloudflare custom hostname is provisioned and the storefront is live.'
+                : ($launchResult['message'] ?? 'Cloudflare custom hostname is provisioned, but the storefront is not live on this domain yet.'),
             'payload_json' => [
-                'cloudflare' => $result,
+                'cloudflare_custom_hostname' => $result,
                 'launch_probe' => $launchResult,
             ],
         ]);
@@ -160,8 +162,8 @@ class MerchantDomainController extends Controller
             'meta' => [
                 'verified' => (bool) ($launchResult['launched'] ?? false),
                 'message' => $launchResult['launched'] ?? false
-                    ? 'Cloudflare connected and storefront launched successfully.'
-                    : ($launchResult['message'] ?? 'Cloudflare DNS connected. Waiting for storefront launch.'),
+                    ? 'Cloudflare custom hostname connected and storefront launched successfully.'
+                    : ($launchResult['message'] ?? 'Cloudflare custom hostname provisioned. Waiting for storefront launch.'),
             ],
         ]);
     }
@@ -176,6 +178,7 @@ class MerchantDomainController extends Controller
             'ssl_status',
             'dns_provider',
             'cloudflare_zone_id',
+            'cloudflare_hostname_id',
             'verified_at',
             'last_checked_at',
             'is_primary',
@@ -188,8 +191,10 @@ class MerchantDomainController extends Controller
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
             'verification_status' => ($result['verified'] ?? false) && ($launchResult['launched'] ?? false) ? 'verified' : 'pending',
-            'ssl_status' => ($result['verified'] ?? false) && ($launchResult['launched'] ?? false) ? 'active' : 'pending',
-            'dns_provider' => $domain->dns_provider,
+            'ssl_status' => ($result['verified'] ?? false) && ($launchResult['launched'] ?? false) ? 'active' : ($domain->ssl_status ?? 'pending'),
+            'dns_provider' => 'cloudflare',
+            'cloudflare_zone_id' => $domain->cloudflare_zone_id,
+            'cloudflare_hostname_id' => $domain->cloudflare_hostname_id,
             'check_type' => ($launchResult['check_type'] ?? null) ?: ($result['check_type'] ?? 'dns'),
             'message' => ($result['verified'] ?? false)
                 ? (($launchResult['launched'] ?? false)
@@ -252,9 +257,13 @@ class MerchantDomainController extends Controller
             'dns_provider' => $domain->dns_provider,
             'verified_at' => $domain->verified_at,
             'last_checked_at' => $domain->last_checked_at,
-            'cloudflare_connect_available' => $this->cloudflareDnsService->isConfigured() && $domain->domain_type === 'custom' && ($domain->dns_provider === null || strtolower((string) $domain->dns_provider) === 'cloudflare'),
+            'cloudflare_zone_id' => $domain->cloudflare_zone_id,
+            'cloudflare_hostname_id' => $domain->cloudflare_hostname_id,
+            'cloudflare_connect_available' => $this->cloudflareDnsService->isConfigured() && $domain->domain_type === 'custom' && $domain->verification_status !== 'verified',
             'dns_instructions' => [
                 'cname_target' => $fallbackDomain?->hostname,
+                'record_type' => 'CNAME',
+                'proxy_mode' => 'DNS only',
                 'verification_txt_value' => $domain->verification_token,
             ],
         ];

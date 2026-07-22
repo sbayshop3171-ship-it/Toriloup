@@ -213,7 +213,7 @@ class MerchantDashboardController extends Controller
             [
                 'key' => 'launch_domain',
                 'title' => 'Launch & Domain Verification',
-                'description' => 'Keep fallback subdomain active and connect custom domain when ready.',
+                'description' => 'Keep fallback subdomain active and provision the custom domain hostname when ready.',
                 'route_name' => 'admin.settings.domains',
                 'completed' => $fallbackDomain !== null && $fallbackDomain->verification_status === 'verified',
             ],
