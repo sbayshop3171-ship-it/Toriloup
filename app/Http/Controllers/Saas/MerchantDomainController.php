@@ -298,7 +298,7 @@ class MerchantDomainController extends Controller
         $zoneActive = (bool) ($result['verified'] ?? false);
         $storefrontAlias = $zoneActive ? $this->ensureStorefrontAlias($domain) : $this->pendingStorefrontAliasResult();
         $launchResult = $zoneActive ? $this->storefrontLaunchProbeService->probe($domain) : null;
-        $verified = $zoneActive && (bool) ($launchResult['launched'] ?? false);
+        $verified = $this->fullZoneVerified($zoneActive, $storefrontAlias);
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
             'verification_status' => $verified ? 'verified' : 'pending',
@@ -362,7 +362,7 @@ class MerchantDomainController extends Controller
         $zoneActive = (bool) ($result['verified'] ?? false);
         $storefrontAlias = $zoneActive ? $this->ensureStorefrontAlias($domain) : null;
         $launchResult = $zoneActive ? $this->storefrontLaunchProbeService->probe($domain) : null;
-        $verified = $zoneActive && (bool) ($launchResult['launched'] ?? false);
+        $verified = $this->fullZoneVerified($zoneActive, $storefrontAlias);
 
         $domain = $this->tenantDomainManager->markVerification($domain, [
             'verification_status' => $verified ? 'verified' : 'pending',
@@ -545,8 +545,12 @@ class MerchantDomainController extends Controller
      */
     private function fullZoneMessage(bool $verified, bool $zoneActive, array $result, ?array $launchResult): string
     {
-        if ($verified) {
+        if ($verified && (bool) ($launchResult['launched'] ?? false)) {
             return 'Cloudflare nameservers are active and the storefront launched successfully.';
+        }
+
+        if ($verified) {
+            return 'Cloudflare nameservers are active and storefront routing has been attached.';
         }
 
         if ($zoneActive) {
@@ -554,6 +558,22 @@ class MerchantDomainController extends Controller
         }
 
         return (string) ($result['message'] ?? 'Replace nameservers at the registrar, then check again.');
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $storefrontAlias
+     */
+    private function fullZoneVerified(bool $zoneActive, ?array $storefrontAlias): bool
+    {
+        if (!$zoneActive) {
+            return false;
+        }
+
+        if ($storefrontAlias === null || (bool) ($storefrontAlias['configured'] ?? false) === false) {
+            return true;
+        }
+
+        return (bool) ($storefrontAlias['ensured'] ?? false);
     }
 
     private function shouldAutoPromote(TenantDomain $domain): bool

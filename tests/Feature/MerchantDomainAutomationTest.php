@@ -9,6 +9,8 @@ use App\Models\TenantDomain;
 use App\Models\TenantMember;
 use App\Models\User;
 use App\Services\Saas\CloudflareDnsService;
+use App\Services\Saas\FastPanelSiteAliasService;
+use App\Services\Saas\StorefrontLaunchProbeService;
 use App\Services\Saas\SubscriptionManagerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -447,6 +449,90 @@ class MerchantDomainAutomationTest extends TestCase
             && (string) $request->url() === 'https://fastpanel.test/api/sites/48'
             && collect($request['aliases'])->contains(fn (array $alias): bool => ($alias['name'] ?? null) === 'launchstore.com')
             && collect($request['aliases'])->contains(fn (array $alias): bool => ($alias['name'] ?? null) === 'www.launchstore.com'));
+    }
+
+    public function test_active_full_zone_promotes_even_while_launch_probe_is_warming_up(): void
+    {
+        $this->mock(CloudflareDnsService::class, function ($mock): void {
+            $mock->shouldReceive('isFullZoneConfigured')->andReturn(true)->byDefault();
+            $mock->shouldReceive('verifyTenantZone')
+                ->once()
+                ->andReturn([
+                    'verified' => true,
+                    'check_type' => 'dns',
+                    'zone_id' => 'zone_active_warmup',
+                    'zone_name' => 'warmupstore.com',
+                    'zone_status' => 'active',
+                    'name_servers' => ['cris.ns.cloudflare.com', 'ursula.ns.cloudflare.com'],
+                    'dns_records' => [],
+                    'message' => 'Cloudflare nameservers are active for this domain.',
+                ]);
+        });
+
+        $this->mock(FastPanelSiteAliasService::class, function ($mock): void {
+            $mock->shouldReceive('isConfigured')->andReturn(true)->byDefault();
+            $mock->shouldReceive('ensureStorefrontAlias')
+                ->once()
+                ->with('warmupstore.com')
+                ->andReturn([
+                    'configured' => true,
+                    'ensured' => true,
+                    'site_id' => 48,
+                    'aliases_added' => ['warmupstore.com', 'www.warmupstore.com'],
+                    'aliases_present' => ['warmupstore.com', 'www.warmupstore.com'],
+                    'aliases_released' => [],
+                    'message' => 'FastPanel storefront aliases were updated.',
+                ]);
+        });
+
+        $this->mock(StorefrontLaunchProbeService::class, function ($mock): void {
+            $mock->shouldReceive('probe')
+                ->once()
+                ->andReturn([
+                    'launched' => false,
+                    'check_type' => 'storefront_probe',
+                    'message' => 'Storefront routing is still warming up.',
+                    'payload_json' => [],
+                ]);
+        });
+
+        $owner = $this->createPlatformOwner();
+        $merchantContext = $this->createMerchantContext('warmup-zone-store');
+        $platformToken = $this->platformToken($owner);
+        $merchantToken = $this->merchantToken($merchantContext['user']);
+
+        $this->assignDomainAccessPlan($platformToken, $merchantContext['tenant']);
+
+        $domain = TenantDomain::query()->create([
+            'tenant_id' => $merchantContext['tenant']->id,
+            'hostname' => 'warmupstore.com',
+            'domain_type' => 'custom',
+            'is_primary' => false,
+            'is_fallback' => false,
+            'ssl_status' => 'pending',
+            'verification_status' => 'pending',
+            'dns_provider' => 'cloudflare',
+            'dns_setup_mode' => 'full_zone',
+            'cloudflare_zone_id' => 'zone_active_warmup',
+            'cloudflare_zone_status' => 'active',
+            'cloudflare_name_servers' => ['cris.ns.cloudflare.com', 'ursula.ns.cloudflare.com'],
+            'verification_token' => Str::upper(Str::random(32)),
+        ]);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $merchantContext['tenant']->slug)
+            ->postJson("http://merchant.company.com/api/merchant/domains/{$domain->id}/verify")
+            ->assertOk()
+            ->assertJsonPath('data.verification_status', 'verified')
+            ->assertJsonPath('data.ssl_status', 'active')
+            ->assertJsonPath('data.is_primary', true)
+            ->assertJsonPath('meta.verified', true)
+            ->assertJsonPath('meta.zone_active', true)
+            ->assertJsonPath('meta.storefront_alias_ready', true)
+            ->assertJsonPath('meta.storefront_launched', false);
     }
 
     public function test_failed_custom_domain_verification_restores_fallback_as_primary(): void
