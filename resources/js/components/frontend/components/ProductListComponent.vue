@@ -49,7 +49,7 @@
                     <h3 class="text-xl sm:text-[22px] font-bold">
                         <span>{{ product.discounted_price }}</span>
                     </h3>
-                    <h4 class="text-sm sm:text-base font-semibold text-shopperz-red">
+                    <h4 class="text-sm sm:text-base font-semibold text-toriloup-red">
                         <del>{{ product.currency_price }}</del>
                     </h4>
                     <span v-if="product.discount_percentage > 0"

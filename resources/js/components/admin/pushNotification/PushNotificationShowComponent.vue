@@ -12,10 +12,18 @@
                     </div>
                     <div class="col-12 sm:col-7" :class="pushNotification.image ? 'md:pl-8' : ''">
                         <h3 class="text-lg font-medium capitalize mb-2 text-paragraph">{{ pushNotification.title }}</h3>
-                        <label class="db-badge mb-3 db-table-badge text-green-600 bg-green-100">
-                            {{ pushNotification.customer }}
-                        </label>
-                        <p class="db-light-text">
+	                        <label class="db-badge mb-3 db-table-badge text-green-600 bg-green-100">
+	                            {{ pushNotification.customer }}
+	                        </label>
+	                        <div class="mb-3">
+	                            <span class="db-badge db-table-badge text-blue-600 bg-blue-100 capitalize">
+	                                {{ pushNotification.target_type || 'home' }}
+	                            </span>
+	                            <span v-if="pushNotification.target_value" class="ml-2 text-sm text-gray-500">
+	                                {{ pushNotification.target_value }}
+	                            </span>
+	                        </div>
+	                        <p class="db-light-text">
                             {{ pushNotification.description }}
                         </p>
                     </div>

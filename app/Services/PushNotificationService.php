@@ -19,7 +19,8 @@ class PushNotificationService
     protected array $pushNotificationFilter = [
         'title',
         'role_id',
-        'user_id'
+        'user_id',
+        'target_type'
     ];
 
     /**
@@ -60,6 +61,8 @@ class PushNotificationService
             $pushNotification->description = strip_tags($request->description);
             $pushNotification->role_id     = $request->role_id ?? 0;
             $pushNotification->user_id     = $request->user_id ?? 0;
+            $pushNotification->target_type  = $request->target_type ?? 'home';
+            $pushNotification->target_value = $request->target_value;
             $pushNotification->save();
 
             if ($request->hasFile('image') && $request->file('image')->isValid()) {
@@ -90,7 +93,7 @@ class PushNotificationService
 
             $fcmTokenArray = array_merge($fcmWebDeviceToken, $fcmMobileDeviceToken);
             $firebase      = new FirebaseService();
-            $firebase->sendNotification($pushNotification, $fcmTokenArray, "promotion");
+            $firebase->sendNotification($pushNotification, $fcmTokenArray, $pushNotification->target_type ?? "home");
             return $pushNotification;
         } catch (Exception $exception) {
             Log::info($exception->getMessage());

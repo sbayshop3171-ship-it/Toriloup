@@ -60,10 +60,11 @@
                 <table class="db-table stripe promo-communication-table push-notification-mobile-table" id="print">
                     <thead class="db-table-head">
                         <tr class="db-table-head-tr">
-                            <th class="db-table-head-th">{{ $t('label.title') }}</th>
-                            <th class="db-table-head-th">{{ $t('label.role') }}</th>
-                            <th class="db-table-head-th">{{ $t('label.user') }}</th>
-                            <th class="db-table-head-th hidden-print"
+	                            <th class="db-table-head-th">{{ $t('label.title') }}</th>
+	                            <th class="db-table-head-th">{{ $t('label.role') }}</th>
+	                            <th class="db-table-head-th">{{ $t('label.user') }}</th>
+	                            <th class="db-table-head-th">Target</th>
+	                            <th class="db-table-head-th hidden-print"
                                 v-if="permissionChecker('push-notifications_show') || permissionChecker('push-notifications_delete')">
                                 {{ $t('label.action') }}</th>
                         </tr>
@@ -76,10 +77,16 @@
                             <td class="db-table-body-td">
                                 <div>{{ pushNotification.role }}</div>
                             </td>
-                            <td class="db-table-body-td">
-                                <div>{{ pushNotification.customer }}</div>
-                            </td>
-                            <td class="db-table-body-td hidden-print"
+	                            <td class="db-table-body-td">
+	                                <div>{{ pushNotification.customer }}</div>
+	                            </td>
+	                            <td class="db-table-body-td">
+	                                <div class="capitalize">{{ pushNotification.target_type || 'home' }}</div>
+	                                <small v-if="pushNotification.target_value" class="text-xs text-gray-500">
+	                                    {{ textShortener(pushNotification.target_value) }}
+	                                </small>
+	                            </td>
+	                            <td class="db-table-body-td hidden-print"
                                 v-if="permissionChecker('push-notifications_show') || permissionChecker('push-notifications_delete')">
                                 <div class="flex justify-start items-center sm:items-start sm:justify-start gap-1.5">
                                     <SmIconViewComponent :link="'admin.push-notification.show'" :id="pushNotification.id"
@@ -183,7 +190,8 @@ export default {
                     order_type: 'desc',
                     title: "",
                     role_id: null,
-                    user_id: null
+                    user_id: null,
+                    target_type: null
                 }
             },
             ENV:ENV
@@ -254,6 +262,7 @@ export default {
             this.props.search.title = "";
             this.props.search.role_id = null;
             this.props.search.user_id = null;
+            this.props.search.target_type = null;
             this.list();
         },
         list: function (page = 1) {

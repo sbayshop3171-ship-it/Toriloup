@@ -35,7 +35,7 @@ class SiteTableSeeder extends Seeder
             'site_default_language'                      => 1,
             'site_android_app_link'                      => $envService->getValue('DEMO') ? 'http://android.com' : '',
             'site_ios_app_link'                          => $envService->getValue('DEMO') ? 'http://ios.com' : '',
-            'site_copyright'                             => $envService->getValue('DEMO') ? '© ShopKing by iNiLabs ' . Carbon::now()->year . ', All Rights Reserved' : '',
+            'site_copyright'                             => $envService->getValue('DEMO') ? '© Toriloup ' . Carbon::now()->year . ', All Rights Reserved' : '',
             'site_language_switch'                       => Activity::ENABLE,
             'site_app_debug'                             => Activity::DISABLE,
             'site_auto_update'                           => Activity::DISABLE,

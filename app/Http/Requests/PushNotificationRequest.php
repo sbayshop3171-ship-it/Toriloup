@@ -33,6 +33,12 @@ class PushNotificationRequest extends FormRequest
             'description' => ['required', 'string', 'max:2000'],
             'role_id'     => ['nullable', 'numeric'],
             'user_id'     => ['nullable', 'numeric'],
+            'target_type' => [
+                'nullable',
+                'string',
+                Rule::in(['home', 'product', 'category', 'promotion', 'cart', 'wishlist', 'profile', 'orders', 'order']),
+            ],
+            'target_value' => ['nullable', 'string', 'max:255'],
             'image'       => ['mimes:jpeg,png,jpg', 'max:5098']
 
         ];

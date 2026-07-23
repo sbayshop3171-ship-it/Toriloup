@@ -2,11 +2,11 @@
 
 
 return [
-    'title'       => 'ShopKing ইনস্টলার',
+    'title'       => 'Toriloup ইনস্টলার',
     'next'        => 'পরবর্তী ধাপ',
     'welcome'     => [
         'templateTitle' => 'স্বাগতম',
-        'title'         => 'ShopKing ইনস্টলার',
+        'title'         => 'Toriloup ইনস্টলার',
         'message'       => 'সহজ ইনস্টলেশন এবং সেটআপ উইজার্ড।',
         'next'          => 'পরিশীলন প্রয়োজনীয়তা',
     ],
@@ -73,7 +73,7 @@ return [
         'next'            => 'শেষ',
     ],
     'installed'   => [
-        'success_log_message' => 'ShopKing ইনস্টলার সফলভাবে ইনস্টল করা হয়েছে ',
-        'update_log_message'  => 'ShopKing ইনস্টলার সফলভাবে আপডেট হয়েছে ',
+        'success_log_message' => 'Toriloup ইনস্টলার সফলভাবে ইনস্টল করা হয়েছে ',
+        'update_log_message'  => 'Toriloup ইনস্টলার সফলভাবে আপডেট হয়েছে ',
     ],
 ];

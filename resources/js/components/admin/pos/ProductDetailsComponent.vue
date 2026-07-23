@@ -33,7 +33,7 @@
                             setting.site_default_currency_symbol, setting.site_currency_position)
                     }}
                 </span>
-                <del v-if="product.is_offer" class="text-lg font-bold text-shopperz-red">
+                <del v-if="product.is_offer" class="text-lg font-bold text-toriloup-red">
                     {{
                         currencyFormat(temp.oldPrice, setting.site_digit_after_decimal_point,
                             setting.site_default_currency_symbol, setting.site_currency_position)

@@ -13,12 +13,14 @@ class PushNotification extends Model implements HasMedia
     use BelongsToTenant, InteractsWithMedia;
 
     protected $table = "push_notifications";
-    protected $fillable = ['tenant_id', 'role_id', 'user_id', 'title', 'description'];
+    protected $fillable = ['tenant_id', 'role_id', 'user_id', 'target_type', 'target_value', 'title', 'description'];
     protected $casts = [
         'id'          => 'integer',
         'tenant_id'   => 'integer',
         'role_id'     => 'integer',
         'user_id'     => 'integer',
+        'target_type' => 'string',
+        'target_value' => 'string',
         'title'       => 'string',
         'description' => 'string',
     ];

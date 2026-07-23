@@ -128,7 +128,7 @@ export default {
 /*===============================
         COMMON STYLE CSS
 =================================*/
-.dp__main:has(.shopperz-input) .dp__input {
+.dp__main:has(.toriloup-input) .dp__input {
     font-size: 14px;
     font-weight: 500;
     letter-spacing: 0.3px;
@@ -137,14 +137,14 @@ export default {
     font-family: var(--client-font);
 }
 
-.dp__main:has(.shopperz-input) .dp__input::placeholder {
+.dp__main:has(.toriloup-input) .dp__input::placeholder {
     font-size: 14px;
     font-weight: 500;
     opacity: 1;
     color: rgb(var(--primary));
 }
 
-.dp__main:has(.shopperz-input) .dp__input_icon {
+.dp__main:has(.toriloup-input) .dp__input_icon {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -152,20 +152,20 @@ export default {
     width: 100%;
 }
 
-.dp__main:has(.shopperz-input) .dp__input_icon i {
+.dp__main:has(.toriloup-input) .dp__input_icon i {
     color: rgb(var(--primary));
 }
 
-.dp__main:has(.shopperz-input) .dp__clear_icon {
+.dp__main:has(.toriloup-input) .dp__clear_icon {
     line-height: initial;
 }
 
-.dp__main:has(.shopperz-input) .dp__clear_icon i {
+.dp__main:has(.toriloup-input) .dp__clear_icon i {
     font-size: 22px;
     color: rgb(var(--primary));
 }
 
-.shopperz-menu .dp--preset-dates {
+.toriloup-menu .dp--preset-dates {
     border-inline-end: none;
     border-top: 1px solid #efefef;
     display: grid;
@@ -176,13 +176,13 @@ export default {
 }
 
 @media only screen and (width <=600px) {
-    .shopperz-menu .dp--preset-dates {
+    .toriloup-menu .dp--preset-dates {
         align-self: normal;
         max-width: 100%;
     }
 }
 
-.shopperz-menu .dp--preset-range {
+.toriloup-menu .dp--preset-range {
     font-size: 12px;
     font-weight: 500;
     padding: 6px 10px;
@@ -194,11 +194,11 @@ export default {
     background-color: #f7f7f7;
 }
 
-.shopperz-menu .dp__calendar_header_separator {
+.toriloup-menu .dp__calendar_header_separator {
     background-color: #efefef;
 }
 
-.shopperz-menu.dp__menu {
+.toriloup-menu.dp__menu {
     width: 100%;
     max-width: 260px;
     font-size: 14px;
@@ -212,25 +212,25 @@ export default {
     box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.04);
 }
 
-.shopperz-menu .dp__arrow_top,
-.shopperz-menu .dp__arrow_bottom {
+.toriloup-menu .dp__arrow_top,
+.toriloup-menu .dp__arrow_bottom {
     border: none;
     border-radius: 3px;
 }
 
-.shopperz-menu .dp__action_row {
+.toriloup-menu .dp__action_row {
     border-top: 1px solid #efefef;
 }
 
-.shopperz-menu .dp__selection_preview {
+.toriloup-menu .dp__selection_preview {
     font-size: 12px;
 }
 
-.shopperz-menu .dp__action_buttons {
+.toriloup-menu .dp__action_buttons {
     gap: 6px;
 }
 
-.shopperz-menu .dp__action_button {
+.toriloup-menu .dp__action_button {
     margin: 0px;
     font-size: 12px;
     font-weight: 500;
@@ -242,30 +242,30 @@ export default {
     font-family: var(--client-font);
 }
 
-.shopperz-menu .dp__action_select {
+.toriloup-menu .dp__action_select {
     background-color: rgb(var(--primary));
 }
 
-.shopperz-menu .dp__action_cancel:hover {
+.toriloup-menu .dp__action_cancel:hover {
     border-color: rgb(var(--primary) / 45%);
 }
 
-.shopperz-menu .dp__today {
+.toriloup-menu .dp__today {
     border-color: rgb(var(--primary) / 45%);
 }
 
-.shopperz-menu .dp__range_between {
+.toriloup-menu .dp__range_between {
     background-color: rgb(var(--primary) / 5%);
     border-color: rgb(var(--primary) / 5%);
 }
 
-.shopperz-menu .dp__active_date,
-.shopperz-menu .dp__range_start,
-.shopperz-menu .dp__range_end {
+.toriloup-menu .dp__active_date,
+.toriloup-menu .dp__range_start,
+.toriloup-menu .dp__range_end {
     background-color: rgb(var(--primary));
 }
 
-.shopperz-menu .dp__menu_content_wrapper {
+.toriloup-menu .dp__menu_content_wrapper {
     flex-direction: column-reverse;
 }
 

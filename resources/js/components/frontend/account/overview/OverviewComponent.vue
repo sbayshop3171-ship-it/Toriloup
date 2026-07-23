@@ -5,26 +5,26 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
         <div class="p-3 rounded-2xl shadow-xs bg-white">
             <i
-                class="lab-fill-bag bg-shopperz-pink shadow-pink w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
-            <h3 class="text-shopperz-pink text-2xl font-bold mb-1">{{ total_orders }}</h3>
+                class="lab-fill-bag bg-toriloup-pink shadow-pink w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
+            <h3 class="text-toriloup-pink text-2xl font-bold mb-1">{{ total_orders }}</h3>
             <p class="font-medium text-text">{{ this.$t('label.total_orders') }}</p>
         </div>
         <div class="p-3 rounded-2xl shadow-xs bg-white">
             <i
-                class="lab-fill-bag-check bg-shopperz-orange shadow-orange w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
-            <h3 class="text-shopperz-orange text-2xl font-bold mb-1">{{ total_completed_orders }}</h3>
+                class="lab-fill-bag-check bg-toriloup-orange shadow-orange w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
+            <h3 class="text-toriloup-orange text-2xl font-bold mb-1">{{ total_completed_orders }}</h3>
             <p class="font-medium text-text">{{ this.$t('label.total_completed') }}</p>
         </div>
         <div class="p-3 rounded-2xl shadow-xs bg-white">
             <i
-                class="lab-fill-refresh bg-shopperz-purple shadow-purple w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
-            <h3 class="text-shopperz-purple text-2xl font-bold mb-1">{{ total_returned_orders }}</h3>
+                class="lab-fill-refresh bg-toriloup-purple shadow-purple w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
+            <h3 class="text-toriloup-purple text-2xl font-bold mb-1">{{ total_returned_orders }}</h3>
             <p class="font-medium text-text">{{ this.$t('label.total_returned') }}</p>
         </div>
         <div class="p-3 rounded-2xl shadow-xs bg-white">
             <i
-                class="lab-fill-wallet bg-shopperz-blue shadow-blue w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
-            <h3 class="text-shopperz-blue text-2xl font-bold mb-1">{{ wallet_balance }}</h3>
+                class="lab-fill-wallet bg-toriloup-blue shadow-blue w-10 h-10 leading-10 rounded-lg text-lg text-center text-white mb-6"></i>
+            <h3 class="text-toriloup-blue text-2xl font-bold mb-1">{{ wallet_balance }}</h3>
             <p class="font-medium text-text">{{ this.$t('label.wallet_balance') }}</p>
         </div>
     </div>

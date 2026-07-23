@@ -1,5 +1,5 @@
-const storageKey = "shopking_admin_notifications";
-const syncEventName = "shopking-admin-notification-updated";
+const storageKey = "toriloup_admin_notifications";
+const syncEventName = "toriloup-admin-notification-updated";
 const maxItems = 30;
 
 const categoryRoutes = {

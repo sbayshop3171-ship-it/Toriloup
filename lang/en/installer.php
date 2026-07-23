@@ -2,11 +2,11 @@
 
 
 return [
-    'title'       => 'ShopKing Installer',
+    'title'       => 'Toriloup Installer',
     'next'        => 'Next Step',
     'welcome'     => [
         'templateTitle' => 'Welcome',
-        'title'         => 'ShopKing Installer',
+        'title'         => 'Toriloup Installer',
         'message'       => 'Easy Installation and Setup Wizard.',
         'next'          => 'Check Requirements',
     ],

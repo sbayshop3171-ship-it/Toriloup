@@ -29,6 +29,8 @@ class PushNotificationExport implements FromCollection, WithHeadings
                 $pushNotification->title,
                 $pushNotification->role_id == 0 ? trans('all.label.all_roles') : $pushNotification?->role?->name,
                 $pushNotification->user_id == 0 ? trans('all.label.all_users') : $pushNotification?->customer?->name,
+                $pushNotification->target_type ?? 'home',
+                $pushNotification->target_value,
             ];
         }
         return collect($pushNotificationArray);
@@ -39,7 +41,9 @@ class PushNotificationExport implements FromCollection, WithHeadings
         return [
             trans('all.label.title'),
             trans('all.label.role'),
-            trans('all.label.user')
+            trans('all.label.user'),
+            'Target',
+            'Target Value'
         ];
     }
 }

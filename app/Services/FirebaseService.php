@@ -29,22 +29,21 @@ class FirebaseService
                 'Content-Type'  => 'application/json',
             ];
             foreach ($fcmTokens as $fcmToken) {
+                $dataPayload = $this->dataPayload($data, $topicName);
+                $notificationPayload = [
+                    'title' => $data->title,
+                    'body'  => $data->description,
+                ];
+
+                if (!blank($data->image ?? null)) {
+                    $notificationPayload['image'] = $data->image;
+                }
 
                 $payload = [
                     'message' => [
                         'token' => $fcmToken,
-                        'notification' => [
-                            'title' => $data->title,
-                            'body' => $data->description,
-                            'image' => $data->image ?? null,
-                        ],
-                        'data' => [
-                            'title' => $data->title,
-                            'body' => $data->description,
-                            'sound' => 'default',
-                            'image' => $data->image ?? null,
-                            'topicName' => $topicName,
-                        ],
+                        'notification' => $notificationPayload,
+                        'data' => $dataPayload,
                         'webpush' => [
                             "headers" => [
                                 "Urgency" => "high"
@@ -66,6 +65,52 @@ class FirebaseService
             Log::info($e->getMessage());
             return $e->getMessage();
         }
+    }
+
+    private function dataPayload($data, $topicName): array
+    {
+        $targetType = $data->target_type ?? $this->targetTypeFromTopic($topicName);
+        $targetValue = $data->target_value ?? null;
+        $orderId = $data->order_id ?? null;
+
+        if (!blank($orderId)) {
+            $targetType = 'order';
+            $targetValue = (string)$orderId;
+        }
+
+        $payload = [
+            'title'        => (string)($data->title ?? ''),
+            'body'         => (string)($data->description ?? ''),
+            'sound'        => 'default',
+            'image'        => (string)($data->image ?? ''),
+            'topicName'    => (string)$topicName,
+            'topic'        => (string)$topicName,
+            'target_type'  => (string)($targetType ?? 'home'),
+            'target_value' => (string)($targetValue ?? ''),
+            'route'        => (string)($targetType ?? 'home'),
+        ];
+
+        if (!blank($orderId)) {
+            $payload['order_id'] = (string)$orderId;
+            $payload['target_id'] = (string)$orderId;
+        }
+
+        return $payload;
+    }
+
+    private function targetTypeFromTopic($topicName): string
+    {
+        $topic = str_replace('-', '_', strtolower((string)$topicName));
+
+        if (str_contains($topic, 'order')) {
+            return 'order';
+        }
+
+        if (in_array($topic, ['product', 'category', 'promotion', 'cart', 'wishlist', 'profile', 'orders', 'home'])) {
+            return $topic;
+        }
+
+        return 'home';
     }
 
     function getAccessToken()

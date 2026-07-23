@@ -67,7 +67,9 @@ class OrderPushNotificationBuilder
             $pushNotification = (object)[
                 'title'       => 'Order Notification',
                 'description' => $message,
-                'order_id'    => $orderId
+                'order_id'    => $orderId,
+                'target_type' => 'order',
+                'target_value' => (string)$orderId,
             ];
 
             $firebase = new FirebaseService();

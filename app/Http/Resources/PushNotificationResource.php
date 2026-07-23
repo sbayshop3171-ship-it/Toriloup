@@ -24,6 +24,8 @@ class PushNotificationResource extends JsonResource
             'role'        => $this->role_id == 0 ? trans('all.label.all_roles') : optional($this->role)->name,
             'user_id'     => $this->user_id,
             'customer'    => $this->user_id == 0 ? trans('all.label.all_users') : optional($this->customer)->name,
+            'target_type' => $this->target_type,
+            'target_value' => $this->target_value,
         ];
     }
 }

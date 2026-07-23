@@ -41,7 +41,7 @@ class OrderGotPushNotificationBuilder
 
             if (!blank($fcmMobileDeviceTokenAdmins)) {
                 foreach ($fcmMobileDeviceTokenAdmins as $fcmMobileDeviceTokenAdmin) {
-                    $fcmTokenArray[$i] = $fcmMobileDeviceTokenAdmin->web_token;
+                    $fcmTokenArray[$i] = $fcmMobileDeviceTokenAdmin->device_token;
                     $i++;
                 }
             }
@@ -67,7 +67,9 @@ class OrderGotPushNotificationBuilder
                         $pushNotification = (object)[
                             'title'       => 'New Order Notification',
                             'description' => $notificationAlert->push_notification_message,
-                            'order_id'    => $this->orderId
+                            'order_id'    => $this->orderId,
+                            'target_type' => 'order',
+                            'target_value' => (string)$this->orderId,
                         ];
                         $firebase         = new FirebaseService();
                         $firebase->sendNotification($pushNotification, $fcmTokenArray, "new-order-found");

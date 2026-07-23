@@ -442,11 +442,11 @@
     .custom-radio.sm { @apply w-3 h-3 }
     .custom-radio.sm .custom-radio-field:checked + .custom-radio-span { @apply border-[3px] }
 
-    .shopperz-quileditor .ql-toolbar,
-    .shopperz-quileditor .ql-container { @apply font-client text-base border-gray-200 }
-    .shopperz-quileditor .ql-toolbar { @apply rounded-t-lg }
-    .shopperz-quileditor .ql-container { @apply h-32 rounded-b-lg }
-    .shopperz-quileditor .ql-container.ql-snow { @apply border-gray-200 }
+    .toriloup-quileditor .ql-toolbar,
+    .toriloup-quileditor .ql-container { @apply font-client text-base border-gray-200 }
+    .toriloup-quileditor .ql-toolbar { @apply rounded-t-lg }
+    .toriloup-quileditor .ql-container { @apply h-32 rounded-b-lg }
+    .toriloup-quileditor .ql-container.ql-snow { @apply border-gray-200 }
 
     /* TABLE */
     .db-table-responsive { @apply w-full overflow-x-auto overscroll-x-contain }

@@ -2,11 +2,11 @@
 
 
 return [
-    'title'       => 'مثبت ShopKing',
+    'title'       => 'مثبت Toriloup',
     'next'        => 'الخطوة التالية',
     'welcome'     => [
         'templateTitle' => 'مرحبا',
-        'title'         => 'مثبت ShopKing',
+        'title'         => 'مثبت Toriloup',
         'message'       => 'معالج التثبيت والإعداد السهل.',
         'next'          => 'التحقق من المتطلبات',
     ],

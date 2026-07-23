@@ -31,6 +31,23 @@
                             <small class="db-field-alert" v-if="errors.user_id">{{ errors.user_id[0] }}</small>
                         </div>
 
+                        <div class="col-12 sm:col-6">
+                            <label for="target_type" class="db-field-title">Target Page</label>
+                            <vue-select class="db-field-control f-b-custom-select" id="target_type"
+                                v-bind:class="errors.target_type ? 'invalid' : ''" v-model="form.target_type"
+                                :options="targetOptions" label-by="name" value-by="id" :closeOnSelect="true"
+                                :searchable="false" :clearOnClose="true" placeholder="--" search-placeholder="--" />
+                            <small class="db-field-alert" v-if="errors.target_type">{{ errors.target_type[0] }}</small>
+                        </div>
+
+                        <div class="col-12 sm:col-6">
+                            <label for="target_value" class="db-field-title">Slug / ID</label>
+                            <input v-model="form.target_value" v-bind:class="errors.target_value ? 'invalid' : ''"
+                                type="text" id="target_value" class="db-field-control"
+                                placeholder="product-slug, category-slug, promotion-slug, order-id">
+                            <small class="db-field-alert" v-if="errors.target_value">{{ errors.target_value[0] }}</small>
+                        </div>
+
                         <div class="col-12">
                             <label for="title" class="db-field-title required">{{ $t("label.title") }}</label>
                             <input v-model="form.title" v-bind:class="errors.title ? 'invalid' : ''" type="text"
@@ -102,7 +119,20 @@ export default {
                 description: "",
                 role_id: null,
                 user_id: null,
+                target_type: "home",
+                target_value: "",
             },
+            targetOptions: [
+                { id: "home", name: "Home" },
+                { id: "product", name: "Product" },
+                { id: "category", name: "Category" },
+                { id: "promotion", name: "Promotion" },
+                { id: "cart", name: "Cart" },
+                { id: "wishlist", name: "Wishlist" },
+                { id: "profile", name: "Profile" },
+                { id: "orders", name: "Orders" },
+                { id: "order", name: "Order Details" },
+            ],
             enums: {
                 statusEnum: statusEnum,
                 roleEnum: roleEnum,
@@ -157,6 +187,8 @@ export default {
                 description: "",
                 role_id: null,
                 user_id: null,
+                target_type: "home",
+                target_value: "",
             };
             if (this.image) {
                 this.image = "";
@@ -178,6 +210,8 @@ export default {
                 fd.append('title', this.form.title);
                 fd.append('role_id', this.form.role_id == null ? 0 : this.form.role_id);
                 fd.append('user_id', this.form.user_id == null ? 0 : this.form.user_id);
+                fd.append('target_type', this.form.target_type || 'home');
+                fd.append('target_value', this.form.target_value || '');
                 fd.append('description', this.form.description);
 
                 if (this.image) {
@@ -199,6 +233,8 @@ export default {
                         description: "",
                         role_id: null,
                         user_id: null,
+                        target_type: "home",
+                        target_value: "",
                         status: statusEnum.ACTIVE,
                     }
                     this.image = "";

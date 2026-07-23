@@ -4,7 +4,7 @@
         <div class="db-card p-4 mb-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="p-4 rounded-xl border border-gray-100">
-                    <i class="lab-fill-shop text-2xl text-shopperz-blue mb-2  lab-font-size-24"></i>
+                    <i class="lab-fill-shop text-2xl text-toriloup-blue mb-2  lab-font-size-24"></i>
                     <h4 class="text-sm capitalize font-semibold text-secondary mb-1.5 ">
                         {{ $t('label.supplier') }}
                     </h4>

@@ -49,7 +49,7 @@
                                     activeCurrencySymbol, setting.site_currency_position)
                             }}
                         </span>
-                        <del v-if="temp.isOffer" class="text-lg font-bold text-shopperz-red">
+                        <del v-if="temp.isOffer" class="text-lg font-bold text-toriloup-red">
                             {{
                                 currencyFormat(temp.oldPrice, activeCurrencyDecimal,
                                     activeCurrencySymbol, setting.site_currency_position)

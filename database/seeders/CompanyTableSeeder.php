@@ -18,7 +18,7 @@ class CompanyTableSeeder extends Seeder
     public function run()
     {
         Settings::group('company')->set([
-            'company_name'         => 'ShopKing - eCommerce App with Laravel Website & Admin Panel with POS | Inventory Management',
+            'company_name'         => 'Toriloup - eCommerce App with Laravel Website & Admin Panel with POS | Inventory Management',
             'company_email'        => 'info@inilabs.net',
             'company_calling_code' => '+880',
             'company_phone'        => '13333846282',
@@ -34,7 +34,7 @@ class CompanyTableSeeder extends Seeder
 
         $envService = new EnvEditor();
         $envService->addData([
-            'APP_NAME' => "ShopKing - eCommerce App with Laravel Website & Admin Panel with POS | Inventory Management"
+            'APP_NAME' => "Toriloup - eCommerce App with Laravel Website & Admin Panel with POS | Inventory Management"
         ]);
         Artisan::call('optimize:clear');
     }
