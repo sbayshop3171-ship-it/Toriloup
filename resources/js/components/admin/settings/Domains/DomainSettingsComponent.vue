@@ -69,7 +69,7 @@
                             Last checked: {{ formatDate(domain.last_checked_at) }}
                         </p>
                         <p v-if="isAutoCheckCandidate(domain)" class="mt-1 text-xs font-medium text-blue-600">
-                            Auto-checking every minute until this domain is live.
+                            Auto-checking every 15 seconds until this domain is live.
                         </p>
                     </div>
 
@@ -298,7 +298,7 @@ export default {
             this.runAutoCheck();
             this.autoCheckTimer = window.setInterval(() => {
                 this.runAutoCheck();
-            }, 60000);
+            }, 15000);
         },
         stopAutoCheck: function () {
             if (this.autoCheckTimer) {
