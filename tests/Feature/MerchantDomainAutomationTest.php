@@ -643,6 +643,86 @@ class MerchantDomainAutomationTest extends TestCase
             ->assertJsonPath('meta.verified', true);
     }
 
+    public function test_verified_custom_domain_replaces_existing_custom_primary_automatically(): void
+    {
+        $this->mock(CloudflareDnsService::class, function ($mock): void {
+            $mock->shouldReceive('verifyTenantDomain')
+                ->once()
+                ->andReturn([
+                    'verified' => true,
+                    'check_type' => 'dns',
+                    'message' => 'Manual DNS verification succeeded.',
+                    'payload_json' => [
+                        'hostname' => 'fresh-primary.com',
+                        'expected_target' => 'auto-primary-store.company.com',
+                        'observed_targets' => ['auto-primary-store.company.com'],
+                    ],
+                ]);
+        });
+
+        Http::fake([
+            'https://fresh-primary.com/api/storefront/up' => Http::response([
+                'status' => true,
+                'surface' => 'storefront',
+                'scaffold' => 'storefront',
+            ], 200),
+        ]);
+
+        $owner = $this->createPlatformOwner();
+        $merchantContext = $this->createMerchantContext('auto-primary-store');
+        $platformToken = $this->platformToken($owner);
+        $merchantToken = $this->merchantToken($merchantContext['user']);
+        $tenant = $merchantContext['tenant'];
+
+        $this->assignDomainAccessPlan($platformToken, $tenant);
+
+        TenantDomain::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('is_fallback', true)
+            ->update(['is_primary' => false]);
+
+        $oldPrimary = TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'old-primary.com',
+            'domain_type' => 'custom',
+            'is_primary' => true,
+            'is_fallback' => false,
+            'ssl_status' => 'active',
+            'verification_status' => 'verified',
+            'dns_provider' => 'cloudflare',
+            'verified_at' => now(),
+            'verification_token' => Str::upper(Str::random(32)),
+        ]);
+
+        $freshDomain = TenantDomain::query()->create([
+            'tenant_id' => $tenant->id,
+            'hostname' => 'fresh-primary.com',
+            'domain_type' => 'custom',
+            'is_primary' => false,
+            'is_fallback' => false,
+            'ssl_status' => 'pending',
+            'verification_status' => 'pending',
+            'dns_provider' => 'cloudflare',
+            'dns_setup_mode' => 'cname',
+            'verification_token' => Str::upper(Str::random(32)),
+        ]);
+
+        $this
+            ->withToken($merchantToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->withHeader('X-Tenant-Slug', $tenant->slug)
+            ->postJson("http://merchant.company.com/api/merchant/domains/{$freshDomain->id}/verify")
+            ->assertOk()
+            ->assertJsonPath('data.verification_status', 'verified')
+            ->assertJsonPath('data.ssl_status', 'active')
+            ->assertJsonPath('data.is_primary', true)
+            ->assertJsonPath('meta.verified', true);
+
+        $this->assertFalse((bool) $oldPrimary->fresh()->is_primary);
+        $this->assertTrue((bool) $freshDomain->fresh()->is_primary);
+    }
+
     public function test_verify_uses_cloudflare_api_when_public_cname_is_flattened_or_missing(): void
     {
         config([

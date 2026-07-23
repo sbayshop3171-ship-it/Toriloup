@@ -558,14 +558,9 @@ class MerchantDomainController extends Controller
 
     private function shouldAutoPromote(TenantDomain $domain): bool
     {
-        $domain->loadMissing(['tenant.domains' => fn ($query) => $query->orderByDesc('is_primary')->orderByDesc('is_fallback')]);
-        $currentPrimary = $domain->tenant?->domains->firstWhere('is_primary', true);
-
-        if ($currentPrimary === null) {
-            return true;
-        }
-
-        return $currentPrimary->is_fallback || $currentPrimary->id === $domain->id;
+        return $domain->domain_type === 'custom'
+            && $domain->verification_status === 'verified'
+            && !$domain->is_fallback;
     }
 
     /**
