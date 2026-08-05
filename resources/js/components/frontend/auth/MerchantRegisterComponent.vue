@@ -4,7 +4,7 @@
         <div class="w-full max-w-3xl">
             <div class="flex justify-center mb-5 sm:mb-7">
                 <router-link :to="{ name: 'auth.login' }"
-                    class="flex h-[clamp(70px,9vw,104px)] w-[min(58vw,300px)] items-center justify-center overflow-visible">
+                    class="flex h-[clamp(88px,12vw,128px)] w-[min(72vw,380px)] items-center justify-center overflow-visible">
                     <FrontendLogoSlotComponent :src="authBrandLogo" />
                 </router-link>
             </div>
