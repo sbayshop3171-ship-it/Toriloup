@@ -2,9 +2,9 @@
     <LoadingComponent :props="loading" />
     <section :class="authPageShellClass" dir="ltr">
         <div class="w-full max-w-3xl">
-            <div v-if="showAuthBrandLogo" class="flex justify-center mb-6 sm:mb-8">
+            <div v-if="showAuthBrandLogo" class="flex justify-center mb-5 sm:mb-7">
                 <router-link :to="{ name: 'auth.login' }"
-                    class="flex h-[74px] w-full max-w-[220px] items-center justify-center overflow-hidden rounded-2xl border border-[#EFF0F6] bg-white px-5 py-4 shadow-[0_14px_30px_rgba(18,18,23,0.08)]">
+                    class="flex h-[clamp(70px,9vw,104px)] w-[min(58vw,300px)] items-center justify-center overflow-visible">
                     <FrontendLogoSlotComponent :src="authBrandLogo" />
                 </router-link>
             </div>
