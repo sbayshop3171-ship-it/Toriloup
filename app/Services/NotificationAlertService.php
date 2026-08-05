@@ -16,7 +16,7 @@ class NotificationAlertService
     public function list(): \Illuminate\Database\Eloquent\Collection
     {
         try {
-            return NotificationAlert::all();
+            return NotificationAlert::orderBy('id')->get();
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
             throw new Exception(QueryExceptionLibrary::message($exception), 422);
@@ -30,39 +30,16 @@ class NotificationAlertService
     {
         try {
             $type        = $request->type;
-            $numberArray = [];
-            $typeArray   = [];
-            $alertCount  = NotificationAlert::count();
-            foreach (range(1, $alertCount) as $number) {
-                array_push($numberArray, $number);
-                array_push($typeArray, $type . $number);
-            }
+            $alertIds = NotificationAlert::orderBy('id')->pluck('id');
 
-            $data         = $request->only($numberArray);
-            $option_Value = $request->only($typeArray);
+            foreach ($alertIds as $alertId) {
+                if (!$request->has((string) $alertId)) {
+                    continue;
+                }
 
-            $id      = [];
-            $message = [];
-            $option  = [];
-
-            foreach ($data as $key => $msg) {
-                array_push($id, $key);
-                array_push($message, $msg);
-            }
-
-            foreach ($option_Value as $value) {
-                array_push($option, $value);
-            }
-
-            $notificationAlerts = [
-                'id'      => $id,
-                'message' => $message,
-                'option'  => $option
-            ];
-            foreach ($notificationAlerts['id'] as $key => $notificationAlert) {
-                NotificationAlert::where('id', $notificationAlert)->update([
-                    $type . '_message' => $notificationAlerts['message'][$key],
-                    $type              => $notificationAlerts['option'][$key],
+                NotificationAlert::where('id', $alertId)->update([
+                    $type . '_message' => $request->input((string) $alertId),
+                    $type              => $request->input($type . $alertId),
                 ]);
             }
             return $this->list();

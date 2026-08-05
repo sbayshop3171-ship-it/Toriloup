@@ -359,6 +359,7 @@ class OrderService
                 if ($order->user_id == Auth::user()->id) {
                     $order->payment_status = $targetStatus;
                     $order->save();
+                    $this->sendPaymentStatusNotification($order, $targetStatus);
                     return $order;
                 } else {
                     return [];
@@ -366,6 +367,7 @@ class OrderService
             } else {
                 $order->payment_status = $targetStatus;
                 $order->save();
+                $this->sendPaymentStatusNotification($order, $targetStatus);
                 return $order;
             }
         } catch (Exception $exception) {
@@ -434,6 +436,13 @@ class OrderService
     {
         Stock::where(['model_type' => Order::class, 'model_id' => $order->id])
             ->update(['status' => Status::INACTIVE]);
+    }
+
+    private function sendPaymentStatusNotification(Order $order, int $targetStatus): void
+    {
+        if ($targetStatus === PaymentStatus::PAID) {
+            app(TransactionalNotificationService::class)->sendPaymentSuccessful($order);
+        }
     }
 
     private function orderStatusLabel(int $status): string

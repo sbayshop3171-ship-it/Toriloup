@@ -11,6 +11,8 @@ const categoryRoutes = {
     subscriber: "subscribers",
     customer: "customers",
     promotion: "push-notifications",
+    merchant: "merchants",
+    payment: "transactions",
     support: "",
     message: "",
     error: "",
@@ -25,6 +27,8 @@ const categoryMenuLanguages = {
     subscriber: "subscribers",
     customer: "customers",
     promotion: "push_notifications",
+    merchant: "merchants",
+    payment: "transactions",
 };
 
 const categoryLabelLanguages = {
@@ -53,6 +57,12 @@ const categoryAliases = {
     promotion: "promotion",
     campaign: "promotion",
     push_notification: "promotion",
+    merchant: "merchant",
+    store: "merchant",
+    tenant: "merchant",
+    payment: "payment",
+    payout: "payment",
+    settlement: "payment",
     support: "support",
     conversation: "support",
     chat: "support",
@@ -77,6 +87,8 @@ const categoryMatchers = [
     { category: "review", terms: ["product review", "review", "rating"] },
     { category: "support", terms: ["support", "conversation", "chat", "ticket", "inbox"] },
     { category: "subscriber", terms: ["subscriber", "newsletter", "subscription"] },
+    { category: "merchant", terms: ["merchant registered", "merchant", "store registered", "store"] },
+    { category: "payment", terms: ["payment received", "payment failed", "payout", "settlement", "billing"] },
     { category: "customer", terms: ["new customer", "customer", "user registration"] },
     { category: "promotion", terms: ["push notification", "promotion", "campaign", "coupon"] },
     { category: "order", terms: ["new-order-found", "order notification", "online order", "new order", "order"] },
@@ -318,9 +330,11 @@ const createItemFromPayload = function (payload, options = {}) {
     const allowedRouteUrl = canAccessRoute(routeUrl, options.permissions) ? routeUrl : "";
     const title = payload?.notification?.title || payload?.data?.title || options.fallbackTitle || "Notification";
     const body = payload?.notification?.body || payload?.data?.body || "";
+    const notificationId = payload?.data?.notification_id || payload?.notification_id || "";
 
     return {
-        id: payload?.messageId || payload?.message_id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+        id: notificationId ? "server-" + notificationId : payload?.messageId || payload?.message_id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+        serverId: notificationId || null,
         title: title,
         body: body,
         type: category,
@@ -329,6 +343,60 @@ const createItemFromPayload = function (payload, options = {}) {
         read: false,
         createdAt: new Date().toISOString(),
     };
+};
+
+const createItemFromApi = function (notification, options = {}) {
+    const payload = {
+        data: {
+            ...(notification?.data || {}),
+            route_url: notification?.route_url || notification?.data?.route_url || "",
+            target_type: notification?.target_type || notification?.data?.target_type || "",
+            target_value: notification?.target_value || notification?.data?.target_value || "",
+            topicName: notification?.event_key || notification?.data?.topicName || "",
+        },
+        notification: {
+            title: notification?.title || options.fallbackTitle || "Notification",
+            body: notification?.body || "",
+        },
+        category: notification?.target_type || notification?.audience || "",
+        routeUrl: notification?.route_url || "",
+    };
+    const category = resolveCategory(payload);
+    const routeUrl = notification?.route_url || categoryRoute(category);
+    const allowedRouteUrl = canAccessRoute(routeUrl, options.permissions) ? routeUrl : "";
+
+    return {
+        id: "server-" + notification.id,
+        serverId: String(notification.id),
+        title: notification?.title || options.fallbackTitle || "Notification",
+        body: notification?.body || "",
+        type: category,
+        category: category,
+        routeUrl: allowedRouteUrl,
+        read: Boolean(notification?.read),
+        createdAt: notification?.created_at || new Date().toISOString(),
+        data: notification?.data || {},
+    };
+};
+
+const mergeItems = function (...itemGroups) {
+    const seen = new Set();
+    const merged = [];
+
+    itemGroups.flat().filter(Boolean).forEach((item) => {
+        const key = item.serverId ? "server:" + item.serverId : "local:" + item.id;
+
+        if (seen.has(key)) {
+            return;
+        }
+
+        seen.add(key);
+        merged.push(item);
+    });
+
+    return merged
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, maxItems);
 };
 
 const markItemAsRead = function (items, id) {
@@ -374,6 +442,8 @@ export default {
     loadItems,
     persistItems,
     createItemFromPayload,
+    createItemFromApi,
+    mergeItems,
     markItemAsRead,
     markItemsAsReadByRoute,
 };

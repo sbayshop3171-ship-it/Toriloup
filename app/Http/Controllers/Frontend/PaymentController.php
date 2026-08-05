@@ -25,6 +25,7 @@ use App\Services\PaymentManagerService;
 use App\Services\Saas\TenantPaymentMethodCatalogService;
 use App\Services\Saas\TenantSettingsService;
 use App\Services\Tenancy\TenantContext;
+use App\Services\TransactionalNotificationService;
 use App\Support\StorefrontBranding;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -165,6 +166,7 @@ class PaymentController extends Controller
         }
 
         $this->paymentAttemptService->markFailed($order, $paymentGateway->slug, 'Gateway returned failure.');
+        app(TransactionalNotificationService::class)->sendPaymentFailed($order);
 
         return $this->paymentManagerService->gateway($paymentGateway->slug)->fail($order, $request);
     }
@@ -179,6 +181,7 @@ class PaymentController extends Controller
         }
 
         $this->paymentAttemptService->markCanceled($order, $paymentGateway->slug, 'Customer or gateway canceled payment.');
+        app(TransactionalNotificationService::class)->sendPaymentFailed($order);
 
         return $this->paymentManagerService->gateway($paymentGateway->slug)->cancel($order, $request);
     }

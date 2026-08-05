@@ -34,14 +34,17 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Services\CountryMetadataService;
 use App\Services\Currency\CurrencyCatalogService;
+use App\Services\TransactionalNotificationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role as SpatieRole;
+use Throwable;
 
 class TenantProvisioningService
 {
@@ -63,7 +66,7 @@ class TenantProvisioningService
      */
     public function registerMerchant(array $payload): array
     {
-        return DB::transaction(function () use ($payload) {
+        $result = DB::transaction(function () use ($payload) {
             $merchantRole = $this->ensureManagerRole();
             $tenantRole = $this->platformRoleRegistryService->merchantOwnerRole();
             $storeSlug = $this->resolveStoreSlug($payload);
@@ -177,6 +180,14 @@ class TenantProvisioningService
                 'checks' => $checks,
             ];
         });
+
+        try {
+            app(TransactionalNotificationService::class)->sendMerchantRegistered($result['tenant']);
+        } catch (Throwable $throwable) {
+            Log::info($throwable->getMessage());
+        }
+
+        return $result;
     }
 
     public function syncShadowCustomer(User $user, Tenant $tenant): Customer

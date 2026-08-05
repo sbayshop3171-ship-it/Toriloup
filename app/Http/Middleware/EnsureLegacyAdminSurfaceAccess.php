@@ -12,6 +12,7 @@ class EnsureLegacyAdminSurfaceAccess
 {
     private const MERCHANT_ALLOWED_PREFIXES = [
         'dashboard',
+        'notification-inbox',
         'setting/company',
         'setting/site',
         'setting/location-setup',

@@ -30,6 +30,7 @@ class ProductReviewService
                     }
                 }
             });
+            app(TransactionalNotificationService::class)->sendProductReview($this->productReview->fresh(['product', 'user']));
             return $this->productReview;
         } catch (Exception $exception) {
             DB::rollBack();

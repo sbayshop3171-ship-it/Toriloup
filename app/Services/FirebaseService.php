@@ -19,8 +19,13 @@ class FirebaseService
 
         try {
             $notification = Settings::group('notification')->all();
+            $projectId = $notification['notification_fcm_project_id'] ?? null;
 
-            $url = 'https://fcm.googleapis.com/v1/projects/' . $notification['notification_fcm_project_id'] . '/messages:send';
+            if (blank($projectId)) {
+                throw new Exception('Firebase project id is not configured');
+            }
+
+            $url = 'https://fcm.googleapis.com/v1/projects/' . $projectId . '/messages:send';
             $accessToken = $this->getAccessToken();
 
             $client  = new Client();
@@ -90,6 +95,18 @@ class FirebaseService
             'route'        => (string)($targetType ?? 'home'),
         ];
 
+        foreach (['route_url', 'notification_id', 'event_key', 'audience', 'tenant_id'] as $key) {
+            if (!blank($data->{$key} ?? null)) {
+                $payload[$key] = (string) $data->{$key};
+            }
+        }
+
+        foreach (($data->data ?? []) as $key => $value) {
+            if (!array_key_exists((string) $key, $payload) && (is_scalar($value) || $value === null)) {
+                $payload[(string) $key] = (string) ($value ?? '');
+            }
+        }
+
         if (!blank($orderId)) {
             $payload['order_id'] = (string)$orderId;
             $payload['target_id'] = (string)$orderId;
@@ -116,7 +133,13 @@ class FirebaseService
     function getAccessToken()
     {
 
-        $keyFilePath = NotificationSetting::where(['key' => 'notification_fcm_json_file'])->first()->file;
+        $notificationSetting = NotificationSetting::where(['key' => 'notification_fcm_json_file'])->first();
+
+        if (!$notificationSetting || blank($notificationSetting->file)) {
+            throw new Exception('Firebase service account JSON file is not configured');
+        }
+
+        $keyFilePath = $notificationSetting->file;
         $parsed_url = parse_url($keyFilePath);
 
         if (isset($parsed_url['path'])) {

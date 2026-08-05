@@ -285,6 +285,7 @@ export default {
         this.orderPermissionCheck();
         this.loadMerchantBranding();
         this.loadNotificationItems();
+        this.loadRemoteNotificationItems();
         document.addEventListener('click', this.handleDocumentClick);
         window.addEventListener('storage', this.handleNotificationStorageEvent);
         window.addEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
@@ -394,6 +395,9 @@ export default {
         },
         toggleNotificationDropdown: function () {
             this.notificationDropdownStatus = !this.notificationDropdownStatus;
+            if (this.notificationDropdownStatus) {
+                this.loadRemoteNotificationItems();
+            }
         },
         handleNotificationStorageEvent: function (event) {
             if (event?.key && event.key !== this.notificationStorageKey) {
@@ -407,12 +411,39 @@ export default {
         loadNotificationItems: function () {
             this.notificationItems = backendNotificationService.loadItems();
         },
+        loadRemoteNotificationItems: function () {
+            if (!this.$store.getters.authStatus) {
+                return;
+            }
+
+            axios.get('/admin/notification-inbox', {
+                params: {
+                    paginate: 0,
+                    limit: this.maxNotificationItems,
+                }
+            }).then((res) => {
+                const remoteItems = (res.data.data || []).map((item) => {
+                    return backendNotificationService.createItemFromApi(item, {
+                        fallbackTitle: this.$t('label.notification'),
+                        permissions: this.permissions,
+                    });
+                });
+
+                this.notificationItems = backendNotificationService.mergeItems(remoteItems, this.notificationItems);
+                this.persistNotificationItems();
+            }).catch((error) => {
+                if (error?.response?.data?.message === 'Unauthenticated.') {
+                    this.$store.dispatch('loginDataReset');
+                }
+            });
+        },
         persistNotificationItems: function () {
             backendNotificationService.persistItems(this.notificationItems);
         },
         clearNotificationItems: function () {
-            this.notificationItems = [];
+            this.notificationItems = this.notificationItems.map((item) => ({ ...item, read: true }));
             this.persistNotificationItems();
+            axios.patch('/admin/notification-inbox/read-all').then().catch(() => {});
         },
         formatNotificationTime: function (dateTime) {
             if (!dateTime) {
@@ -436,7 +467,7 @@ export default {
                 permissions: this.permissions,
             });
 
-            this.notificationItems = [notificationItem, ...this.notificationItems].slice(0, this.maxNotificationItems);
+            this.notificationItems = backendNotificationService.mergeItems([notificationItem], this.notificationItems);
             this.persistNotificationItems();
         },
         openNotification: function (item) {
@@ -444,6 +475,9 @@ export default {
             this.notificationItems = result.items;
             if (result.changed) {
                 this.persistNotificationItems();
+            }
+            if (item.serverId) {
+                axios.patch('/admin/notification-inbox/' + item.serverId + '/read').then().catch(() => {});
             }
             this.notificationDropdownStatus = false;
 

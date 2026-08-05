@@ -33,7 +33,10 @@ class PaymentService
     public function payment($order, $gatewaySlug, $transactionNo): object
     {
         try {
-            DB::transaction(function () use ($order, $gatewaySlug, $transactionNo) {
+            $orderId = $order->id;
+            $shouldNotifyPaymentSuccess = false;
+
+            DB::transaction(function () use ($order, $gatewaySlug, $transactionNo, &$shouldNotifyPaymentSuccess) {
                 $order = Order::withoutGlobalScopes()
                     ->with(['tenant', 'paymentMethod'])
                     ->whereKey($order->id)
@@ -74,11 +77,21 @@ class PaymentService
                     SendOrderGotMail::dispatch(['order_id' => $order->id]);
                     SendOrderGotSms::dispatch(['order_id' => $order->id]);
                     SendOrderGotPush::dispatch(['order_id' => $order->id]);
+                    $shouldNotifyPaymentSuccess = true;
                 }
 
                 app(MerchantWalletService::class)->creditOrderPayment($order, $transaction, $gatewaySlug);
                 app(PaymentAttemptService::class)->markSucceeded($order, $gatewaySlug, $transactionNo);
             });
+
+            if ($shouldNotifyPaymentSuccess) {
+                $notifiableOrder = Order::withoutGlobalScopes()->with('user')->find($orderId);
+
+                if ($notifiableOrder instanceof Order) {
+                    app(TransactionalNotificationService::class)->sendPaymentSuccessful($notifiableOrder);
+                }
+            }
+
             return $this->transaction;
         } catch (Exception $exception) {
             Log::info($exception->getMessage());

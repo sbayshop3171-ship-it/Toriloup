@@ -332,6 +332,7 @@ class FrontendOrderService
 
                         $order->status = $request->status;
                         $order->save();
+                        app(TransactionalNotificationService::class)->sendCustomerOrderCanceledToMerchant($order);
                     }
                 }
             }

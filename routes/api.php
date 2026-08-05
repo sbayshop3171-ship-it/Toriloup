@@ -73,6 +73,7 @@ use App\Http\Controllers\Admin\ThemeController;
 use App\Http\Controllers\Admin\TimezoneController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\Admin\UnitController;
+use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\Auth\DeactivateController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -188,6 +189,13 @@ Route::prefix('profile')->name('profile.')->middleware(['installed', 'apiKey', '
 });
 
 Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'legacyAdminSurfaceAccess', 'adminAccess'])->group(function () {
+    Route::prefix('notification-inbox')->name('notification-inbox.')->group(function () {
+        Route::get('/', [NotificationInboxController::class, 'index']);
+        Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
+        Route::patch('/read-all', [NotificationInboxController::class, 'markAllAsRead']);
+        Route::patch('/{notification}/read', [NotificationInboxController::class, 'markAsRead']);
+    });
+
     Route::prefix('timezone')->name('timezone.')->group(function () {
         Route::get('/', [TimezoneController::class, 'index']);
     });
@@ -858,6 +866,13 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
     Route::prefix('device-token')->name('device-token.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::post('/web', [TokenStoreController::class, 'webToken']);
         Route::post('/mobile', [TokenStoreController::class, 'deviceToken']);
+    });
+
+    Route::prefix('notification-inbox')->name('notification-inbox.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
+        Route::get('/', [NotificationInboxController::class, 'index']);
+        Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
+        Route::patch('/read-all', [NotificationInboxController::class, 'markAllAsRead']);
+        Route::patch('/{notification}/read', [NotificationInboxController::class, 'markAsRead']);
     });
 
     Route::prefix('subscriber')->name('subscriber.')->group(function () {

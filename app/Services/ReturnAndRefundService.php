@@ -130,6 +130,7 @@ class ReturnAndRefundService
                         }
                     }
                 });
+                app(TransactionalNotificationService::class)->sendReturnRequested($this->returnAndRefund->fresh(['order', 'user']));
                 return $this->returnAndRefund;
             }
         } catch (Exception $exception) {
@@ -197,6 +198,8 @@ class ReturnAndRefundService
                     $returnAndRefund->id
                 );
             }
+
+            app(TransactionalNotificationService::class)->sendReturnStatus($returnAndRefund->fresh(['order', 'user']), (int) $request->status);
 
             return $returnAndRefund;
         } catch (Exception $exception) {
