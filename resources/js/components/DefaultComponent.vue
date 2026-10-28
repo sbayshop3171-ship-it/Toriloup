@@ -88,6 +88,7 @@ import DisplayModeEnum from "../enums/modules/displayModeEnum";
 import env from "../config/env";
 import LoadingComponent from "../components/frontend/components/LoadingComponent.vue";
 import { isAdminSurfaceHost, isMerchantHost, resolveGuestHomeRoute } from "../services/workspaceService";
+import { shouldVerifyAdminSurfaceAuth } from "../services/merchantImpersonationHandoff";
 import appService from "../services/appService";
 import backendMobileService from "../services/backendMobileService";
 
@@ -312,13 +313,13 @@ export default {
             return isAdminSurfaceHost();
         },
         shouldVerifyAuth: function (route = this.$route) {
-            // The one-time merchant handoff replaces any previously persisted merchant session.
-            // Checking that stale session here can redirect to login before the handoff completes.
-            if (route?.name === "merchant.impersonation") {
-                return false;
-            }
-
-            return this.isAdminSurfaceHost() || env.DEMO === "true" || env.DEMO === true || env.DEMO === "1" || env.DEMO === 1;
+            // The initial Vue route may not be ready during beforeMount, so also inspect the URL.
+            return shouldVerifyAdminSurfaceAuth(
+                route,
+                window.location.pathname,
+                this.isAdminSurfaceHost(),
+                env.DEMO
+            );
         },
         ensureMerchantSetupForRoute: function (route = this.$route) {
             if (!isMerchantHost() || !route?.meta?.subscriptionFeature || this.$store.getters["merchantDashboard/setup"]) {

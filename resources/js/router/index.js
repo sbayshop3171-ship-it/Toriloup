@@ -7,6 +7,7 @@ import roleEnum from "../enums/modules/roleEnum";
 import appService from "../services/appService";
 import { detectWorkspaceHost, resolveAuthenticatedHomeRoute, resolveGuestHomeRoute } from "../services/workspaceService";
 import { isSafeAuthRedirect } from "../services/authRedirectService";
+import { isMerchantImpersonationHandoffRoute } from "../services/merchantImpersonationHandoff";
 import store from "../store";
 import administratorRoutes from "./modules/administratorRoutes";
 import authRoutes from "./modules/authRoutes";
@@ -169,6 +170,12 @@ const routeHasAccess = function (route) {
 };
 
 router.beforeEach((to, from, next) => {
+    // Let the short-lived token reach its exchange component; the API verifies host and token.
+    if (isMerchantImpersonationHandoffRoute(to)) {
+        next();
+        return;
+    }
+
     const hostname = window.location.hostname;
     const workspaceHost = detectWorkspaceHost(hostname);
     const isOwnerHost = workspaceHost === "platform";
