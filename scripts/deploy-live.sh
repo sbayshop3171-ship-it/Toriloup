@@ -275,10 +275,10 @@ if [ "$BACKUP_BEFORE_DEPLOY" = "1" ]; then
     fi
 fi
 
-"$PHP_BIN" artisan optimize:clear
+(cd "$APP_DIR" && "$PHP_BIN" artisan optimize:clear)
 
 if [ "$MAINTENANCE_MODE" = "1" ]; then
-    "$PHP_BIN" artisan down --retry=60
+    (cd "$APP_DIR" && "$PHP_BIN" artisan down --retry=60)
     maintenance_enabled=1
 fi
 
