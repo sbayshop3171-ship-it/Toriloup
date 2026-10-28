@@ -311,7 +311,13 @@ export default {
         isAdminSurfaceHost: function () {
             return isAdminSurfaceHost();
         },
-        shouldVerifyAuth: function () {
+        shouldVerifyAuth: function (route = this.$route) {
+            // The one-time merchant handoff replaces any previously persisted merchant session.
+            // Checking that stale session here can redirect to login before the handoff completes.
+            if (route?.name === "merchant.impersonation") {
+                return false;
+            }
+
             return this.isAdminSurfaceHost() || env.DEMO === "true" || env.DEMO === true || env.DEMO === "1" || env.DEMO === 1;
         },
         ensureMerchantSetupForRoute: function (route = this.$route) {
