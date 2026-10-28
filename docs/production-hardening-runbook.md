@@ -19,6 +19,15 @@ Do not use `QUEUE_CONNECTION=sync` in production. The deploy health gate treats 
 
 ## Deploy flow
 
+### GitHub Actions release flow
+
+- A push to `main` runs `CI`; it does not deploy to production.
+- To publish, open **Actions → Deploy Live**, select `main`, and set `deploy_live` to `true`.
+- The workflow deploys only the exact `main` commit with a successful `CI` run and checks that `main` has not moved before publishing.
+- Configure the repository Actions variables `SSH_HOST` and `SSH_USER`; `SSH_PORT` is optional and defaults to `22`.
+- Configure the repository Actions secret `SSH_PRIVATE_KEY` with a private key whose public key is authorized for the deployment account on the server.
+- The release is staged under `/var/www/toriloup/data/www/platform/storage/app/deploy/incoming/<commit-sha>` and passed to the hardened deploy script below.
+
 1. Upload the current application source to a staged release directory, not directly into the live app directory.
 2. Run `APP_DIR=/var/www/toriloup/data/www/platform SOURCE_DIR=<staged-release> SKIP_GIT_SYNC=1 MAINTENANCE_MODE=0 bash <staged-release>/scripts/deploy-live.sh`.
 3. The deploy script will:

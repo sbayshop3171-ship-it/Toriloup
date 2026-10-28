@@ -82,9 +82,9 @@ jobs:
 
             if composer install --no-interaction --prefer-dist --no-progress; then
               exit 0
+            else
+              status=$?
             fi
-
-            status=$?
 
             if [ "$attempt" -eq 3 ]; then
               exit "$status"
