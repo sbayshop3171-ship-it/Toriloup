@@ -265,7 +265,7 @@ if [ -z "$target_commit" ]; then
 fi
 
 unlink public/hot >/dev/null 2>&1 || true
-mkdir -p storage/app/public storage/logs bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views
+mkdir -p storage/app/public storage/app/backups storage/logs bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views
 chmod -R ug+rw storage bootstrap/cache
 
 if [ "$BACKUP_BEFORE_DEPLOY" = "1" ]; then
