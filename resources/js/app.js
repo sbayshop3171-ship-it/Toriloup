@@ -91,16 +91,19 @@ axios.interceptors.response.use(
     error => {
         const status = error?.response?.status;
         const message = String(error?.response?.data?.message || "");
+        const requestUrl = String(error?.config?.url || "");
+        const isMerchantImpersonationExchange = /(?:^|\/)merchant\/auth\/impersonate(?:$|\?)/.test(requestUrl);
         const shouldForceLogout =
-            status === 401 ||
-            (status === 403 && (/admin access only/i.test(message) || /token required/i.test(message)));
+            !isMerchantImpersonationExchange && (
+                status === 401 ||
+                (status === 403 && (/admin access only/i.test(message) || /token required/i.test(message)))
+            );
 
         if (shouldForceLogout) {
             store.commit("authLogout");
 
             const workspace = detectWorkspaceHost();
             const guestHomeRoute = resolveGuestHomeRoute(window.location.hostname);
-            const requestUrl = String(error?.config?.url || "");
             const isLegacyAdminRequest =
                 requestUrl.includes("/admin/") ||
                 window.location.pathname.startsWith("/admin");

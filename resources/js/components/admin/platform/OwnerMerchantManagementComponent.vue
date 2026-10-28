@@ -368,12 +368,23 @@
                     <p class="mt-1 text-sm text-[#6B7280]">{{ actionModal.subtitle }}</p>
                 </div>
                 <form class="p-6" @submit.prevent="submitAction">
-                    <label class="mb-2 block text-sm font-semibold text-[#374151]">Reason</label>
+                    <div v-if="actionModal.type === 'impersonate'" class="mb-4 rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] px-4 py-3 text-sm text-[#4C1D95]">
+                        <p class="font-semibold">{{ actionModal.merchant?.name }} ({{ actionModal.merchant?.slug }})</p>
+                        <p class="mt-1">
+                            Merchant login: {{ impersonationTarget?.user?.name || "Active merchant member" }}
+                            <span v-if="impersonationTarget?.user?.email">({{ impersonationTarget.user.email }})</span>
+                            <span v-if="impersonationTarget?.role?.name">· {{ impersonationTarget.role.name }}</span>
+                        </p>
+                    </div>
+                    <label class="mb-2 block text-sm font-semibold text-[#374151]">
+                        Reason<span v-if="actionModal.type === 'impersonate'"> (required)</span>
+                    </label>
                     <textarea
                         v-model.trim="actionModal.reason"
                         rows="4"
                         class="w-full rounded-xl border border-[#D1D5DB] px-4 py-3 text-sm outline-none transition focus:border-primary"
-                        placeholder="Write the admin reason"></textarea>
+                        :required="actionModal.type === 'impersonate'"
+                        :placeholder="actionModal.type === 'impersonate' ? 'Why are you opening this merchant workspace?' : 'Write the admin reason'"></textarea>
 
                     <div v-if="actionModal.type === 'suspend'" class="mt-4 grid gap-3 sm:grid-cols-2">
                         <label class="flex items-center gap-2 rounded-xl border border-[#E5E7EB] px-4 py-3 text-sm text-[#374151]">
@@ -674,6 +685,12 @@ export default {
 
             return "border-[#16A34A] bg-[#16A34A] text-white";
         },
+        impersonationTarget: function () {
+            const members = (this.actionModal.merchant?.members || [])
+                .filter((member) => member.status === "active" && member.user);
+
+            return members.find((member) => member.role?.code === "merchant_owner") || members[0] || null;
+        },
     },
     mounted() {
         this.fetchMerchants();
@@ -799,7 +816,20 @@ export default {
                 });
         },
         openImpersonation: function (merchant) {
-            this.openActionModal(merchant, "impersonate");
+            this.loading.isActive = true;
+
+            axios.get(`platform/tenants/${merchant.id}`)
+                .then((res) => {
+                    const detail = res?.data?.data || {};
+                    this.openActionModal({ ...merchant, ...detail }, "impersonate");
+                })
+                .catch((error) => {
+                    const message = error?.response?.data?.message || "Merchant details could not be loaded.";
+                    this.$toast?.error(message);
+                })
+                .finally(() => {
+                    this.loading.isActive = false;
+                });
         },
         openActionModal: function (merchant, type) {
             const titles = {
@@ -844,6 +874,21 @@ export default {
                 return;
             }
 
+            if (type === "impersonate" && !this.actionModal.reason.trim()) {
+                this.$toast?.error("Write a reason before opening the merchant workspace.");
+                return;
+            }
+
+            let impersonationWindow = null;
+            if (type === "impersonate") {
+                impersonationWindow = window.open("about:blank", "_blank");
+                if (!impersonationWindow) {
+                    this.$toast?.error("Allow pop-ups for this site, then try again.");
+                    return;
+                }
+                impersonationWindow.opener = null;
+            }
+
             this.loading.isActive = true;
 
             let request;
@@ -872,7 +917,11 @@ export default {
                 if (type === "impersonate") {
                     const url = res?.data?.data?.merchant_login_url;
                     if (url) {
-                        window.open(url, "_blank", "noopener");
+                        impersonationWindow.location.replace(url);
+                    } else {
+                        impersonationWindow?.close();
+                        this.$toast?.error("The secure merchant link was not returned.");
+                        return;
                     }
                     this.closeActionModal();
                     return;
@@ -884,6 +933,9 @@ export default {
                 }
                 this.closeActionModal();
             }).catch((error) => {
+                if (type === "impersonate") {
+                    impersonationWindow?.close();
+                }
                 const message = error?.response?.data?.message || "Action failed.";
                 this.$toast?.error(message);
             }).finally(() => {

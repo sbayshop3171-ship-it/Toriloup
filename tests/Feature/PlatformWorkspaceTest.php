@@ -547,6 +547,7 @@ class PlatformWorkspaceTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('surface', 'merchant')
+            ->assertJsonPath('user.id', $merchantContext['user']->id)
             ->assertJsonPath('current_tenant.tenant.id', $tenant->id)
             ->assertJsonPath('impersonation.active', true)
             ->assertJsonPath('impersonation.reason', 'Support checkout issue');
@@ -567,6 +568,75 @@ class PlatformWorkspaceTest extends TestCase
             'tenant_id' => $tenant->id,
             'action_code' => 'platform.tenant.impersonation.started',
         ]);
+    }
+
+    public function test_owner_must_provide_a_reason_to_open_a_merchant_workspace(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $tenant = $this->createMerchantContext('reason-required-store')['tenant'];
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/tenants/{$tenant->id}/impersonate")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('reason');
+
+        $this->assertDatabaseMissing('platform_audit_logs', [
+            'tenant_id' => $tenant->id,
+            'action_code' => 'platform.tenant.impersonation.created',
+        ]);
+    }
+
+    public function test_expired_merchant_handoff_cannot_start_a_session(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $tenant = $this->createMerchantContext('expired-handoff-store')['tenant'];
+
+        $handoffResponse = $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/tenants/{$tenant->id}/impersonate", [
+                'reason' => 'Investigate merchant dashboard access',
+            ])
+            ->assertOk();
+        $handoffToken = basename(parse_url((string) $handoffResponse->json('data.merchant_login_url'), PHP_URL_PATH));
+
+        $this->travel(3)->minutes();
+
+        $this
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson('http://merchant.company.com/api/merchant/auth/impersonate', [
+                'token' => $handoffToken,
+            ])
+            ->assertGone();
+
+        $this->assertDatabaseMissing('platform_audit_logs', [
+            'tenant_id' => $tenant->id,
+            'action_code' => 'platform.tenant.impersonation.started',
+        ]);
+    }
+
+    public function test_suspended_merchant_cannot_be_opened_from_the_platform(): void
+    {
+        $owner = $this->createPlatformOwner();
+        $platformToken = $this->platformToken($owner);
+        $tenant = $this->createMerchantContext('suspended-impersonation-store')['tenant'];
+        $tenant->forceFill(['status' => 'suspended'])->save();
+
+        $this
+            ->withToken($platformToken)
+            ->withHeader('x-api-key', 'testing-key')
+            ->withHeader('x-localization', 'en')
+            ->postJson("http://owner.company.com/api/platform/tenants/{$tenant->id}/impersonate", [
+                'reason' => 'Investigate suspended merchant account',
+            ])
+            ->assertStatus(423);
     }
 
     public function test_deleting_merchant_releases_email_and_store_slug_for_new_registration(): void

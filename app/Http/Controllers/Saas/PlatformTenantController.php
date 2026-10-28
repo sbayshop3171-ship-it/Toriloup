@@ -301,7 +301,7 @@ class PlatformTenantController extends Controller
     public function impersonate(Request $request, int $tenantId): JsonResponse
     {
         $data = $request->validate([
-            'reason' => ['nullable', 'string', 'max:500'],
+            'reason' => ['required', 'string', 'max:500'],
         ]);
 
         $tenant = $this->findTenant($tenantId);
