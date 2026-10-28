@@ -15,3 +15,15 @@ export const shouldVerifyAdminSurfaceAuth = function (route, pathname, isAdminSu
 
     return Boolean(isAdminSurfaceHost || demoMode === "true" || demoMode === true || demoMode === "1" || demoMode === 1);
 };
+
+export const shouldForceAuthLogoutForResponse = function ({ status, message, requestUrl, pathname }) {
+    if (isMerchantImpersonationHandoffPath(pathname)) {
+        return false;
+    }
+
+    if (/(?:^|\/)merchant\/auth\/impersonate(?:$|\?)/.test(String(requestUrl || ""))) {
+        return false;
+    }
+
+    return status === 401 || (status === 403 && (/admin access only/i.test(message) || /token required/i.test(message)));
+};

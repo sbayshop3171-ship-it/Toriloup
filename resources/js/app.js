@@ -20,6 +20,7 @@ import { createHead } from '@vueuse/head';
 import VueApexCharts from "vue3-apexcharts";
 import storefrontCacheService from "./services/storefrontCacheService";
 import storefrontInstantService from "./services/storefrontInstantService";
+import { shouldForceAuthLogoutForResponse } from "./services/merchantImpersonationHandoff";
 const head = createHead();
 
 const toastOptions = {
@@ -92,12 +93,12 @@ axios.interceptors.response.use(
         const status = error?.response?.status;
         const message = String(error?.response?.data?.message || "");
         const requestUrl = String(error?.config?.url || "");
-        const isMerchantImpersonationExchange = /(?:^|\/)merchant\/auth\/impersonate(?:$|\?)/.test(requestUrl);
-        const shouldForceLogout =
-            !isMerchantImpersonationExchange && (
-                status === 401 ||
-                (status === 403 && (/admin access only/i.test(message) || /token required/i.test(message)))
-            );
+        const shouldForceLogout = shouldForceAuthLogoutForResponse({
+            status,
+            message,
+            requestUrl,
+            pathname: window.location.pathname,
+        });
 
         if (shouldForceLogout) {
             store.commit("authLogout");
