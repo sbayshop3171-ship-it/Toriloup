@@ -73,6 +73,7 @@ publish_source_dir() {
 
     "$RSYNC_BIN" -a --delete --delay-updates \
         --exclude='.env' \
+        --exclude='node_modules.bak*/' \
         --exclude='.git' \
         --exclude='.github' \
         --exclude='.DS_Store' \
@@ -107,6 +108,45 @@ env_file_value() {
     fi
 
     printf '%s' "$value"
+}
+
+ensure_production_debug_disabled() {
+    local debug_value backup_dir backup_file temporary_env
+
+    debug_value="$(env_file_value APP_DEBUG)"
+    case "${debug_value,,}" in
+        false|0|off|no)
+            return
+            ;;
+    esac
+
+    backup_dir="$APP_DIR/storage/app/backups/environment"
+    mkdir -p "$backup_dir"
+    chmod 700 "$backup_dir"
+    backup_file="$backup_dir/$(date +%Y%m%d-%H%M%S)-env"
+    cp -p "$APP_DIR/.env" "$backup_file"
+    chmod 600 "$backup_file"
+
+    temporary_env="$(mktemp "$APP_DIR/.env.deploy.XXXXXX")"
+    if ! awk '
+        BEGIN { replaced = 0 }
+        /^APP_DEBUG=/ {
+            print "APP_DEBUG=false"
+            replaced = 1
+            next
+        }
+        { print }
+        END {
+            if (!replaced) print "APP_DEBUG=false"
+        }
+    ' "$APP_DIR/.env" > "$temporary_env"; then
+        rm -f "$temporary_env"
+        return 1
+    fi
+
+    chmod --reference="$APP_DIR/.env" "$temporary_env"
+    mv -f "$temporary_env" "$APP_DIR/.env"
+    echo "Disabled production APP_DEBUG; previous .env saved under storage/app/backups/environment."
 }
 
 php_env_value() {
@@ -274,6 +314,8 @@ if [ "$BACKUP_BEFORE_DEPLOY" = "1" ]; then
         exit 1
     fi
 fi
+
+ensure_production_debug_disabled
 
 (cd "$APP_DIR" && "$PHP_BIN" artisan optimize:clear)
 
