@@ -24,8 +24,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DEPLOY_PATH: /var/www/toriloup/data/www/platform
-      REMOTE_RELEASE_PATH: /var/www/toriloup/data/www/platform/storage/app/deploy/incoming/${{ github.sha }}
+      REMOTE_RELEASE_ARCHIVE: /tmp/toriloup-release-${{ github.sha }}.tar.gz
       SSH_HOST: ${{ vars.SSH_HOST }}
       SSH_USER: ${{ vars.SSH_USER }}
       SSH_PORT: ${{ vars.SSH_PORT }}
@@ -93,31 +92,25 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Clear stale maintenance lock
+      - name: Prepare release archive
         run: |
           set -euo pipefail
-          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; if [ -d '$DEPLOY_PATH' ]; then cd '$DEPLOY_PATH'; php artisan up >/dev/null 2>&1 || true; rm -f '$DEPLOY_PATH/storage/framework/down'; fi"
+          release_archive="$RUNNER_TEMP/toriloup-release-${GITHUB_SHA}.tar.gz"
+          git archive --format=tar "$GITHUB_SHA" | gzip -n > "$release_archive"
+          RELEASE_ARCHIVE_SHA256="$(sha256sum "$release_archive" | cut -d' ' -f1)"
+          echo "RELEASE_ARCHIVE_SHA256=$RELEASE_ARCHIVE_SHA256" >> "$GITHUB_ENV"
 
-      - name: Prepare remote staged release
+      - name: Check Toriloup deploy helper
         run: |
           set -euo pipefail
-          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; rm -rf '$REMOTE_RELEASE_PATH'; mkdir -p '$REMOTE_RELEASE_PATH'"
+          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" \
+            "sudo -n /usr/local/sbin/toriloup-manual-deploy --check"
 
-      - name: Upload source to staged release
+      - name: Upload release archive
         run: |
           set -euo pipefail
-          rsync -az --delete \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='.DS_Store' \
-            --exclude='.env' \
-            --exclude='public/hot' \
-            --exclude='node_modules' \
-            --exclude='vendor' \
-            --exclude='storage' \
-            --exclude='bootstrap/cache/*' \
-            -e "ssh -p $SSH_PORT -i ~/.ssh/deploy_key" \
-            ./ "$SSH_USER@$SSH_HOST:$REMOTE_RELEASE_PATH/"
+          scp -P "$SSH_PORT" -i ~/.ssh/deploy_key \
+            "$RUNNER_TEMP/toriloup-release-${GITHUB_SHA}.tar.gz" "$SSH_USER@$SSH_HOST:$REMOTE_RELEASE_ARCHIVE"
 
       - name: Re-check main and CI before publishing
         env:
@@ -141,4 +134,17 @@ jobs:
       - name: Deploy with hardened server script
         run: |
           set -euo pipefail
-          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "set -euo pipefail; find '$REMOTE_RELEASE_PATH/scripts' -type f -name '*.sh' -exec chmod +x {} \\; ; APP_DIR='$DEPLOY_PATH' SOURCE_DIR='$REMOTE_RELEASE_PATH' SKIP_GIT_SYNC=1 MAINTENANCE_MODE=0 DEPLOY_COMMIT_SHA='${GITHUB_SHA}' bash '$REMOTE_RELEASE_PATH/scripts/deploy-live.sh'"
+          ssh -p "$SSH_PORT" -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" \
+            "sudo -n /usr/local/sbin/toriloup-manual-deploy '$GITHUB_SHA' '$REMOTE_RELEASE_ARCHIVE' '$RELEASE_ARCHIVE_SHA256'"
+
+      - name: Verify live endpoints
+        run: |
+          set -euo pipefail
+          for url in \
+            https://merchant.toriloup.com/login \
+            https://merchant.toriloup.com/up \
+            https://owner.toriloup.com/login \
+            https://owner.toriloup.com/up; do
+            curl --fail --silent --show-error --max-time 20 "$url" >/dev/null
+            echo "HTTP check passed: $url"
+          done

@@ -52,6 +52,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate deployment scripts
+        run: |
+          bash -n scripts/deploy-live.sh
+          bash -n scripts/toriloup-manual-deploy.sh
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:

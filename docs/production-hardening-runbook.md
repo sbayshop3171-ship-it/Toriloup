@@ -26,11 +26,21 @@ Do not use `QUEUE_CONNECTION=sync` in production. The deploy health gate treats 
 - The workflow deploys only the exact `main` commit with a successful `CI` run and checks that `main` has not moved before publishing.
 - Configure the repository Actions variables `SSH_HOST` and `SSH_USER`; `SSH_PORT` is optional and defaults to `22`.
 - Configure the repository Actions secret `SSH_PRIVATE_KEY` with a private key whose public key is authorized for the deployment account on the server.
-- The release is staged under `/var/www/toriloup/data/www/platform/storage/app/deploy/incoming/<commit-sha>` and passed to the hardened deploy script below.
+- Install the repository's `scripts/toriloup-manual-deploy.sh` as `/usr/local/sbin/toriloup-manual-deploy`, owned by root with mode `0755`.
+- Add the narrow sudoers entry `owneradmin ALL=(root) NOPASSWD: /usr/local/sbin/toriloup-manual-deploy` using a root-owned `0440` file in `/etc/sudoers.d`, then validate it with `visudo -c`.
+- The helper only accepts calls from `owneradmin`, deploys only `/var/www/toriloup/data/www/platform` as `toriloup:toriloup`, verifies the release archive SHA-256 and commit format, and runs the existing deploy script as the app owner. It is separate from the Zulors Shop deploy helper.
+- The workflow uploads a checksummed release archive to `/tmp`, then the root helper stages it in a private `/var/tmp/toriloup-deploy` directory before running the hardened deploy script below.
 
-1. Upload the current application source to a staged release directory, not directly into the live app directory.
-2. Run `APP_DIR=/var/www/toriloup/data/www/platform SOURCE_DIR=<staged-release> SKIP_GIT_SYNC=1 MAINTENANCE_MODE=0 bash <staged-release>/scripts/deploy-live.sh`.
-3. The deploy script will:
+For the one-time server setup, after placing `scripts/toriloup-manual-deploy.sh` at `/tmp/toriloup-manual-deploy.sh`, run:
+
+```bash
+sudo install -o root -g root -m 0755 /tmp/toriloup-manual-deploy.sh /usr/local/sbin/toriloup-manual-deploy
+printf '%s\n' 'owneradmin ALL=(root) NOPASSWD: /usr/local/sbin/toriloup-manual-deploy' | sudo tee /etc/sudoers.d/toriloup-deploy >/dev/null
+sudo chmod 0440 /etc/sudoers.d/toriloup-deploy
+sudo visudo -c
+```
+
+The helper runs `APP_DIR=/var/www/toriloup/data/www/platform SOURCE_DIR=<staged-release> SKIP_GIT_SYNC=1 MAINTENANCE_MODE=0 bash <staged-release>/scripts/deploy-live.sh` as the `toriloup` app owner. The deploy script will:
    - clear any stale Laravel maintenance lock left by an interrupted deploy
    - create a database backup
    - install PHP and Node dependencies in the staged release
