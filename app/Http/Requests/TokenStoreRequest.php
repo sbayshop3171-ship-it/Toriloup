@@ -27,7 +27,8 @@ class TokenStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'token'  => ['required', 'string']
+            'token' => ['required', 'string', 'max:4096'],
+            'installation_id' => ['nullable', 'uuid'],
         ];
     }
 }

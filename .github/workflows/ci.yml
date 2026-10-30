@@ -57,6 +57,7 @@ jobs:
         with:
           php-version: '8.3'
           extensions: bcmath, ctype, curl, dom, exif, fileinfo, filter, gd, intl, json, mbstring, openssl, pdo, pdo_mysql, pdo_sqlite, simplexml, sodium, tokenizer, xml, xmlreader, xmlwriter, zip
+          ini-values: memory_limit=1G
           coverage: none
 
       - name: Setup Node

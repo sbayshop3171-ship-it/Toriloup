@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Http\Requests\NotificationRequest;
 use App\Libraries\AppLibrary;
 use App\Libraries\QueryExceptionLibrary;
-use App\Models\NotificationSetting;
 use Dipokhalder\EnvEditor\EnvEditor;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -42,14 +41,34 @@ class NotificationService
     {
         try {
             if (!$this->envService->getValue('DEMO')) {
-                AppLibrary::fcmDataBind($request);
-                Settings::group('notification')->set($request->validated());
+                $settings = $request->validated();
+                $uploadedCredentials = null;
+                if ($request->file('notification_fcm_json_file')) {
+                    $uploadedCredentials = json_decode(
+                        $request->file('notification_fcm_json_file')->get(),
+                        true
+                    );
 
-                if ($request->notification_fcm_json_file) {
-                    $newFilename = 'service-account-file' . '.' . $request->file('notification_fcm_json_file')->getClientOriginalExtension();
-                    $setting = NotificationSetting::where('key', 'notification_fcm_json_file')->first();
-                    $setting->clearMediaCollection('notification-file');
-                    $setting->addMedia($request->file('notification_fcm_json_file'))->usingFileName($newFilename)->toMediaCollection('notification-file');
+                    if (!is_array($uploadedCredentials)
+                        || ($uploadedCredentials['type'] ?? null) !== 'service_account'
+                        || empty($uploadedCredentials['project_id'])
+                        || empty($uploadedCredentials['client_email'])
+                        || empty($uploadedCredentials['private_key'])) {
+                        throw new Exception('The uploaded file is not a valid Firebase service-account JSON file.', 422);
+                    }
+
+                    if ($uploadedCredentials['project_id'] !== $settings['notification_fcm_project_id']) {
+                        throw new Exception('The Firebase service account project must match the configured project ID.', 422);
+                    }
+                }
+
+                unset($settings['notification_fcm_json_file']);
+
+                AppLibrary::fcmDataBind($request);
+                Settings::group('notification')->set($settings);
+
+                if ($uploadedCredentials !== null) {
+                    app(FirebaseServiceAccountService::class)->store($uploadedCredentials);
                 }
                 return $this->list();
             } else {

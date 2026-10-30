@@ -15,6 +15,7 @@
         "mail": "Mail",
         "otp": "OTP",
         "notification": "Notification",
+        "notification_preferences": "Notification Preferences",
         "social_media": "Social Media",
         "cookies": "Cookies",
         "analytics": "Analytics",
@@ -119,6 +120,9 @@
         "pos-orders": "POS orders"
     },
     "label": {
+        "notification_preferences_intro": "Choose which store alerts this account receives on its devices.",
+        "notification_preferences_scope": "Your choices apply to this account in the current store. Turning an alert off stops new inbox entries and push messages; existing inbox history stays available.",
+        "owner_notification_paused": "The Owner has paused this alert for all accounts.",
         "license_code": "License Code",
         "previous": "Previous",
         "next": "Next",

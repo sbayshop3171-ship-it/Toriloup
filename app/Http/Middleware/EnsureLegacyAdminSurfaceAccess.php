@@ -13,6 +13,8 @@ class EnsureLegacyAdminSurfaceAccess
     private const MERCHANT_ALLOWED_PREFIXES = [
         'dashboard',
         'notification-inbox',
+        'notification-preferences',
+        'device-tokens',
         'setting/company',
         'setting/site',
         'setting/location-setup',

@@ -14,13 +14,19 @@ use App\Models\ReturnAndRefund;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\MerchantNotificationPreferenceService;
+use App\Services\PushDeviceTokenService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class TransactionalNotificationService
 {
-    public function __construct(private readonly FirebaseService $firebaseService)
+    public function __construct(
+        private readonly FirebaseService $firebaseService,
+        private readonly MerchantNotificationPreferenceService $merchantPreferences,
+        private readonly PushDeviceTokenService $deviceTokens,
+    )
     {
     }
 
@@ -246,6 +252,20 @@ class TransactionalNotificationService
         }
 
         $alert = $this->alert($eventKey);
+
+        // The Owner switch is the master gate. OFF suppresses both the inbox
+        // record and push for every audience.
+        if (!$this->pushEnabled($alert)) {
+            return null;
+        }
+
+        if ($audience === 'merchant' && !empty($options['tenant_id'])) {
+            $tenant = Tenant::query()->find($options['tenant_id']);
+            if ($tenant instanceof Tenant && !$this->merchantPreferences->enabledFor($tenant, $user, $eventKey)) {
+                return null;
+            }
+        }
+
         $message = $this->message($alert, $body, $options['context'] ?? []);
 
         $notification = UserNotification::query()->create([
@@ -261,9 +281,7 @@ class TransactionalNotificationService
             'data' => $options['data'] ?? [],
         ]);
 
-        if ($this->pushEnabled($alert)) {
-            $this->push($notification, $user, $options['topic'] ?? $eventKey);
-        }
+        $this->push($notification, $user, $options['topic'] ?? $eventKey);
 
         return $notification;
     }
@@ -302,18 +320,14 @@ class TransactionalNotificationService
 
     private function push(UserNotification $notification, User $user, string $topic): void
     {
-        $tokens = collect([$user->web_token ?? null, $user->device_token ?? null])
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $tokens = $this->deviceTokens->tokensFor($user)->all();
 
         if (empty($tokens)) {
             return;
         }
 
         try {
-            $this->firebaseService->sendNotification((object) [
+            $sent = $this->firebaseService->sendNotification((object) [
                 'title' => $notification->title,
                 'description' => $notification->body,
                 'target_type' => $notification->target_type,
@@ -329,7 +343,9 @@ class TransactionalNotificationService
                     : null,
             ], $tokens, $topic);
 
-            $notification->forceFill(['pushed_at' => now()])->save();
+            if ($sent === true) {
+                $notification->forceFill(['pushed_at' => now()])->save();
+            }
         } catch (Throwable $throwable) {
             Log::info($throwable->getMessage());
         }

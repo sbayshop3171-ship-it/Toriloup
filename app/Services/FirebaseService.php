@@ -5,18 +5,15 @@ namespace App\Services;
 
 use Exception;
 use GuzzleHttp\Client;
-use App\Models\NotificationSetting;
 use Illuminate\Support\Facades\Log;
 use Dipokhalder\Settings\Facades\Settings;
 use Google\Auth\Credentials\ServiceAccountCredentials;
+use Throwable;
 
 class FirebaseService
 {
-    public $filePath;
-
     public function sendNotification($data, $fcmTokens, $topicName)
     {
-
         try {
             $notification = Settings::group('notification')->all();
             $projectId = $notification['notification_fcm_project_id'] ?? null;
@@ -25,15 +22,20 @@ class FirebaseService
                 throw new Exception('Firebase project id is not configured');
             }
 
+            if (empty($fcmTokens)) {
+                return false;
+            }
+
             $url = 'https://fcm.googleapis.com/v1/projects/' . $projectId . '/messages:send';
             $accessToken = $this->getAccessToken();
 
-            $client  = new Client();
+            $client  = new Client(['connect_timeout' => 5, 'timeout' => 12]);
             $headers = [
                 'Authorization' => 'Bearer ' . $accessToken,
                 'Content-Type'  => 'application/json',
             ];
-            foreach ($fcmTokens as $fcmToken) {
+            $sent = false;
+            foreach (array_unique($fcmTokens) as $fcmToken) {
                 $dataPayload = $this->dataPayload($data, $topicName);
                 $notificationPayload = [
                     'title' => $data->title,
@@ -59,16 +61,23 @@ class FirebaseService
 
                 try {
                     $client->post($url, [
-                    'headers' => $headers,
-                    "body"    => json_encode($payload)
-                ]);
-                } catch (\Throwable $th) {
-                   
+                        'headers' => $headers,
+                        'json' => $payload,
+                    ]);
+                    $sent = true;
+                } catch (Throwable $exception) {
+                    Log::warning('Firebase push delivery failed for a device token.', [
+                        'status' => $exception instanceof \GuzzleHttp\Exception\RequestException
+                            ? $exception->getResponse()?->getStatusCode()
+                            : null,
+                    ]);
                 }
             }
-        } catch (Exception $e) {
-            Log::info($e->getMessage());
-            return $e->getMessage();
+
+            return $sent;
+        } catch (Throwable $exception) {
+            Log::warning('Firebase push is unavailable.');
+            return false;
         }
     }
 
@@ -130,32 +139,22 @@ class FirebaseService
         return 'home';
     }
 
-    function getAccessToken()
+    public function getAccessToken()
     {
-
-        $notificationSetting = NotificationSetting::where(['key' => 'notification_fcm_json_file'])->first();
-
-        if (!$notificationSetting || blank($notificationSetting->file)) {
-            throw new Exception('Firebase service account JSON file is not configured');
+        $key = app(FirebaseServiceAccountService::class)->credentials();
+        if ($key === null) {
+            throw new Exception('Firebase service account JSON is not configured');
         }
 
-        $keyFilePath = $notificationSetting->file;
-        $parsed_url = parse_url($keyFilePath);
-
-        if (isset($parsed_url['path'])) {
-            $relative_path = ltrim($parsed_url['path'], '/storage');
-            $this->filePath = storage_path('app/public/' . $relative_path);
-        } else {
-            throw new Exception('No file found in the URL');
+        $notification = Settings::group('notification')->all();
+        if (($key['project_id'] ?? null) !== ($notification['notification_fcm_project_id'] ?? null)) {
+            throw new Exception('Firebase project id does not match the configured service account');
         }
 
-        $SCOPES = ['https://www.googleapis.com/auth/cloud-platform'];
-
-        if (!file_exists($this->filePath)) {
-            throw new Exception('Service account key file not found');
-        }
-
-        $credentials = new ServiceAccountCredentials($SCOPES, $this->filePath);
+        $credentials = new ServiceAccountCredentials(
+            ['https://www.googleapis.com/auth/cloud-platform'],
+            $key
+        );
         $token = $credentials->fetchAuthToken();
 
         if (isset($token['access_token'])) {

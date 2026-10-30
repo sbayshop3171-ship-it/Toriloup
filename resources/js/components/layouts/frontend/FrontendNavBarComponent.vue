@@ -315,7 +315,7 @@ import activityEnum from "../../../enums/modules/activityEnum";
 import MenuChildrenComponent from "../../frontend/components/MenuChildrenComponent";
 import FrontendLogoSlotComponent from "./FrontendLogoSlotComponent";
 import orderTypeEnum from "../../../enums/modules/orderTypeEnum";
-import { initializeApp } from "firebase/app";
+import { getApps, initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import _ from "lodash";
 import axios from 'axios';
@@ -440,7 +440,7 @@ export default {
                 this.$store.dispatch('frontendCart/initOrderType', { order_type: orderTypeEnum.DELIVERY });
 
                 if (this.$store.getters.authStatus && res.data.data.notification_fcm_api_key && res.data.data.notification_fcm_auth_domain && res.data.data.notification_fcm_project_id && res.data.data.notification_fcm_storage_bucket && res.data.data.notification_fcm_messaging_sender_id && res.data.data.notification_fcm_app_id && res.data.data.notification_fcm_measurement_id) {
-                    initializeApp({
+                    const firebaseApp = getApps()[0] || initializeApp({
                         apiKey: res.data.data.notification_fcm_api_key,
                         authDomain: res.data.data.notification_fcm_auth_domain,
                         projectId: res.data.data.notification_fcm_project_id,
@@ -449,13 +449,16 @@ export default {
                         appId: res.data.data.notification_fcm_app_id,
                         measurementId: res.data.data.notification_fcm_measurement_id
                     });
-                    const messaging = getMessaging();
+                    const messaging = getMessaging(firebaseApp);
 
                     Notification.requestPermission().then((permission) => {
                         if (permission === 'granted') {
                             getToken(messaging, { vapidKey: res.data.data.notification_fcm_public_vapid_key }).then((currentToken) => {
                                 if (currentToken) {
-                                    axios.post('/frontend/device-token/web', { token: currentToken }).then().catch((error) => {
+                                    axios.post('/frontend/device-token/web', {
+                                        token: currentToken,
+                                        installation_id: this.webInstallationId(),
+                                    }).then().catch((error) => {
                                         if (error.response.data.message === 'Unauthenticated.') {
                                             this.$store.dispatch('loginDataReset');
                                         }
@@ -545,7 +548,23 @@ export default {
                 currency_manual: false,
             }).catch();
         },
-        logout: function () {
+        webInstallationId: function () {
+            const key = 'toriloup_push_installation_id_web';
+            let id = window.localStorage.getItem(key);
+            if (!id) {
+                id = window.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+                    const random = Math.random() * 16 | 0;
+                    return (char === 'x' ? random : (random & 0x3 | 0x8)).toString(16);
+                });
+                window.localStorage.setItem(key, id);
+            }
+            return id;
+        },
+        logout: async function () {
+            const installationId = window.localStorage.getItem('toriloup_push_installation_id_web');
+            if (installationId) {
+                await axios.delete('/frontend/device-token/' + encodeURIComponent(installationId)).catch(() => {});
+            }
             this.$store.dispatch("logout").then(res => {
                 this.$store.dispatch("frontendWishlist/reset");
                 this.$router.push({ name: "frontend.home" });

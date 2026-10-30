@@ -87,6 +87,18 @@
                         }}</small>
                     </div>
                     <div class="form-col-12 sm:form-col-6">
+                        <label for="notification_fcm_android_app_id" class="db-field-title">
+                            Firebase Android App ID (com.toriloup.merchant)
+                        </label>
+                        <input v-model="form.notification_fcm_android_app_id"
+                            :class="errors.notification_fcm_android_app_id ? 'invalid' : ''" type="text"
+                            id="notification_fcm_android_app_id" class="db-field-control" />
+                        <small class="db-field-alert" v-if="errors.notification_fcm_android_app_id">
+                            {{ errors.notification_fcm_android_app_id[0] }}
+                        </small>
+                        <p class="mt-2 text-xs text-paragraph">Copy the Android app ID from Firebase Project settings after registering package com.toriloup.merchant.</p>
+                    </div>
+                    <div class="form-col-12 sm:form-col-6">
                         <label for="notification_fcm_measurement_id" class="db-field-title required">
                             {{ $t("label.notification_fcm_measurement_id") }}
                         </label>
@@ -99,7 +111,7 @@
                     </div>
 
                     <div class="form-col-12 sm:form-col-6">
-                        <label for="notification_fcm_json_file" class="db-field-title required">
+                        <label for="notification_fcm_json_file" class="db-field-title" :class="{ required: !serviceAccountConfigured }">
                             {{ $t("label.file") }} ({{ $t("label.json") }})
                         </label>
                         <input @change="changeFile" v-bind:class="errors.notification_fcm_json_file ? 'invalid' : ''"
@@ -108,6 +120,12 @@
                         <small class="db-field-alert" v-if="errors.notification_fcm_json_file">{{
                             errors.notification_fcm_json_file[0]
                             }}</small>
+                        <p v-if="serviceAccountConfigured" class="mt-2 text-xs text-green-700">
+                            Firebase service account is configured and stored encrypted on the server. Upload a replacement only when rotating credentials.
+                        </p>
+                        <p v-else class="mt-2 text-xs text-paragraph">
+                            The service account file is private server credential data. Never put it in public storage or the Flutter app.
+                        </p>
                     </div>
 
                     <div class="form-col-12">
@@ -142,10 +160,12 @@ export default {
                 notification_fcm_storage_bucket: "",
                 notification_fcm_messaging_sender_id: "",
                 notification_fcm_app_id: "",
+                notification_fcm_android_app_id: "",
                 notification_fcm_measurement_id: "",
             },
             errors: {},
-            notification_fcm_json_file: ""
+            notification_fcm_json_file: "",
+            serviceAccountConfigured: false,
         };
     },
     mounted() {
@@ -160,8 +180,10 @@ export default {
                     notification_fcm_storage_bucket: res.data.data.notification_fcm_storage_bucket,
                     notification_fcm_messaging_sender_id: res.data.data.notification_fcm_messaging_sender_id,
                     notification_fcm_app_id: res.data.data.notification_fcm_app_id,
+                    notification_fcm_android_app_id: res.data.data.notification_fcm_android_app_id || "",
                     notification_fcm_measurement_id: res.data.data.notification_fcm_measurement_id,
                 };
+                this.serviceAccountConfigured = Boolean(res.data.data.notification_fcm_service_account_configured);
                 this.loading.isActive = false;
             })
                 .catch((err) => {
@@ -186,6 +208,7 @@ export default {
                 fd.append("notification_fcm_storage_bucket", this.form.notification_fcm_storage_bucket);
                 fd.append("notification_fcm_messaging_sender_id", this.form.notification_fcm_messaging_sender_id);
                 fd.append("notification_fcm_app_id", this.form.notification_fcm_app_id);
+                fd.append("notification_fcm_android_app_id", this.form.notification_fcm_android_app_id || "");
                 fd.append("notification_fcm_measurement_id", this.form.notification_fcm_measurement_id);
                 if (this.notification_fcm_json_file) {
                     fd.append("notification_fcm_json_file", this.notification_fcm_json_file);
@@ -194,6 +217,7 @@ export default {
                 this.$store
                     .dispatch("notification/save", { form: fd })
                     .then((res) => {
+                        this.serviceAccountConfigured = Boolean(res.data.data.notification_fcm_service_account_configured);
                         this.loading.isActive = false;
                         alertService.successFlip(
                             res.config.method === "post" ?? 0,

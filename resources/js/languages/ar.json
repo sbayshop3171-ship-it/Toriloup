@@ -15,6 +15,7 @@
         "mail": "البريد",
         "otp": "رمز التحقق",
         "notification": "الإشعارات",
+        "notification_preferences": "تفضيلات الإشعارات",
         "social_media": "وسائل التواصل الاجتماعي",
         "cookies": "ملفات تعريف الارتباط",
         "analytics": "تحليلات",
@@ -118,6 +119,9 @@
         "credit-balance-report": "تقرير رصيد الائتمان"
     },
     "label": {
+        "notification_preferences_intro": "اختر تنبيهات المتجر التي يتلقاها هذا الحساب على أجهزته.",
+        "notification_preferences_scope": "تنطبق اختياراتك على هذا الحساب في المتجر الحالي. إيقاف التنبيه يمنع السجلات الجديدة والرسائل الفورية، مع الاحتفاظ بالسجل السابق.",
+        "owner_notification_paused": "أوقف المالك هذا التنبيه لجميع الحسابات.",
         "license_code": "رمز الترخيص",
         "previous": "السابق",
         "next": "التالي",

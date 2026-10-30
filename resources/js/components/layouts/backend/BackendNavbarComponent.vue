@@ -98,6 +98,12 @@
                             {{ $t('message.no_data_found') }}
                         </p>
                     </div>
+                    <router-link v-if="isMerchantWorkspace" :to="{ name: 'admin.settings.notificationPreferences' }"
+                        @click="notificationDropdownStatus = false"
+                        class="flex items-center gap-2 border-t border-[#EFF0F6] px-4 py-3 text-sm font-medium text-primary hover:bg-primary/5">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Notification preferences</span>
+                    </router-link>
                 </div>
             </div>
 
@@ -195,7 +201,7 @@ import targetService from "../../../services/targetService";
 import appService from "../../../services/appService";
 import backendNotificationService from "../../../services/backendNotificationService";
 import { isMerchantHost, resolveGuestHomeRoute, resolveWorkspaceDashboardRoute } from "../../../services/workspaceService";
-import { initializeApp } from "firebase/app";
+import { getApps, initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import axios from 'axios';
 import statusEnum from "../../../enums/modules/statusEnum";
@@ -289,6 +295,8 @@ export default {
         document.addEventListener('click', this.handleDocumentClick);
         window.addEventListener('storage', this.handleNotificationStorageEvent);
         window.addEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
+        window.addEventListener('toriloup:push-token', this.handleNativePushToken);
+        window.addEventListener('toriloup:push-open', this.handleNativePushOpen);
 
         this.$store.dispatch('frontendSetting/lists').then(res => {
             let defaultLanguage = res.data.data.site_default_language;
@@ -310,7 +318,12 @@ export default {
 
         window.setTimeout(() => {
             if (this.$store.getters.authStatus && this.setting.notification_fcm_api_key && this.setting.notification_fcm_auth_domain && this.setting.notification_fcm_project_id && this.setting.notification_fcm_storage_bucket && this.setting.notification_fcm_messaging_sender_id && this.setting.notification_fcm_app_id && this.setting.notification_fcm_measurement_id) {
-                initializeApp({
+                if (window.ToriloupNativePush) {
+                    window.ToriloupNativePush.postMessage(JSON.stringify({ action: 'getToken' }));
+                    return;
+                }
+
+                const firebaseApp = getApps()[0] || initializeApp({
                     apiKey: this.setting.notification_fcm_api_key,
                     authDomain: this.setting.notification_fcm_auth_domain,
                     projectId: this.setting.notification_fcm_project_id,
@@ -319,14 +332,18 @@ export default {
                     appId: this.setting.notification_fcm_app_id,
                     measurementId: this.setting.notification_fcm_measurement_id
                 });
-                const messaging = getMessaging();
+                const messaging = getMessaging(firebaseApp);
 
                 if (typeof Notification !== "undefined") {
                     Notification.requestPermission().then((permission) => {
                         if (permission === 'granted') {
                             getToken(messaging, { vapidKey: this.setting.notification_fcm_public_vapid_key }).then((currentToken) => {
                                 if (currentToken) {
-                                    axios.post('/frontend/device-token/web', { token: currentToken }).then().catch((error) => {
+                                    axios.post('/admin/device-tokens', {
+                                        token: currentToken,
+                                        platform: 'web',
+                                        installation_id: this.webInstallationId(),
+                                    }).then().catch((error) => {
                                         if (error.response.data.message === 'Unauthenticated.') {
                                             this.$store.dispatch('loginDataReset');
                                         }
@@ -365,6 +382,8 @@ export default {
         window.removeEventListener('resize', this.handleResize);
         window.removeEventListener('storage', this.handleNotificationStorageEvent);
         window.removeEventListener(this.notificationSyncEventName, this.handleNotificationSyncEvent);
+        window.removeEventListener('toriloup:push-token', this.handleNativePushToken);
+        window.removeEventListener('toriloup:push-open', this.handleNativePushOpen);
     },
     methods: {
         adminRoute: function (url) {
@@ -407,6 +426,38 @@ export default {
         },
         handleNotificationSyncEvent: function () {
             this.loadNotificationItems();
+        },
+        webInstallationId: function () {
+            const key = 'toriloup_push_installation_id_web';
+            let id = window.localStorage.getItem(key);
+            if (!id) {
+                id = window.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+                    const random = Math.random() * 16 | 0;
+                    return (char === 'x' ? random : (random & 0x3 | 0x8)).toString(16);
+                });
+                window.localStorage.setItem(key, id);
+            }
+            return id;
+        },
+        handleNativePushToken: function (event) {
+            const registration = event?.detail || {};
+            if (!registration.token || !registration.installation_id || !this.$store.getters.authStatus) {
+                return;
+            }
+            window.localStorage.setItem('toriloup_push_installation_id_android', registration.installation_id);
+            axios.post('/admin/device-tokens', {
+                token: registration.token,
+                platform: 'android',
+                installation_id: registration.installation_id,
+            }).catch(() => {});
+        },
+        handleNativePushOpen: function (event) {
+            const payload = event?.detail || {};
+            const routeUrl = payload.route_url || payload.data?.route_url;
+            if (routeUrl) {
+                this.$router.push({ path: this.adminRoute(routeUrl) });
+            }
+            this.loadRemoteNotificationItems();
         },
         loadNotificationItems: function () {
             this.notificationItems = backendNotificationService.loadItems();
@@ -498,7 +549,14 @@ export default {
         textShortener: function (text, number = 30) {
             return appService.textShortener(text, number);
         },
-        logout: function () {
+        logout: async function () {
+            const installationIds = [
+                window.localStorage.getItem('toriloup_push_installation_id_android'),
+                window.localStorage.getItem('toriloup_push_installation_id_web'),
+            ].filter(Boolean);
+            await Promise.all(installationIds.map((installationId) =>
+                axios.delete('/admin/device-tokens/' + encodeURIComponent(installationId)).catch(() => {})
+            ));
             this.$store.dispatch("logout").then(res => {
                 this.$router.push(resolveGuestHomeRoute());
             }).catch();

@@ -55,7 +55,18 @@ class TenantSettingsService
             ])
             ->all();
 
-        return array_merge($settings, $tenantSettings);
+        $merged = array_merge($settings, $tenantSettings);
+
+        // Firebase is a platform-owned project shared by the merchant web app
+        // and native app. Tenant overrides must not redirect clients to a
+        // different Firebase project.
+        foreach ($settings as $key => $value) {
+            if (str_starts_with($key, 'notification_fcm_')) {
+                $merged[$key] = $value;
+            }
+        }
+
+        return $merged;
     }
 
     /**
@@ -234,6 +245,7 @@ class TenantSettingsService
             'notification_fcm_messaging_sender_id' => null,
             'notification_fcm_app_id' => null,
             'notification_fcm_measurement_id' => null,
+            'notification_fcm_android_app_id' => null,
             'notification_fcm_public_vapid_key' => null,
         ];
     }

@@ -15,6 +15,7 @@
         "mail": "মেইল",
         "otp": "OTP",
         "notification": "নোটিফিকেশন",
+        "notification_preferences": "নোটিফিকেশন পছন্দ",
         "social_media": "সোশ্যাল মিডিয়া",
         "cookies": "কুকিজ",
         "analytics": "বিশ্লেষণ",
@@ -118,6 +119,9 @@
         "credit-balance-report": "ক্রেডিট ব্যালেন্স রিপোর্ট"
     },
     "label": {
+        "notification_preferences_intro": "এই অ্যাকাউন্টের ডিভাইসে কোন স্টোরের সতর্কতা আসবে তা বেছে নিন।",
+        "notification_preferences_scope": "আপনার পছন্দ শুধু এই স্টোরে এই অ্যাকাউন্টের জন্য প্রযোজ্য। কোনো সতর্কতা বন্ধ করলে নতুন ইনবক্স রেকর্ড ও পুশ বন্ধ হবে; আগের ইতিহাস থাকবে।",
+        "owner_notification_paused": "Owner সব অ্যাকাউন্টের জন্য এই সতর্কতা বন্ধ রেখেছেন।",
         "license_code": "লাইসেন্স কোড",
         "previous": "পূর্ববর্তী",
         "next": "পরবর্তী",

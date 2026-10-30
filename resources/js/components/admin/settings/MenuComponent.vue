@@ -38,6 +38,7 @@ export default {
                     { name: "admin.settings.paymentGateway", icon: "lab lab-line-payment-gateway", label: "Payment Methods" },
                     { name: "admin.settings.socialMedia", icon: "lab lab-line-social", labelKey: "menu.social_media" },
                     { name: "admin.settings.theme", icon: "lab lab-line-theme", labelKey: "menu.theme" },
+                    { name: "admin.settings.notificationPreferences", icon: "lab lab-line-notification", label: "Notification Preferences" },
                     { name: "admin.settings.slider", icon: "lab lab-line-sliders", labelKey: "menu.sliders" },
                     { name: "admin.settings.currency", icon: "lab lab-line-currencies", labelKey: "menu.currencies" },
                     { name: "admin.settings.page", icon: "lab lab-line-pages", labelKey: "menu.pages" },

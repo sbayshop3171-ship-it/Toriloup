@@ -28,6 +28,8 @@ use App\Http\Controllers\Admin\MenuTemplateController;
 use App\Http\Controllers\Admin\MyOrderDetailsController;
 use App\Http\Controllers\Admin\NotificationAlertController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\NotificationPreferenceController;
+use App\Http\Controllers\Admin\DeviceTokenController;
 use App\Http\Controllers\Admin\OnlineOrderController;
 use App\Http\Controllers\Admin\OrderAreaController;
 use App\Http\Controllers\Admin\OtpController;
@@ -189,6 +191,11 @@ Route::prefix('profile')->name('profile.')->middleware(['installed', 'apiKey', '
 });
 
 Route::prefix('admin')->name('admin.')->middleware(['auth:sanctum', 'legacyAdminSurfaceAccess', 'adminAccess'])->group(function () {
+    Route::get('/notification-preferences', [NotificationPreferenceController::class, 'index'])->name('notification-preferences.index');
+    Route::patch('/notification-preferences/{eventKey}', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
+    Route::post('/device-tokens', [DeviceTokenController::class, 'store'])->name('device-tokens.store');
+    Route::delete('/device-tokens/{installationId}', [DeviceTokenController::class, 'destroy'])->name('device-tokens.destroy');
+
     Route::prefix('notification-inbox')->name('notification-inbox.')->group(function () {
         Route::get('/', [NotificationInboxController::class, 'index']);
         Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
@@ -866,6 +873,7 @@ Route::prefix('frontend')->name('frontend.')->middleware(['installed', 'apiKey',
     Route::prefix('device-token')->name('device-token.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {
         Route::post('/web', [TokenStoreController::class, 'webToken']);
         Route::post('/mobile', [TokenStoreController::class, 'deviceToken']);
+        Route::delete('/{installationId}', [DeviceTokenController::class, 'destroy']);
     });
 
     Route::prefix('notification-inbox')->name('notification-inbox.')->middleware(['auth:sanctum', 'surfaceToken:storefront'])->group(function () {

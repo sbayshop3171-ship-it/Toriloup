@@ -4,6 +4,7 @@ const SiteComponent = () =>  import("../../components/admin/settings/Site/SiteCo
 const MailComponent = () =>  import("../../components/admin/settings/Mail/MailComponent");
 const OtpComponent = () =>  import("../../components/admin/settings/Otp/OtpComponent");
 const NotificationComponent = () =>  import("../../components/admin/settings/Notification/NotificationComponent");
+const NotificationPreferencesComponent = () => import("../../components/admin/settings/NotificationPreferences/NotificationPreferencesComponent");
 const SocialMediaComponent = () =>  import("../../components/admin/settings/SocialMedia/SocialMediaComponent");
 const LicenseComponent = () =>  import("../../components/admin/settings/License/LicenseComponent");
 const CookiesComponent = () =>  import("../../components/admin/settings/Cookies/CookiesComponent");
@@ -140,6 +141,17 @@ export default [
                     auth: true,
                     permissionUrl: "settings",
                     breadcrumb: "notification",
+                },
+            },
+            {
+                path: "notification-preferences",
+                component: NotificationPreferencesComponent,
+                name: "admin.settings.notificationPreferences",
+                meta: {
+                    isFrontend: false,
+                    auth: true,
+                    permissionUrl: "",
+                    breadcrumb: "notification_preferences",
                 },
             },
             {

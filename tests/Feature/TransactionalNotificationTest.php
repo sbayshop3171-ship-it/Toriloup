@@ -8,6 +8,8 @@ use App\Enums\PaymentStatus;
 use App\Enums\Role as LegacyRole;
 use App\Enums\Status;
 use App\Models\Order;
+use App\Models\NotificationAlert;
+use App\Models\PushDeviceToken;
 use App\Models\PaymentGateway;
 use App\Models\PlatformRole;
 use App\Models\ReturnAndRefund;
@@ -18,6 +20,8 @@ use App\Models\TenantMember;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Services\FirebaseService;
+use App\Services\MerchantNotificationPreferenceService;
+use App\Services\PushDeviceTokenService;
 use App\Services\TransactionalNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -81,6 +85,164 @@ class TransactionalNotificationTest extends TestCase
         $this->assertDatabaseMissing('user_notifications', [
             'tenant_id' => $alphaTenant->id,
             'user_id' => $betaMerchant->id,
+            'event_key' => 'admin_and_manager_new_order_message',
+        ]);
+    }
+
+    public function test_merchant_preferences_default_on_and_are_isolated_by_store(): void
+    {
+        $alphaTenant = $this->createTenant('alpha-preferences');
+        $betaTenant = $this->createTenant('beta-preferences');
+        $merchant = $this->createUser('preferences-merchant@example.test', LegacyRole::MANAGER, 'manager');
+        $this->attachTenantMember($alphaTenant, $merchant);
+        $this->attachTenantMember($betaTenant, $merchant);
+
+        $preferences = app(MerchantNotificationPreferenceService::class);
+        $eventKey = 'admin_and_manager_new_order_message';
+
+        $this->assertTrue($preferences->enabledFor($alphaTenant, $merchant, $eventKey));
+        $this->assertTrue($preferences->enabledFor($betaTenant, $merchant, $eventKey));
+
+        $preferences->update($alphaTenant, $merchant, $eventKey, false);
+
+        $this->assertFalse($preferences->enabledFor($alphaTenant, $merchant, $eventKey));
+        $this->assertTrue($preferences->enabledFor($betaTenant, $merchant, $eventKey));
+    }
+
+    public function test_notification_preference_api_is_scoped_to_the_current_store(): void
+    {
+        $alphaTenant = $this->createTenant('alpha-preference-api');
+        $betaTenant = $this->createTenant('beta-preference-api');
+        $merchant = $this->createUser('preference-api-merchant@example.test', LegacyRole::MANAGER, 'manager');
+        $this->attachTenantMember($alphaTenant, $merchant);
+        $this->attachTenantMember($betaTenant, $merchant);
+        Sanctum::actingAs($merchant, ['surface:merchant']);
+
+        $this->withHeaders($this->tenantHeaders($alphaTenant->slug))
+            ->getJson('http://merchant.company.com/api/admin/notification-preferences')
+            ->assertOk()
+            ->assertJsonCount(8, 'data')
+            ->assertJsonPath('data.0.enabled', true);
+
+        $this->withHeaders($this->tenantHeaders($alphaTenant->slug))
+            ->patchJson('http://merchant.company.com/api/admin/notification-preferences/admin_and_manager_new_order_message', [
+                'enabled' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.enabled', false);
+
+        $this->withHeaders($this->tenantHeaders($betaTenant->slug))
+            ->getJson('http://merchant.company.com/api/admin/notification-preferences')
+            ->assertOk()
+            ->assertJsonPath('data.0.enabled', true);
+    }
+
+    public function test_account_can_register_multiple_devices_and_remove_one_installation(): void
+    {
+        $user = $this->createUser('multi-device@example.test', LegacyRole::MANAGER, 'manager');
+        $service = app(PushDeviceTokenService::class);
+        $androidInstallation = (string) Str::uuid();
+        $webInstallation = (string) Str::uuid();
+
+        $service->register($user, $androidInstallation, 'android', 'android-token-one');
+        $service->register($user, $webInstallation, 'web', 'web-token-two');
+
+        $this->assertSame(2, PushDeviceToken::query()->where('user_id', $user->id)->count());
+        $this->assertEqualsCanonicalizing(
+            ['android-token-one', 'web-token-two'],
+            $service->tokensFor($user)->all()
+        );
+
+        $this->assertTrue($service->unregister($user, $androidInstallation));
+        $this->assertEquals(['web-token-two'], $service->tokensFor($user)->all());
+    }
+
+    public function test_owner_off_suppresses_new_merchant_inbox_rows_and_push(): void
+    {
+        $tenant = $this->createTenant('owner-switch-off');
+        $merchant = $this->createUser('owner-switch-merchant@example.test', LegacyRole::MANAGER, 'manager');
+        $customer = $this->createUser('owner-switch-customer@example.test', LegacyRole::CUSTOMER, 'customer');
+        $merchant->forceFill(['web_token' => 'owner-switch-web-token'])->save();
+        $this->attachTenantMember($tenant, $merchant);
+        $order = $this->createOrder($tenant, $customer);
+
+        NotificationAlert::query()->updateOrCreate(
+            ['language' => 'admin_and_manager_new_order_message'],
+            [
+                'name' => 'New merchant order',
+                'mail_message' => 'New order',
+                'sms_message' => 'New order',
+                'push_notification_message' => 'New order',
+                'mail' => 10,
+                'sms' => 10,
+                'push_notification' => 10,
+            ]
+        );
+
+        $this->mock(FirebaseService::class, function ($mock): void {
+            $mock->shouldNotReceive('sendNotification');
+        });
+
+        app(TransactionalNotificationService::class)->sendNewOrderToMerchant($order);
+
+        $this->assertDatabaseMissing('user_notifications', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $merchant->id,
+            'event_key' => 'admin_and_manager_new_order_message',
+        ]);
+    }
+
+    public function test_merchant_off_suppresses_only_future_rows_and_keeps_old_history(): void
+    {
+        $tenant = $this->createTenant('merchant-switch-off');
+        $disabledMerchant = $this->createUser('disabled-merchant@example.test', LegacyRole::MANAGER, 'manager');
+        $enabledMerchant = $this->createUser('enabled-merchant@example.test', LegacyRole::MANAGER, 'manager');
+        $customer = $this->createUser('merchant-switch-customer@example.test', LegacyRole::CUSTOMER, 'customer');
+        $disabledMerchant->forceFill(['web_token' => 'disabled-merchant-web-token'])->save();
+        $enabledMerchant->forceFill(['web_token' => 'enabled-merchant-web-token'])->save();
+        $this->attachTenantMember($tenant, $disabledMerchant);
+        $this->attachTenantMember($tenant, $enabledMerchant);
+        $order = $this->createOrder($tenant, $customer);
+
+        $oldHistory = UserNotification::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $disabledMerchant->id,
+            'audience' => 'merchant',
+            'event_key' => 'admin_and_manager_new_order_message',
+            'title' => 'Old order alert',
+            'body' => 'Existing notification history remains.',
+            'target_type' => 'order',
+            'target_value' => (string) $order->id,
+            'data' => [],
+        ]);
+        app(MerchantNotificationPreferenceService::class)->update(
+            $tenant,
+            $disabledMerchant,
+            'admin_and_manager_new_order_message',
+            false
+        );
+
+        $this->mock(FirebaseService::class, function ($mock) use ($enabledMerchant): void {
+            $mock->shouldReceive('sendNotification')
+                ->once()
+                ->with(
+                    Mockery::on(fn ($payload): bool => $payload->audience === 'merchant'),
+                    ['enabled-merchant-web-token'],
+                    'new-order-found'
+                );
+        });
+
+        app(TransactionalNotificationService::class)->sendNewOrderToMerchant($order);
+
+        $this->assertDatabaseHas('user_notifications', ['id' => $oldHistory->id]);
+        $this->assertSame(1, UserNotification::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('user_id', $disabledMerchant->id)
+            ->where('event_key', 'admin_and_manager_new_order_message')
+            ->count());
+        $this->assertDatabaseHas('user_notifications', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $enabledMerchant->id,
             'event_key' => 'admin_and_manager_new_order_message',
         ]);
     }

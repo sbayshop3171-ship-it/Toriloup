@@ -242,14 +242,16 @@ class AppLibrary
         $cdn = public_path("firebase-cdn.txt");
         $textContent = public_path("firebase-content.txt");
         $file = public_path("firebase-messaging-sw.js");
-        $content = 'let config = {
-        apiKey: "' . $request->notification_fcm_api_key . '",
-        authDomain: "' . $request->notification_fcm_auth_domain . '",
-        projectId: "' . $request->notification_fcm_project_id . '",
-        storageBucket: "' . $request->notification_fcm_storage_bucket . '",
-        messagingSenderId: "' . $request->notification_fcm_messaging_sender_id . '",
-        appId: "' . $request->notification_fcm_app_id . '",
-        measurementId: "' . $request->notification_fcm_measurement_id . '",' . "\n" . ' };' . "\n";
+        $config = [
+            'apiKey' => $request->notification_fcm_api_key,
+            'authDomain' => $request->notification_fcm_auth_domain,
+            'projectId' => $request->notification_fcm_project_id,
+            'storageBucket' => $request->notification_fcm_storage_bucket,
+            'messagingSenderId' => $request->notification_fcm_messaging_sender_id,
+            'appId' => $request->notification_fcm_app_id,
+            'measurementId' => $request->notification_fcm_measurement_id,
+        ];
+        $content = 'let config = ' . json_encode($config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . ";\n";
         File::put($file, File::get($cdn) . $content . File::get($textContent));
     }
 

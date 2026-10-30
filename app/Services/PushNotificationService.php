@@ -5,7 +5,7 @@ namespace App\Services;
 
 use Exception;
 use App\Models\User;
-use GuzzleHttp\Client;
+use App\Models\PushDeviceToken;
 use App\Models\PushNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -70,28 +70,23 @@ class PushNotificationService
                 $pushNotification->addMediaFromRequest('image')->toMediaCollection('pushNotifications');
             }
 
-            if ($pushNotification->role_id == 0 && $pushNotification->user_id == 0) {
-                $fcmWebDeviceToken    = User::whereNotNull('web_token')->pluck('web_token')->toArray();
-                $fcmMobileDeviceToken = User::whereNotNull('device_token')->pluck('device_token')->toArray();
-            } else {
-                if ($pushNotification->role_id !== 0 && $pushNotification->user_id == 0) {
-                    $fcmWebDeviceToken    = User::role(
-                        $pushNotification->role_id
-                    )->whereNotNull('web_token')->pluck('web_token')->toArray();
-                    $fcmMobileDeviceToken = User::role(
-                        $pushNotification->role_id
-                    )->whereNotNull('device_token')->pluck('device_token')->toArray();
-                } else {
-                    $fcmWebDeviceToken    = User::where(['id' => $pushNotification->user_id])->whereNotNull(
-                        'web_token'
-                    )->pluck('web_token')->toArray();
-                    $fcmMobileDeviceToken = User::where(['id' => $pushNotification->user_id])->whereNotNull(
-                        'device_token'
-                    )->pluck('device_token')->toArray();
-                }
+            $recipients = User::query();
+            if ($pushNotification->role_id != 0 && $pushNotification->user_id == 0) {
+                $recipients->role($pushNotification->role_id);
+            } elseif ($pushNotification->user_id != 0) {
+                $recipients->whereKey($pushNotification->user_id);
             }
 
-            $fcmTokenArray = array_merge($fcmWebDeviceToken, $fcmMobileDeviceToken);
+            $recipientIds = $recipients->pluck('id');
+            $fcmTokenArray = PushDeviceToken::query()
+                ->whereIn('user_id', $recipientIds)
+                ->pluck('token')
+                ->merge(User::query()->whereIn('id', $recipientIds)->pluck('web_token'))
+                ->merge(User::query()->whereIn('id', $recipientIds)->pluck('device_token'))
+                ->filter(fn ($token): bool => is_string($token) && trim($token) !== '')
+                ->unique()
+                ->values()
+                ->all();
             $firebase      = new FirebaseService();
             $firebase->sendNotification($pushNotification, $fcmTokenArray, $pushNotification->target_type ?? "home");
             return $pushNotification;

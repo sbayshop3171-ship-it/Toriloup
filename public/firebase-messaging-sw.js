@@ -12,10 +12,29 @@ let config = {
 firebase.initializeApp(config);
 const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
-    const notificationTitle = payload.notification.title;
+    const notificationTitle = payload.notification?.title || payload.data?.title || 'Toriloup';
     const notificationOptions = {
-        body: payload.notification.body,
-        icon: '/images/required/firebase-logo.png'
+        body: payload.notification?.body || payload.data?.body || '',
+        icon: '/images/required/firebase-logo.png',
+        data: payload.data || {}
     };
     self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const routeUrl = event.notification?.data?.route_url;
+    const destination = routeUrl
+        ? new URL('/admin/' + String(routeUrl).replace(/^\/+/, ''), self.location.origin).toString()
+        : new URL('/', self.location.origin).toString();
+
+    event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+        for (const client of windows) {
+            if ('focus' in client) {
+                client.navigate(destination);
+                return client.focus();
+            }
+        }
+        return clients.openWindow(destination);
+    }));
 });

@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Models\NotificationSetting;
+use App\Models\FirebaseServiceAccount;
 use Illuminate\Foundation\Http\FormRequest;
 
 class NotificationRequest extends FormRequest
@@ -32,6 +32,7 @@ class NotificationRequest extends FormRequest
             'notification_fcm_storage_bucket'      => ['required', 'string', 'max:500'],
             'notification_fcm_messaging_sender_id' => ['required', 'string', 'max:500'],
             'notification_fcm_app_id'              => ['required', 'string', 'max:500'],
+            'notification_fcm_android_app_id'      => ['nullable', 'string', 'max:500'],
             'notification_fcm_measurement_id'      => ['required', 'string', 'max:500'],
             'notification_fcm_json_file'           => ['nullable', 'file', 'mimes:json', 'max:2048']
         ];
@@ -40,10 +41,16 @@ class NotificationRequest extends FormRequest
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
-            if (empty(request('notification_fcm_json_file'))) {
-                $notification = NotificationSetting::where(['key' => 'notification_fcm_json_file'])->first()->file;
-                if (empty($notification)) {
-                    $validator->errors()->add('notification_fcm_json_file', 'The file field is required');
+            if (!request()->file('notification_fcm_json_file')
+                && !FirebaseServiceAccount::query()->whereNotNull('encrypted_json')->exists()) {
+                $validator->errors()->add('notification_fcm_json_file', 'The Firebase service-account JSON file is required.');
+                return;
+            }
+
+            if (!request()->file('notification_fcm_json_file')) {
+                $credentials = app(\App\Services\FirebaseServiceAccountService::class)->credentials();
+                if (($credentials['project_id'] ?? null) !== request('notification_fcm_project_id')) {
+                    $validator->errors()->add('notification_fcm_project_id', 'Upload a service account for this Firebase project before changing the project ID.');
                 }
             }
         });
