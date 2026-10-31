@@ -34,6 +34,8 @@ The Android app opens `https://merchant.toriloup.com/dashboard` in a WebView and
 
 The Owner configures the shared Firebase project in the Owner dashboard. The service-account JSON belongs only on the Laravel server and is stored encrypted there. Never copy that JSON into this Flutter project.
 
+The Android app's Firebase client configuration is saved at `android/app/google-services.json` for this registered package: `com.toriloup.merchant`. The Flutter app currently initializes Firebase from build-time `--dart-define` values, so keep passing the public client values below when building; merely adding the JSON file does not inject those Dart values.
+
 For an Android build, pass the Firebase **public client** values from the registered Android app whose package name is `com.toriloup.merchant`:
 
 ```sh
