@@ -439,7 +439,7 @@ export default {
             window.setTimeout(() => {
                 this.$store.dispatch('frontendCart/initOrderType', { order_type: orderTypeEnum.DELIVERY });
 
-                if (this.$store.getters.authStatus && res.data.data.notification_fcm_api_key && res.data.data.notification_fcm_auth_domain && res.data.data.notification_fcm_project_id && res.data.data.notification_fcm_storage_bucket && res.data.data.notification_fcm_messaging_sender_id && res.data.data.notification_fcm_app_id && res.data.data.notification_fcm_measurement_id) {
+                if (this.$store.getters.authStatus && res.data.data.notification_fcm_api_key && res.data.data.notification_fcm_auth_domain && res.data.data.notification_fcm_project_id && res.data.data.notification_fcm_storage_bucket && res.data.data.notification_fcm_messaging_sender_id && res.data.data.notification_fcm_app_id) {
                     const firebaseApp = getApps()[0] || initializeApp({
                         apiKey: res.data.data.notification_fcm_api_key,
                         authDomain: res.data.data.notification_fcm_auth_domain,
@@ -447,7 +447,9 @@ export default {
                         storageBucket: res.data.data.notification_fcm_storage_bucket,
                         messagingSenderId: res.data.data.notification_fcm_messaging_sender_id,
                         appId: res.data.data.notification_fcm_app_id,
-                        measurementId: res.data.data.notification_fcm_measurement_id
+                        ...(res.data.data.notification_fcm_measurement_id
+                            ? { measurementId: res.data.data.notification_fcm_measurement_id }
+                            : {})
                     });
                     const messaging = getMessaging(firebaseApp);
 

@@ -249,8 +249,10 @@ class AppLibrary
             'storageBucket' => $request->notification_fcm_storage_bucket,
             'messagingSenderId' => $request->notification_fcm_messaging_sender_id,
             'appId' => $request->notification_fcm_app_id,
-            'measurementId' => $request->notification_fcm_measurement_id,
         ];
+        if (filled($request->notification_fcm_measurement_id)) {
+            $config['measurementId'] = $request->notification_fcm_measurement_id;
+        }
         $content = 'let config = ' . json_encode($config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . ";\n";
         File::put($file, File::get($cdn) . $content . File::get($textContent));
     }

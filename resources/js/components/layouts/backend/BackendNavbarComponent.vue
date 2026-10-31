@@ -317,7 +317,7 @@ export default {
         });
 
         window.setTimeout(() => {
-            if (this.$store.getters.authStatus && this.setting.notification_fcm_api_key && this.setting.notification_fcm_auth_domain && this.setting.notification_fcm_project_id && this.setting.notification_fcm_storage_bucket && this.setting.notification_fcm_messaging_sender_id && this.setting.notification_fcm_app_id && this.setting.notification_fcm_measurement_id) {
+            if (this.$store.getters.authStatus && this.setting.notification_fcm_api_key && this.setting.notification_fcm_auth_domain && this.setting.notification_fcm_project_id && this.setting.notification_fcm_storage_bucket && this.setting.notification_fcm_messaging_sender_id && this.setting.notification_fcm_app_id) {
                 if (window.ToriloupNativePush) {
                     window.ToriloupNativePush.postMessage(JSON.stringify({ action: 'getToken' }));
                     return;
@@ -330,7 +330,9 @@ export default {
                     storageBucket: this.setting.notification_fcm_storage_bucket,
                     messagingSenderId: this.setting.notification_fcm_messaging_sender_id,
                     appId: this.setting.notification_fcm_app_id,
-                    measurementId: this.setting.notification_fcm_measurement_id
+                    ...(this.setting.notification_fcm_measurement_id
+                        ? { measurementId: this.setting.notification_fcm_measurement_id }
+                        : {})
                 });
                 const messaging = getMessaging(firebaseApp);
 

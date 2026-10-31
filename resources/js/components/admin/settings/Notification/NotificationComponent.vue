@@ -99,7 +99,7 @@
                         <p class="mt-2 text-xs text-paragraph">Copy the Android app ID from Firebase Project settings after registering package com.toriloup.merchant.</p>
                     </div>
                     <div class="form-col-12 sm:form-col-6">
-                        <label for="notification_fcm_measurement_id" class="db-field-title required">
+                        <label for="notification_fcm_measurement_id" class="db-field-title">
                             {{ $t("label.notification_fcm_measurement_id") }}
                         </label>
                         <input v-model="form.notification_fcm_measurement_id"
